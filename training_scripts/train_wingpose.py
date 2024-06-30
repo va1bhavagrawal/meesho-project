@@ -151,7 +151,7 @@ class ContinuousWordDataset(Dataset):
         example = {}
         
         # Randomly ControlNet images for data augmentation
-        if index % 5 != 0:
+        if True:
             instance_image = Image.open(
                 self.instance_images_path[index % self.num_instance_images]
             )
@@ -171,11 +171,11 @@ class ContinuousWordDataset(Dataset):
         if self.instance_prompt == "Continuous MLP Training":
             """Maintain the same sentence for object tokens"""
             
-            if index % 5 != 0:
+            if True:  
                
-                obj_caption = 'a bnha bird'
+                obj_caption = 'a bnha pickup truck'
                 """IMPORTANT: Remove in a white background if it makes the results worse"""
-                caption = 'a sks photo of a bnha bird in front of a dark background'
+                caption = 'a sks photo of a bnha pickup truck in front of a dark background'
 
                 example["obj_prompt_ids"] = self.tokenizer(
                     obj_caption,
@@ -191,10 +191,13 @@ class ContinuousWordDataset(Dataset):
                     max_length=self.tokenizer.model_max_length,
                 ).input_ids
                 
-                for i in range(19):
-                    if f"{i:04}" in str(self.instance_images_path[index % self.num_instance_images]):
-                        example["scaler"] = i
-                        break
+                # for i in range(args.num_instances):
+                #     if f"{i:04}" in str(self.instance_images_path[index % self.num_instance_images]):
+                #         example["scaler"] = i
+                #         break
+                filename = self.instance_images_path[index % self.num_instance_images]
+                angle = float(filename.split("_.jpg")[0]) 
+                example["scaler"] = angle 
                 
             else:
                 img_desc = str(self.controlnet_images_path[index % self.num_controlnet_images]).split('_')[-1].split('.')[0]
@@ -347,6 +350,15 @@ def parse_args(input_args=None):
         "--num_class_images",
         type=int,
         default=100,
+        help=(
+            "Minimal class images for prior preservation loss. If not have enough images, additional images will be"
+            " sampled with class_prompt."
+        ),
+    )
+    parser.add_argument(
+        "--num_instances",
+        type=int,
+        default=30,
         help=(
             "Minimal class images for prior preservation loss. If not have enough images, additional images will be"
             " sampled with class_prompt."
@@ -1048,7 +1060,8 @@ def main(args):
                 encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
             else:
                 print("Stage 2 training: Learning Continuous Word MLP")
-                p = torch.Tensor((batch["scalers"])/19)
+                # normalization of the scalers
+                p = torch.Tensor((batch["scalers"])/(2 * math.pi))
                 
                 # Positional Encoding
                 x = torch.Tensor(
