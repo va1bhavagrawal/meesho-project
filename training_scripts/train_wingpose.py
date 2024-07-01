@@ -3,6 +3,7 @@ This code is modified from https://github.com/cloneofsimo/lora.
 Parts that are highlighted with Adobe License header are protected by the Adobe License
 """
 
+import sys 
 import argparse
 import hashlib
 import itertools
@@ -92,16 +93,16 @@ class ContinuousWordDataset(Dataset):
         self.tokenizer = tokenizer
         self.resize = resize
 
-            
-        print(glob.glob(instance_data_root))
+        print(f"{instance_data_root = }")
+        print(f"{glob.glob(instance_data_root) = }")
         self.instance_images_path = []
         for cur_root in glob.glob(instance_data_root):
-            self.instance_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.png' in str(cur_dir)]
+            self.instance_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
             print(self.instance_images_path)
         
         self.controlnet_images_path = []
         for cur_root in glob.glob(controlnet_data_dir):
-            self.controlnet_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.png' in str(cur_dir)]
+            self.controlnet_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
             
         print("Length of images used for training {}".format(len(self.instance_images_path)))
 
@@ -191,12 +192,8 @@ class ContinuousWordDataset(Dataset):
                     max_length=self.tokenizer.model_max_length,
                 ).input_ids
                 
-                # for i in range(args.num_instances):
-                #     if f"{i:04}" in str(self.instance_images_path[index % self.num_instance_images]):
-                #         example["scaler"] = i
-                #         break
                 filename = self.instance_images_path[index % self.num_instance_images]
-                angle = float(filename.split("_.jpg")[0]) 
+                angle = float(str(filename).split("/")[-1].split("_.jpg")[0]) 
                 example["scaler"] = angle 
                 
             else:
@@ -350,15 +347,6 @@ def parse_args(input_args=None):
         "--num_class_images",
         type=int,
         default=100,
-        help=(
-            "Minimal class images for prior preservation loss. If not have enough images, additional images will be"
-            " sampled with class_prompt."
-        ),
-    )
-    parser.add_argument(
-        "--num_instances",
-        type=int,
-        default=30,
         help=(
             "Minimal class images for prior preservation loss. If not have enough images, additional images will be"
             " sampled with class_prompt."
