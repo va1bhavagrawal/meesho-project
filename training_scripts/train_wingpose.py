@@ -172,8 +172,7 @@ class ContinuousWordDataset(Dataset):
         if self.instance_prompt == "Continuous MLP Training":
             """Maintain the same sentence for object tokens"""
             
-            if True:  
-               
+            if True: 
                 obj_caption = 'a bnha pickup truck'
                 """IMPORTANT: Remove in a white background if it makes the results worse"""
                 caption = 'a sks photo of a bnha pickup truck in front of a dark background'
@@ -1046,6 +1045,7 @@ def main(args):
             if global_step <= 5000:
                 print("Stage 1 training: Disentangling object identity first")
                 encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
+                assert torch.allclose(text_encoder.get_input_embeddings().weight, initial_weight)
             else:
                 print("Stage 2 training: Learning Continuous Word MLP")
                 # normalization of the scalers
