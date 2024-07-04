@@ -29,5 +29,5 @@ python train_wingpose.py \
   --lr_warmup_steps=0 \
   --max_train_steps=30000 \
   --with_prior_preservation \
-  --class_prompt="a photo of a pickup  truck" \
+  --class_prompt="a photo of a pickup truck" \
   --class_data_dir=$CLASS_DATA_DIR 
