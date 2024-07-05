@@ -76,6 +76,7 @@ class ContinuousWordDataset(Dataset):
 
     def __init__(
         self,
+        controlnet_prompts,
         instance_data_root,
         controlnet_data_dir,
         instance_prompt,
@@ -92,6 +93,7 @@ class ContinuousWordDataset(Dataset):
         self.center_crop = center_crop
         self.tokenizer = tokenizer
         self.resize = resize
+        self.controlnet_prompts = controlnet_prompts
 
         print(f"{instance_data_root = }")
         print(f"{glob.glob(instance_data_root) = }")
@@ -152,7 +154,7 @@ class ContinuousWordDataset(Dataset):
         example = {}
         
         # Randomly ControlNet images for data augmentation
-        if True:
+        if index % 5 != 0:
             instance_image = Image.open(
                 self.instance_images_path[index % self.num_instance_images]
             )
@@ -170,9 +172,11 @@ class ContinuousWordDataset(Dataset):
             
             
         if self.instance_prompt == "Continuous MLP Training":
+
+            filename = self.instance_images_path[index % self.num_instance_images]
+            angle = float(str(filename).split("/")[-1].split("_.jpg")[0]) 
             """Maintain the same sentence for object tokens"""
-            
-            if True:  
+            if index % 5 != 0:  
                
                 obj_caption = f'a bnha {args.subject}'
                 """IMPORTANT: Remove in a white background if it makes the results worse"""
@@ -197,9 +201,16 @@ class ContinuousWordDataset(Dataset):
                 example["scaler"] = angle 
                 
             else:
-                img_desc = str(self.controlnet_images_path[index % self.num_controlnet_images]).split('_')[-1].split('.')[0]
+                # img_desc = str(self.controlnet_images_path[index % self.num_controlnet_images]).split('_')[-1].split('.')[0]
+                controlnet_img_paths = list(self.controlnet_images_path)
+                controlnet_img_paths = [str(img_path) for img_path in controlnet_img_paths if str(img_path).find(str(angle)) != -1]
+                controlnet_img_path = random.choice(controlnet_img_paths)
+                prompt_idx = int(controlnet_img_path.split("___prompt")[1].split(".jpg")[0])
+                img_desc = self.controlnet_prompts[prompt_idx]
                 obj_caption = img_desc
                 caption = 'a sks photo of ' + img_desc
+                print(f"{caption = }")
+                sys.exit(0)
 
                 example["obj_prompt_ids"] = self.tokenizer(
                     obj_caption,
@@ -603,7 +614,7 @@ def parse_args(input_args=None):
     return args
 
 
-def main(args):
+def main(args, controlnet_prompts):
     logging_dir = Path(args.output_dir, args.logging_dir)
 
     accelerator = Accelerator(
@@ -800,6 +811,7 @@ def main(args):
     )
 
     train_dataset = ContinuousWordDataset(
+        controlnet_prompts=controlnet_prompts,
         instance_data_root=args.instance_data_dir,
         controlnet_data_dir = args.controlnet_data_dir,
         instance_prompt=args.instance_prompt,
@@ -1302,5 +1314,11 @@ def main(args):
 
 
 if __name__ == "__main__":
+    controlnet_prompts = []
+    prompts_file = open(f"../training_data_vaibhav/prompts_blue_truck.txt", "r")
+    for line in prompts_file.readlines():
+        prompt = str(line)
+        prompt = "a" + prompt[1:]
+        controlnet_prompts.append(prompt)
     args = parse_args()
-    main(args)
+    main(args, controlnet_prompts)
