@@ -1042,7 +1042,7 @@ def main(args):
             """
 
             # Get the text embedding for conditioning
-            if global_step <= 5000:
+            if global_step <= 1:
                 print("Stage 1 training: Disentangling object identity first")
                 encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
                 assert torch.allclose(text_encoder.get_input_embeddings().weight, initial_weight)
@@ -1119,9 +1119,14 @@ def main(args):
                     else unet.parameters()
                 )
                 accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+            import copy 
             continuous_word_optimizer.step()
-            
             optimizer.step()
+            print(f"{torch.norm(initial_weight) = }")
+            print(f"{torch.norm(text_encoder.get_input_embeddings().weight) = }")
+            print(f"{text_encoder.get_input_embeddings().weight.requires_grad = }")
+            assert not torch.allclose(initial_weight, text_encoder.get_input_embeddings().weight)
+            print(f"assertion passed!") 
             lr_scheduler.step()
             progress_bar.update(1)
             optimizer.zero_grad()
@@ -1143,7 +1148,7 @@ def main(args):
                             ).parameters.keys()
                         )
                         extra_args = (
-                            {"keep_fp32_wrapper": True}
+                            {}
                             if accepts_keep_fp32_wrapper
                             else {}
                         )

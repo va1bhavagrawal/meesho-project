@@ -1,10 +1,10 @@
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_vaibhav/ref_imgs"
+export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_pickup_truck"
 # since we do not have controlnet images, so setting this to be the same as instance_data_dir
 # export CONTROLNET_DATA_DIR="../training_data/depth_generated_imgs"
 export CONTROLNET_DATA_DIR=$INSTANCE_DIR
 export OUTPUT_DIR="../ckpts/blue_truck/"
-export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs"
+export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_pickup_truck"
 export CUDA_VISIBLE_DEVICES=0
 export NUM_INSTANCES=30
 
