@@ -3,7 +3,6 @@ This code is modified from https://github.com/cloneofsimo/lora.
 Parts that are highlighted with Adobe License header are protected by the Adobe License
 """
 
-import sys 
 import argparse
 import hashlib
 import itertools
@@ -93,16 +92,16 @@ class ContinuousWordDataset(Dataset):
         self.tokenizer = tokenizer
         self.resize = resize
 
-        print(f"{instance_data_root = }")
-        print(f"{glob.glob(instance_data_root) = }")
+            
+        print(glob.glob(instance_data_root))
         self.instance_images_path = []
         for cur_root in glob.glob(instance_data_root):
-            self.instance_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
+            self.instance_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.png' in str(cur_dir)]
             print(self.instance_images_path)
         
         self.controlnet_images_path = []
         for cur_root in glob.glob(controlnet_data_dir):
-            self.controlnet_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
+            self.controlnet_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.png' in str(cur_dir)]
             
         print("Length of images used for training {}".format(len(self.instance_images_path)))
 
@@ -152,7 +151,7 @@ class ContinuousWordDataset(Dataset):
         example = {}
         
         # Randomly ControlNet images for data augmentation
-        if True:
+        if index % 5 != 0:
             instance_image = Image.open(
                 self.instance_images_path[index % self.num_instance_images]
             )
@@ -172,11 +171,11 @@ class ContinuousWordDataset(Dataset):
         if self.instance_prompt == "Continuous MLP Training":
             """Maintain the same sentence for object tokens"""
             
-            if True:  
+            if index % 5 != 0:
                
-                obj_caption = f'a bnha {args.subject}'
+                obj_caption = 'a bnha bird'
                 """IMPORTANT: Remove in a white background if it makes the results worse"""
-                caption = f'a sks photo of a bnha {args.subject} in front of a dark background'
+                caption = 'a sks photo of a bnha bird in front of a dark background'
 
                 example["obj_prompt_ids"] = self.tokenizer(
                     obj_caption,
@@ -192,9 +191,10 @@ class ContinuousWordDataset(Dataset):
                     max_length=self.tokenizer.model_max_length,
                 ).input_ids
                 
-                filename = self.instance_images_path[index % self.num_instance_images]
-                angle = float(str(filename).split("/")[-1].split("_.jpg")[0]) 
-                example["scaler"] = angle 
+                for i in range(19):
+                    if f"{i:04}" in str(self.instance_images_path[index % self.num_instance_images]):
+                        example["scaler"] = i
+                        break
                 
             else:
                 img_desc = str(self.controlnet_images_path[index % self.num_controlnet_images]).split('_')[-1].split('.')[0]
@@ -554,13 +554,6 @@ def parse_args(input_args=None):
     )
     parser.add_argument(
         "--use_xformers", action="store_true", help="Whether or not to use xformers"
-    )
-    parser.add_argument(
-        "--subject",
-        type=str,
-        default=None,
-        required=True,
-        help="the object name",
     )
     
     
@@ -1055,8 +1048,7 @@ def main(args):
                 encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
             else:
                 print("Stage 2 training: Learning Continuous Word MLP")
-                # normalization of the scalers
-                p = torch.Tensor((batch["scalers"])/(2 * math.pi))
+                p = torch.Tensor((batch["scalers"])/19)
                 
                 # Positional Encoding
                 x = torch.Tensor(

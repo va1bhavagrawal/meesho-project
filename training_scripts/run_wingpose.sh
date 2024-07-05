@@ -1,12 +1,17 @@
+export SUBJECT=$1
+
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_vaibhav/ref_imgs"
+export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$SUBJECT"
 # since we do not have controlnet images, so setting this to be the same as instance_data_dir
 # export CONTROLNET_DATA_DIR="../training_data/depth_generated_imgs"
 export CONTROLNET_DATA_DIR=$INSTANCE_DIR
-export OUTPUT_DIR="../ckpts/blue_truck/"
-export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs"
+export OUTPUT_DIR="../ckpts/$SUBJECT/"
+export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$SUBJECT"
 export CUDA_VISIBLE_DEVICES=0
-export NUM_INSTANCES=30
+
+
+PROMPT="a_photo_of_a_$SUBJECT" 
+python3 make_prior.py $PROMPT 
 
 # rm -r ../training_data/img_resized/.ipynb_checkpoints
 # rm -r ../training_data/depth_generated_imgs/.ipynb_checkpoints
@@ -29,5 +34,6 @@ python train_wingpose.py \
   --lr_warmup_steps=0 \
   --max_train_steps=30000 \
   --with_prior_preservation \
-  --class_prompt="a photo of a pickup truck" \
+  --subject="$SUBJECT" \
+  --class_prompt="a photo of a $SUBJECT" \
   --class_data_dir=$CLASS_DATA_DIR 
