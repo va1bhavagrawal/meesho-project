@@ -171,7 +171,6 @@ class ContinuousWordDataset(Dataset):
 
             
         if self.instance_prompt == "Continuous MLP Training":
-
             filename = self.instance_images_path[index % self.num_instance_images]
             angle = float(str(filename).split("/")[-1].split("_.jpg")[0]) 
             example["scaler"] = angle 
@@ -222,7 +221,8 @@ class ContinuousWordDataset(Dataset):
 
                     
             print("Current Image Path is: {}".format(str(self.instance_images_path[index % self.num_instance_images])))
-            print("Current ControlNet Image Path is: {}".format(str(self.controlnet_images_path[index % self.num_controlnet_images])))
+            if index % 5 == 0:
+                print("Current ControlNet Image Path is: {}".format(controlnet_img_path))
             print("Obj caption : {}".format(obj_caption))
             print("Continuous caption : {}".format(caption))
             print('Scaler value: {}'.format(example["scaler"]))

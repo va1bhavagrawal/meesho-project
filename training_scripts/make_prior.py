@@ -5,8 +5,8 @@ import torch
 
 # Set up the argument parser
 parser = argparse.ArgumentParser(description='Generate images using Stable Diffusion')
-parser.add_argument('subject', help='The subject of the images')
-parser.add_argument('prompt', help='The prompt for generating images')
+parser.add_argument('--subject', help='The subject of the images')
+parser.add_argument('--prompt', help='The prompt for generating images')
 
 # Parse the command-line arguments
 args = parser.parse_args()
@@ -14,6 +14,7 @@ args = parser.parse_args()
 # Get the subject and prompt from the parsed arguments
 subject = args.subject
 prompt = args.prompt 
+print(f"received subject: {subject}")
 print(f"received prompt: {prompt}")
 
 # Set up the Stable Diffusion pipeline
