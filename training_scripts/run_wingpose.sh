@@ -1,4 +1,4 @@
-export SUBJECT=$1
+export SUBJECT="shoe"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$SUBJECT"
@@ -11,7 +11,7 @@ export CUDA_VISIBLE_DEVICES=0
 
 
 PROMPT="a_photo_of_a_$SUBJECT" 
-python3 make_prior.py $PROMPT 
+python3 make_prior.py $SUBJECT $PROMPT 
 
 # rm -r ../training_data/img_resized/.ipynb_checkpoints
 # rm -r ../training_data/depth_generated_imgs/.ipynb_checkpoints

@@ -1,23 +1,27 @@
-import sys
+import argparse
 import os
+from diffusers import StableDiffusionPipeline
+import torch
 
-# Check that the last command-line argument is provided
-if len(sys.argv) < 2:
-    print("Please provide a prompt as the last command-line argument.")
-    sys.exit(1)
+# Set up the argument parser
+parser = argparse.ArgumentParser(description='Generate images using Stable Diffusion')
+parser.add_argument('subject', help='The subject of the images')
+parser.add_argument('prompt', help='The prompt for generating images')
 
-# Get the prompt from the last command-line argument
-prompt = sys.argv[-1].replace("_", " ")
+# Parse the command-line arguments
+args = parser.parse_args()
+
+# Get the subject and prompt from the parsed arguments
+subject = args.subject
+prompt = args.prompt 
 print(f"received prompt: {prompt}")
 
 # Set up the Stable Diffusion pipeline
-from diffusers import StableDiffusionPipeline
-import torch
-pipe = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2")
+pipe = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1")
 pipe = pipe.to("cuda")
 
 # Create the output folder
-output_folder = os.path.join("..", "training_data_vaibhav", "prior_imgs_" + prompt.replace(" ", "_"))
+output_folder = os.path.join("..", "training_data_vaibhav", "prior_imgs_" + subject.strip().replace(" ", "_")) 
 print(output_folder)
 os.makedirs(output_folder, exist_ok=True)
 
