@@ -168,13 +168,13 @@ class ContinuousWordDataset(Dataset):
         if not instance_image.mode == "RGB":
             instance_image = instance_image.convert("RGB")
         example["instance_images"] = self.image_transforms(instance_image)
-        
-            
+
             
         if self.instance_prompt == "Continuous MLP Training":
 
             filename = self.instance_images_path[index % self.num_instance_images]
             angle = float(str(filename).split("/")[-1].split("_.jpg")[0]) 
+            example["scaler"] = angle 
             """Maintain the same sentence for object tokens"""
             if index % 5 != 0:  
                
@@ -195,11 +195,7 @@ class ContinuousWordDataset(Dataset):
                     truncation=True,
                     max_length=self.tokenizer.model_max_length,
                 ).input_ids
-                
-                filename = self.instance_images_path[index % self.num_instance_images]
-                angle = float(str(filename).split("/")[-1].split("_.jpg")[0]) 
-                example["scaler"] = angle 
-                
+
             else:
                 # img_desc = str(self.controlnet_images_path[index % self.num_controlnet_images]).split('_')[-1].split('.')[0]
                 controlnet_img_paths = list(self.controlnet_images_path)
@@ -209,8 +205,6 @@ class ContinuousWordDataset(Dataset):
                 img_desc = self.controlnet_prompts[prompt_idx]
                 obj_caption = img_desc
                 caption = 'a sks photo of ' + img_desc
-                print(f"{caption = }")
-                sys.exit(0)
 
                 example["obj_prompt_ids"] = self.tokenizer(
                     obj_caption,
@@ -225,12 +219,6 @@ class ContinuousWordDataset(Dataset):
                     truncation=True,
                     max_length=self.tokenizer.model_max_length,
                 ).input_ids
-                
-                for i in range(19):
-                    if f"{i:04}" in str(self.controlnet_images_path[index % self.num_controlnet_images]):
-                        example["scaler"] = i
-                        break
-            
 
                     
             print("Current Image Path is: {}".format(str(self.instance_images_path[index % self.num_instance_images])))
