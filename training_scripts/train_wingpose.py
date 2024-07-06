@@ -107,7 +107,6 @@ class ContinuousWordDataset(Dataset):
             self.controlnet_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
             
         print("Length of images used for training {}".format(len(self.instance_images_path)))
-
         
         self.num_instance_images = len(self.instance_images_path)
         self.num_controlnet_images = len(self.controlnet_images_path)
@@ -154,80 +153,81 @@ class ContinuousWordDataset(Dataset):
         example = {}
         
         # Randomly ControlNet images for data augmentation
-        if index % 5 != 0:
-            instance_image = Image.open(
-                self.instance_images_path[index % self.num_instance_images]
-            )
-            print("Choosing from standard viewpoint set!, Not control")
-        else:
-            instance_image = Image.open(
-                self.controlnet_images_path[index % self.num_controlnet_images]
-            )
-            print("Choosing from controlnet viewpoint set!")
+        # if index % 5 != 0:
+        #     instance_image = Image.open(
+        #         self.instance_images_path[index % self.num_instance_images]
+        #     )
+        #     print("Choosing from standard viewpoint set!, Not control")
+        # else:
+        #     instance_image = Image.open(
+        #         self.controlnet_images_path[index % self.num_controlnet_images]
+        #     )
+        #     print("Choosing from controlnet viewpoint set!")
         
-        if not instance_image.mode == "RGB":
-            instance_image = instance_image.convert("RGB")
-        example["instance_images"] = self.image_transforms(instance_image)
+        # if not instance_image.mode == "RGB":
+        #     instance_image = instance_image.convert("RGB")
+        # example["instance_images"] = self.image_transforms(instance_image)
 
             
-        if self.instance_prompt == "Continuous MLP Training":
-            filename = self.instance_images_path[index % self.num_instance_images]
-            angle = float(str(filename).split("/")[-1].split("_.jpg")[0]) 
-            example["scaler"] = angle 
-            """Maintain the same sentence for object tokens"""
-            if index % 5 != 0:  
-               
-                obj_caption = f'a bnha {args.subject}'
-                """IMPORTANT: Remove in a white background if it makes the results worse"""
-                caption = f'a sks photo of a bnha {args.subject} in front of a dark background'
+        instance_img_path = self.instance_images_path[index % self.num_instance_images]
+        angle = float(str(instance_img_path).split("/")[-1].split("_.jpg")[0]) 
+        example["scaler"] = angle 
+        """Maintain the same sentence for object tokens"""
+        if index % 5 != 0:  
+            obj_caption = f'a bnha {args.subject}'
+            """IMPORTANT: Remove in a white background if it makes the results worse"""
+            caption = f'a sks photo of a bnha {args.subject} in front of a dark background'
 
-                example["obj_prompt_ids"] = self.tokenizer(
-                    obj_caption,
-                    padding="do_not_pad",
-                    truncation=True,
-                    max_length=self.tokenizer.model_max_length,
-                ).input_ids
+            example["obj_prompt_ids"] = self.tokenizer(
+                obj_caption,
+                padding="do_not_pad",
+                truncation=True,
+                max_length=self.tokenizer.model_max_length,
+            ).input_ids
 
-                example["instance_prompt_ids"] = self.tokenizer(
-                    caption,
-                    padding="do_not_pad",
-                    truncation=True,
-                    max_length=self.tokenizer.model_max_length,
-                ).input_ids
+            example["instance_prompt_ids"] = self.tokenizer(
+                caption,
+                padding="do_not_pad",
+                truncation=True,
+                max_length=self.tokenizer.model_max_length,
+            ).input_ids
 
-            else:
-                # img_desc = str(self.controlnet_images_path[index % self.num_controlnet_images]).split('_')[-1].split('.')[0]
-                controlnet_img_paths = list(self.controlnet_images_path)
-                controlnet_img_paths = [str(img_path) for img_path in controlnet_img_paths if str(img_path).find(str(angle)) != -1]
-                controlnet_img_path = random.choice(controlnet_img_paths)
-                prompt_idx = int(controlnet_img_path.split("___prompt")[1].split(".jpg")[0])
-                img_desc = self.controlnet_prompts[prompt_idx]
-                obj_caption = img_desc
-                caption = 'a sks photo of ' + img_desc
+            print(f"choosing from standard viewpoint only!, path is: {instance_img_path}")
+            instance_img = Image.open(
+                instance_img_path 
+            )
 
-                example["obj_prompt_ids"] = self.tokenizer(
-                    obj_caption,
-                    padding="do_not_pad",
-                    truncation=True,
-                    max_length=self.tokenizer.model_max_length,
-                ).input_ids
+        else:
+            controlnet_img_paths = list(self.controlnet_images_path)
+            controlnet_img_paths = [str(img_path) for img_path in controlnet_img_paths if str(img_path).find(str(angle)) != -1]
+            controlnet_img_path = random.choice(controlnet_img_paths)
+            assert controlnet_img_path.find(str(example["scaler"])) != -1 
+            prompt_idx = int(controlnet_img_path.split("___prompt")[1].split(".jpg")[0])
+            assert prompt_idx < len(self.controlnet_prompts) 
+            img_desc = self.controlnet_prompts[prompt_idx]
+            obj_caption = img_desc
+            caption = 'a sks photo of ' + img_desc
 
-                example["instance_prompt_ids"] = self.tokenizer(
-                    caption,
-                    padding="do_not_pad",
-                    truncation=True,
-                    max_length=self.tokenizer.model_max_length,
-                ).input_ids
+            example["obj_prompt_ids"] = self.tokenizer(
+                obj_caption,
+                padding="do_not_pad",
+                truncation=True,
+                max_length=self.tokenizer.model_max_length,
+            ).input_ids
 
-                    
-            print("Current Image Path is: {}".format(str(self.instance_images_path[index % self.num_instance_images])))
-            if index % 5 == 0:
-                print("Current ControlNet Image Path is: {}".format(controlnet_img_path))
-            print("Obj caption : {}".format(obj_caption))
-            print("Continuous caption : {}".format(caption))
-            print('Scaler value: {}'.format(example["scaler"]))
-            print("------------------------------")
-            
+            example["instance_prompt_ids"] = self.tokenizer(
+                caption,
+                padding="do_not_pad",
+                truncation=True,
+                max_length=self.tokenizer.model_max_length,
+            ).input_ids
+
+            print(f"not using standard viewpoint, using controlnet augmentation instead!, path is: {controlnet_img_path}")
+            instance_img = Image.open(controlnet_img_path) 
+
+        if not instance_img.mode == "RGB": 
+            instance_img = instance_img.convert("RGB") 
+        example["instance_images"] = self.image_transforms(instance_img)  
             
 
         if self.class_data_root:
@@ -634,47 +634,48 @@ def main(args, controlnet_prompts):
             class_images_dir.mkdir(parents=True)
         cur_class_images = len(list(class_images_dir.iterdir()))
 
-        if cur_class_images < args.num_class_images:
-            torch_dtype = (
-                torch.float16 if accelerator.device.type == "cuda" else torch.float32
-            )
-            pipeline = StableDiffusionPipeline.from_pretrained(
-                args.pretrained_model_name_or_path,
-                torch_dtype=torch_dtype,
-                safety_checker=None,
-                revision=args.revision,
-            )
-            pipeline.set_progress_bar_config(disable=True)
+        assert cur_class_images == args.num_class_images 
+        # if cur_class_images < args.num_class_images:
+        #     torch_dtype = (
+        #         torch.float16 if accelerator.device.type == "cuda" else torch.float32
+        #     )
+        #     pipeline = StableDiffusionPipeline.from_pretrained(
+        #         args.pretrained_model_name_or_path,
+        #         torch_dtype=torch_dtype,
+        #         safety_checker=None,
+        #         revision=args.revision,
+        #     )
+        #     pipeline.set_progress_bar_config(disable=True)
 
-            num_new_images = args.num_class_images - cur_class_images
-            logger.info(f"Number of class images to sample: {num_new_images}.")
+        #     num_new_images = args.num_class_images - cur_class_images
+        #     logger.info(f"Number of class images to sample: {num_new_images}.")
 
-            sample_dataset = PromptDataset(args.class_prompt, num_new_images)
-            sample_dataloader = torch.utils.data.DataLoader(
-                sample_dataset, batch_size=args.sample_batch_size
-            )
+        #     sample_dataset = PromptDataset(args.class_prompt, num_new_images)
+        #     sample_dataloader = torch.utils.data.DataLoader(
+        #         sample_dataset, batch_size=args.sample_batch_size
+        #     )
 
-            sample_dataloader = accelerator.prepare(sample_dataloader)
-            pipeline.to(accelerator.device)
+        #     sample_dataloader = accelerator.prepare(sample_dataloader)
+        #     pipeline.to(accelerator.device)
 
-            for example in tqdm(
-                sample_dataloader,
-                desc="Generating class images",
-                disable=not accelerator.is_local_main_process,
-            ):
-                images = pipeline(example["prompt"]).images
+        #     for example in tqdm(
+        #         sample_dataloader,
+        #         desc="Generating class images",
+        #         disable=not accelerator.is_local_main_process,
+        #     ):
+        #         images = pipeline(example["prompt"]).images
 
-                for i, image in enumerate(images):
-                    hash_image = hashlib.sha1(image.tobytes()).hexdigest()
-                    image_filename = (
-                        class_images_dir
-                        / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
-                    )
-                    image.save(image_filename)
+        #         for i, image in enumerate(images):
+        #             hash_image = hashlib.sha1(image.tobytes()).hexdigest()
+        #             image_filename = (
+        #                 class_images_dir
+        #                 / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
+        #             )
+        #             image.save(image_filename)
 
-            del pipeline
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+        #     del pipeline
+        #     if torch.cuda.is_available():
+        #         torch.cuda.empty_cache()
 
     # Handle the repository creation
     if accelerator.is_main_process:
@@ -716,10 +717,10 @@ def main(args, controlnet_prompts):
         unet, r=args.lora_rank, loras=args.resume_unet
     )
 
-    for _up, _down in extract_lora_ups_down(unet):
-        print("Before training: Unet First Layer lora up", _up.weight.data)
-        print("Before training: Unet First Layer lora down", _down.weight.data)
-        break
+    # for _up, _down in extract_lora_ups_down(unet):
+    #     print("Before training: Unet First Layer lora up", _up.weight.data)
+    #     print("Before training: Unet First Layer lora down", _down.weight.data)
+    #     break
 
     vae.requires_grad_(False)
     text_encoder.requires_grad_(False)
@@ -730,14 +731,14 @@ def main(args, controlnet_prompts):
             target_replace_module=["CLIPAttention"],
             r=args.lora_rank,
         )
-        for _up, _down in extract_lora_ups_down(
-            text_encoder, target_replace_module=["CLIPAttention"]
-        ):
-            print("Before training: text encoder First Layer lora up", _up.weight.data)
-            print(
-                "Before training: text encoder First Layer lora down", _down.weight.data
-            )
-            break
+        # for _up, _down in extract_lora_ups_down(
+        #     text_encoder, target_replace_module=["CLIPAttention"]
+        # ):
+        #     print("Before training: text encoder First Layer lora up", _up.weight.data)
+        #     print(
+        #         "Before training: text encoder First Layer lora down", _down.weight.data
+        #     )
+        #     break
 
     if args.use_xformers:
         set_use_memory_efficient_attention_xformers(unet, True)
@@ -983,6 +984,7 @@ def main(args, controlnet_prompts):
     )
     print(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     print(f"  Total optimization steps = {args.max_train_steps}")
+
     # Only show the progress bar once on each machine.
     progress_bar = tqdm(
         range(args.max_train_steps), disable=not accelerator.is_local_main_process

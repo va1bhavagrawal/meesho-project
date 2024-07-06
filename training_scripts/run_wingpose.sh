@@ -9,6 +9,8 @@ export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$FILE_ID"
 export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_$FILE_ID"
 export OUTPUT_DIR="../ckpts/$FILE_ID/"
 export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
+
+
 export CUDA_VISIBLE_DEVICES=1
 
 
@@ -19,7 +21,7 @@ python3 make_prior.py --subject="$SUBJECT" --prompt="$PROMPT"
 # rm -r ../training_data/depth_generated_imgs/.ipynb_checkpoints
 # rm -r ../training_data/wingpose_preservation/.ipynb_checkpoints
 
-python train_wingpose.py \
+python3 train_wingpose.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
   --instance_data_dir=$INSTANCE_DIR \

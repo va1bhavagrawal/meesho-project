@@ -1,7 +1,12 @@
 import argparse
 import os
+import os.path as osp 
 from diffusers import StableDiffusionPipeline
 import torch
+import sys 
+
+NUM_CLASS_IMAGES = 100
+BS = 4
 
 # Set up the argument parser
 parser = argparse.ArgumentParser(description='Generate images using Stable Diffusion')
@@ -17,6 +22,8 @@ prompt = args.prompt
 print(f"received subject: {subject}")
 print(f"received prompt: {prompt}")
 
+prompts_batch = [prompt] * BS 
+
 # Set up the Stable Diffusion pipeline
 pipe = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1")
 pipe = pipe.to("cuda")
@@ -27,7 +34,10 @@ print(output_folder)
 os.makedirs(output_folder, exist_ok=True)
 
 # Generate and save the images
-for i in range(100):
-    image = pipe(prompt).images[0]
-    image.save(os.path.join(output_folder, f"{i:03d}.jpg"))
-    print(f"Saved image {i:03d}.jpg")
+n_imgs = 0
+for i in range(NUM_CLASS_IMAGES // BS):
+    images = pipe(prompts_batch).images
+    for image in images: 
+        image.save(osp.join(output_folder, str(n_imgs).zfill(3) + ".jpg"))
+        n_imgs += 1
+    print(f"saved images till {n_imgs}")
