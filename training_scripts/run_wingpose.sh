@@ -15,7 +15,7 @@ export CUDA_VISIBLE_DEVICES=1
 
 
 PROMPT="a photo of a $SUBJECT" 
-python3 make_prior.py --subject="$SUBJECT" --prompt="$PROMPT" 
+python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
 
 # rm -r ../training_data/img_resized/.ipynb_checkpoints
 # rm -r ../training_data/depth_generated_imgs/.ipynb_checkpoints

@@ -10,16 +10,16 @@ BS = 4
 
 # Set up the argument parser
 parser = argparse.ArgumentParser(description='Generate images using Stable Diffusion')
-parser.add_argument('--subject', help='The subject of the images')
+parser.add_argument('--file_id', help='The file_id of the images')
 parser.add_argument('--prompt', help='The prompt for generating images')
 
 # Parse the command-line arguments
 args = parser.parse_args()
 
-# Get the subject and prompt from the parsed arguments
-subject = args.subject
+# Get the file_id and prompt from the parsed arguments
+file_id = args.file_id
 prompt = args.prompt 
-print(f"received subject: {subject}")
+print(f"received file_id: {file_id}")
 print(f"received prompt: {prompt}")
 
 prompts_batch = [prompt] * BS 
@@ -29,7 +29,7 @@ pipe = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1
 pipe = pipe.to("cuda")
 
 # Create the output folder
-output_folder = os.path.join("..", "training_data_vaibhav", "prior_imgs_" + subject.strip().replace(" ", "_")) 
+output_folder = os.path.join("..", "training_data_vaibhav", "prior_imgs_" + file_id.strip().replace(" ", "_")) 
 print(output_folder)
 os.makedirs(output_folder, exist_ok=True)
 
