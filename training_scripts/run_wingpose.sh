@@ -14,14 +14,15 @@ export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
 export CUDA_VISIBLE_DEVICES=1
 
 
-PROMPT="a photo of a $SUBJECT" 
-python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
+# PROMPT="a photo of a $SUBJECT" 
+# python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
 
 # rm -r ../training_data/img_resized/.ipynb_checkpoints
 # rm -r ../training_data/depth_generated_imgs/.ipynb_checkpoints
 # rm -r ../training_data/wingpose_preservation/.ipynb_checkpoints
 
-python3 train_wingpose.py \
+# python3 train_wingpose.py \
+accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
   --instance_data_dir=$INSTANCE_DIR \
@@ -34,6 +35,7 @@ python3 train_wingpose.py \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
   --color_jitter \
+  --scale_lr \
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
   --max_train_steps=30000 \

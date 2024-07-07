@@ -993,7 +993,7 @@ def main(args, controlnet_prompts):
     global_step = 0
     last_save = 0
 
-    initial_weight = text_encoder.get_input_embeddings().weight.detach()
+    initial_weight = text_encoder.module.get_input_embeddings().weight.detach()
     
     
     for epoch in range(args.num_train_epochs):
@@ -1065,9 +1065,9 @@ def main(args, controlnet_prompts):
                     [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
 
                 mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
-                text_encoder.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
+                text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
                 
-                text_encoder.get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
+                text_encoder.module.get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
                 encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
             """End Adobe CONFIDENTIAL"""
@@ -1132,11 +1132,11 @@ def main(args, controlnet_prompts):
             
             optimizer.step()
             lr_scheduler.step()
-            progress_bar.update(1)
+            progress_bar.update(accelerator.num_processes)
             optimizer.zero_grad()
             continuous_word_optimizer.zero_grad()
             """end Adobe CONFIDENTIAL"""
-            global_step += 1
+            global_step += accelerator.num_processes  
 
             # Checks if the accelerator has performed an optimization step behind the scenes
             if accelerator.sync_gradients:
