@@ -50,7 +50,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp
+from continuous_word_mlp import continuous_word_mlp, MergerMLP
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -176,7 +176,7 @@ class ContinuousWordDataset(Dataset):
         if index % 5 != 0:  
             obj_caption = f'a bnha {args.subject}'
             """IMPORTANT: Remove in a white background if it makes the results worse"""
-            caption = f'a sks photo of a bnha {args.subject} in front of a dark background'
+            caption = f'a photo of a bnha {args.subject} in front of a dark background'
 
             example["obj_prompt_ids"] = self.tokenizer(
                 obj_caption,
@@ -904,9 +904,10 @@ def main(args, controlnet_prompts):
     Dissemination of this information or reproduction of this material is 
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
-    pos_size = 2
-    continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
+    continuous_word_model = continuous_word_mlp(input_size=2, output_size=1024)
+    merger_model = MergerMLP(input_size=1024, output_size=1024)
     continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=1e-3)
+    merger_optimizer = torch.optim.Adam(merger_model.parameters(), lr=1e-3)
     print("The current continuous MLP: {}".format(continuous_word_model))
     
     
@@ -1064,14 +1065,15 @@ def main(args, controlnet_prompts):
                 x = torch.Tensor(
                     [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
 
-                mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
                 text_encoder.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
+                pose_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
+                appearance_emb = initial_weight[49336] 
+                combined_emb = merger_model(pose_emb, appearance_emb) 
                 
                 # CLIP dictionary
-                # sks is 48136
+                # sks is 48136 -- not present in the code
                 # bnha is 49336 
-                assert batch["input_ids"][0][2] == 48136 
-                text_encoder.get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
+                text_encoder.get_input_embeddings().weight[49336] = combined_emb 
                 encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
             """End Adobe CONFIDENTIAL"""

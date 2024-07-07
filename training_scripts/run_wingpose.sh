@@ -11,11 +11,11 @@ export OUTPUT_DIR="../ckpts/$FILE_ID/"
 export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
 
 
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=3
 
 
-PROMPT="a photo of a $SUBJECT" 
-python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
+# PROMPT="a photo of a $SUBJECT" 
+# python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
 
 # rm -r ../training_data/img_resized/.ipynb_checkpoints
 # rm -r ../training_data/depth_generated_imgs/.ipynb_checkpoints
