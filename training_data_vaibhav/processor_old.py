@@ -10,8 +10,8 @@ import PIL
 from PIL import Image
 
 NUM_INSTANCES=6
-DEST_PATH = "ref_imgs"
 SRC_PATH = sys.argv[-1]
+DEST_PATH = f"ref_imgs_{SRC_PATH}"
 if osp.exists(DEST_PATH): 
     shutil.rmtree(DEST_PATH) 
 os.makedirs(DEST_PATH) 

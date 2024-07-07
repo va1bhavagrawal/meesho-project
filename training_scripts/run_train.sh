@@ -13,7 +13,7 @@ export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
 # python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
 
 # python3 train_wingpose.py \
-accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
+accelerate launch --config_file accelerate_config.yaml train.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
   --instance_data_dir=$INSTANCE_DIR \
