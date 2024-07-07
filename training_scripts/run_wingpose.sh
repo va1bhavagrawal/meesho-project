@@ -3,23 +3,14 @@ export FILE_ID="template_truck"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$FILE_ID"
-# since we do not have controlnet images, so setting this to be the same as instance_data_dir
-# export CONTROLNET_DATA_DIR="../training_data/depth_generated_imgs"
-# export CONTROLNET_DATA_DIR=$INSTANCE_DIR
 export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_$FILE_ID"
 export OUTPUT_DIR="../ckpts/$FILE_ID/"
 export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
 
-
 # export CUDA_VISIBLE_DEVICES=1
-
 
 # PROMPT="a photo of a $SUBJECT" 
 # python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
-
-# rm -r ../training_data/img_resized/.ipynb_checkpoints
-# rm -r ../training_data/depth_generated_imgs/.ipynb_checkpoints
-# rm -r ../training_data/wingpose_preservation/.ipynb_checkpoints
 
 # python3 train_wingpose.py \
 accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
@@ -37,8 +28,8 @@ accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
   --color_jitter \
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
-  --max_train_steps=30000 \
   --with_prior_preservation \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
+  --seed=1709 \
   --class_data_dir=$CLASS_DATA_DIR 

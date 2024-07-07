@@ -19,7 +19,6 @@ import torch.utils.checkpoint
 
 
 from accelerate import Accelerator
-from accelerate.logging import get_logger
 from accelerate.utils import set_seed
 from diffusers import (
     AutoencoderKL,
@@ -76,6 +75,7 @@ class ContinuousWordDataset(Dataset):
 
     def __init__(
         self,
+        num_steps,
         controlnet_prompts,
         instance_data_root,
         controlnet_data_dir,
@@ -95,30 +95,25 @@ class ContinuousWordDataset(Dataset):
         self.resize = resize
         self.controlnet_prompts = controlnet_prompts
 
-        print(f"{instance_data_root = }")
-        print(f"{glob.glob(instance_data_root) = }")
         self.instance_images_path = []
         for cur_root in glob.glob(instance_data_root):
             self.instance_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
-            print(self.instance_images_path)
         
         self.controlnet_images_path = []
         for cur_root in glob.glob(controlnet_data_dir):
             self.controlnet_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
             
-        print("Length of images used for training {}".format(len(self.instance_images_path)))
         
         self.num_instance_images = len(self.instance_images_path)
         self.num_controlnet_images = len(self.controlnet_images_path)
         self.instance_prompt = instance_prompt
-        self._length = self.num_instance_images
+        self._length = num_steps 
 
         if class_data_root is not None:
             self.class_data_root = Path(class_data_root)
             self.class_data_root.mkdir(parents=True, exist_ok=True)
             self.class_images_path = list(self.class_data_root.iterdir())
             self.num_class_images = len(self.class_images_path)
-            self._length = max(self.num_class_images, self.num_instance_images)
             self.class_prompt = class_prompt
         else:
             self.class_data_root = None
@@ -142,32 +137,12 @@ class ContinuousWordDataset(Dataset):
             [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
         )
         
-        # rare_token_obj is for the object identity, rare token is continuous mlp placeholder
-        self.rare_token_obj = 'bnha'
-        self.rare_token = 'sks'
 
     def __len__(self):
         return self._length
 
     def __getitem__(self, index):
         example = {}
-        
-        # Randomly ControlNet images for data augmentation
-        # if index % 5 != 0:
-        #     instance_image = Image.open(
-        #         self.instance_images_path[index % self.num_instance_images]
-        #     )
-        #     print("Choosing from standard viewpoint set!, Not control")
-        # else:
-        #     instance_image = Image.open(
-        #         self.controlnet_images_path[index % self.num_controlnet_images]
-        #     )
-        #     print("Choosing from controlnet viewpoint set!")
-        
-        # if not instance_image.mode == "RGB":
-        #     instance_image = instance_image.convert("RGB")
-        # example["instance_images"] = self.image_transforms(instance_image)
-
             
         instance_img_path = self.instance_images_path[index % self.num_instance_images]
         angle = float(str(instance_img_path).split("/")[-1].split("_.jpg")[0]) 
@@ -192,7 +167,7 @@ class ContinuousWordDataset(Dataset):
                 max_length=self.tokenizer.model_max_length,
             ).input_ids
 
-            print(f"choosing from standard viewpoint only!, path is: {instance_img_path}")
+            # print(f"choosing from standard viewpoint only!, path is: {instance_img_path}")
             instance_img = Image.open(
                 instance_img_path 
             )
@@ -222,7 +197,7 @@ class ContinuousWordDataset(Dataset):
                 max_length=self.tokenizer.model_max_length,
             ).input_ids
 
-            print(f"not using standard viewpoint, using controlnet augmentation instead!, path is: {controlnet_img_path}")
+            # print(f"not using standard viewpoint, using controlnet augmentation instead!, path is: {controlnet_img_path}")
             instance_img = Image.open(controlnet_img_path) 
 
         if not instance_img.mode == "RGB": 
@@ -264,7 +239,6 @@ class PromptDataset(Dataset):
         return example
 
 
-logger = get_logger(__name__)
 
 
 def parse_args(input_args=None):
@@ -343,6 +317,16 @@ def parse_args(input_args=None):
         help="The weight of prior preservation loss.",
     )
     parser.add_argument(
+        "--num_stage1_steps",
+        type=int,
+        default=2000,
+    )
+    parser.add_argument(
+        "--num_stage2_steps",
+        type=int,
+        default=28000,
+    )
+    parser.add_argument(
         "--num_class_images",
         type=int,
         default=100,
@@ -365,7 +349,7 @@ def parse_args(input_args=None):
         help="The output format of the model predicitions and checkpoints.",
     )
     parser.add_argument(
-        "--seed", type=int, default=None, help="A seed for reproducible training."
+        "--seed", type=int, default=1709, help="A seed for reproducible training."
     )
     parser.add_argument(
         "--resolution",
@@ -402,13 +386,6 @@ def parse_args(input_args=None):
         type=int,
         default=4,
         help="Batch size (per device) for sampling images.",
-    )
-    parser.add_argument("--num_train_epochs", type=int, default=1)
-    parser.add_argument(
-        "--max_train_steps",
-        type=int,
-        default=None,
-        help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",
     )
     parser.add_argument(
         "--save_steps",
@@ -448,7 +425,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--scale_lr",
         action="store_true",
-        default=False,
+        default=True,
         help="Scale the learning rate by the number of GPUs, gradient accumulation steps, and batch size.",
     )
     parser.add_argument(
@@ -635,47 +612,6 @@ def main(args, controlnet_prompts):
         cur_class_images = len(list(class_images_dir.iterdir()))
 
         assert cur_class_images == args.num_class_images 
-        # if cur_class_images < args.num_class_images:
-        #     torch_dtype = (
-        #         torch.float16 if accelerator.device.type == "cuda" else torch.float32
-        #     )
-        #     pipeline = StableDiffusionPipeline.from_pretrained(
-        #         args.pretrained_model_name_or_path,
-        #         torch_dtype=torch_dtype,
-        #         safety_checker=None,
-        #         revision=args.revision,
-        #     )
-        #     pipeline.set_progress_bar_config(disable=True)
-
-        #     num_new_images = args.num_class_images - cur_class_images
-        #     logger.info(f"Number of class images to sample: {num_new_images}.")
-
-        #     sample_dataset = PromptDataset(args.class_prompt, num_new_images)
-        #     sample_dataloader = torch.utils.data.DataLoader(
-        #         sample_dataset, batch_size=args.sample_batch_size
-        #     )
-
-        #     sample_dataloader = accelerator.prepare(sample_dataloader)
-        #     pipeline.to(accelerator.device)
-
-        #     for example in tqdm(
-        #         sample_dataloader,
-        #         desc="Generating class images",
-        #         disable=not accelerator.is_local_main_process,
-        #     ):
-        #         images = pipeline(example["prompt"]).images
-
-        #         for i, image in enumerate(images):
-        #             hash_image = hashlib.sha1(image.tobytes()).hexdigest()
-        #             image_filename = (
-        #                 class_images_dir
-        #                 / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
-        #             )
-        #             image.save(image_filename)
-
-        #     del pipeline
-        #     if torch.cuda.is_available():
-        #         torch.cuda.empty_cache()
 
     # Handle the repository creation
     if accelerator.is_main_process:
@@ -800,6 +736,7 @@ def main(args, controlnet_prompts):
     )
 
     train_dataset = ContinuousWordDataset(
+        num_steps=args.num_stage1_steps + args.num_stage2_steps,
         controlnet_prompts=controlnet_prompts,
         instance_data_root=args.instance_data_dir,
         controlnet_data_dir = args.controlnet_data_dir,
@@ -876,20 +813,11 @@ def main(args, controlnet_prompts):
         num_workers=1,
     )
 
-    # Scheduler and math around the number of training steps.
-    overrode_max_train_steps = False
-    num_update_steps_per_epoch = math.ceil(
-        len(train_dataloader) / args.gradient_accumulation_steps
-    )
-    if args.max_train_steps is None:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-        overrode_max_train_steps = True
-
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
         optimizer=optimizer,
         num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
-        num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,
+        num_training_steps=(args.num_stage1_steps + args.num_stage2_steps) * args.gradient_accumulation_steps,
     )
 
     """
@@ -907,8 +835,6 @@ def main(args, controlnet_prompts):
     pos_size = 2
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
     continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=1e-3)
-    print("The current continuous MLP: {}".format(continuous_word_model))
-    
     
     if args.train_text_encoder:
         (
@@ -953,51 +879,56 @@ def main(args, controlnet_prompts):
     if not args.train_text_encoder:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
 
-    # We need to recalculate our total training steps as the size of the training dataloader may have changed.
-    num_update_steps_per_epoch = math.ceil(
-        len(train_dataloader) / args.gradient_accumulation_steps
-    )
-    if overrode_max_train_steps:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-    # Afterwards we recalculate our number of training epochs
-    args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
-
-    # We need to initialize the trackers we use, and also store our configuration.
-    # The trackers initializes automatically on the main process.
-    if accelerator.is_main_process:
-        accelerator.init_trackers("dreambooth", config=vars(args))
-
-    # Train!
-    total_batch_size = (
-        args.train_batch_size
-        * accelerator.num_processes
-        * args.gradient_accumulation_steps
-    )
-
-    print("***** Running training *****")
-    print(f"  Num examples = {len(train_dataset)}")
-    print(f"  Num batches each epoch = {len(train_dataloader)}")
-    print(f"  Num Epochs = {args.num_train_epochs}")
-    print(f"  Instantaneous batch size per device = {args.train_batch_size}")
-    print(
-        f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}"
-    )
-    print(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
-    print(f"  Total optimization steps = {args.max_train_steps}")
-
     # Only show the progress bar once on each machine.
     progress_bar = tqdm(
-        range(args.max_train_steps), disable=not accelerator.is_local_main_process
+        range(args.num_stage1_steps + args.num_stage2_steps), disable=not accelerator.is_local_main_process
     )
-    progress_bar.set_description("Steps")
-    global_step = 0
+    global_step = torch.tensor([0.0]).to(accelerator.device)
     last_save = 0
 
     initial_weight = text_encoder.module.get_input_embeddings().weight.detach()
     
-    
-    for epoch in range(args.num_train_epochs):
-        unet.train()
+    unet.train()
+    """
+    ADOBE CONFIDENTIAL
+    Copyright 2024 Adobe
+    All Rights Reserved.
+    NOTICE: All information contained herein is, and remains
+    the property of Adobe and its suppliers, if any. The intellectual
+    and technical concepts contained herein are proprietary to Adobe 
+    and its suppliers and are protected by all applicable intellectual 
+    property laws, including trade secret and copyright laws. 
+    Dissemination of this information or reproduction of this material is 
+    strictly forbidden unless prior written permission is obtained from Adobe.
+    """
+    continuous_word_model.train()
+    """End Adobe CONFIDENTIAL"""
+    if args.train_text_encoder:
+        text_encoder.train()
+
+    for step, batch in enumerate(train_dataloader):
+        # Convert images to latent space
+        latents = vae.encode(
+            batch["pixel_values"].to(dtype=weight_dtype)
+        ).latent_dist.sample()
+        latents = latents * 0.18215
+
+        # Sample noise that we'll add to the latents
+        noise = torch.randn_like(latents)
+        bsz = latents.shape[0]
+        # Sample a random timestep for each image
+        timesteps = torch.randint(
+            0,
+            noise_scheduler.config.num_train_timesteps,
+            (bsz,),
+            device=latents.device,
+        )
+        timesteps = timesteps.long()
+
+        # Add noise to the latents according to the noise magnitude at each timestep
+        # (this is the forward diffusion process)
+        noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+
         """
         ADOBE CONFIDENTIAL
         Copyright 2024 Adobe
@@ -1010,238 +941,194 @@ def main(args, controlnet_prompts):
         Dissemination of this information or reproduction of this material is 
         strictly forbidden unless prior written permission is obtained from Adobe.
         """
-        continuous_word_model.train()
-        """End Adobe CONFIDENTIAL"""
-        if args.train_text_encoder:
-            text_encoder.train()
 
-        for step, batch in enumerate(train_dataloader):
-            # Convert images to latent space
-            latents = vae.encode(
-                batch["pixel_values"].to(dtype=weight_dtype)
-            ).latent_dist.sample()
-            latents = latents * 0.18215
-
-            # Sample noise that we'll add to the latents
-            noise = torch.randn_like(latents)
-            bsz = latents.shape[0]
-            # Sample a random timestep for each image
-            timesteps = torch.randint(
-                0,
-                noise_scheduler.config.num_train_timesteps,
-                (bsz,),
-                device=latents.device,
-            )
-            timesteps = timesteps.long()
-
-            # Add noise to the latents according to the noise magnitude at each timestep
-            # (this is the forward diffusion process)
-            noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-
-            """
-            ADOBE CONFIDENTIAL
-            Copyright 2024 Adobe
-            All Rights Reserved.
-            NOTICE: All information contained herein is, and remains
-            the property of Adobe and its suppliers, if any. The intellectual
-            and technical concepts contained herein are proprietary to Adobe 
-            and its suppliers and are protected by all applicable intellectual 
-            property laws, including trade secret and copyright laws. 
-            Dissemination of this information or reproduction of this material is 
-            strictly forbidden unless prior written permission is obtained from Adobe.
-            """
-
-            # Get the text embedding for conditioning
-            if global_step <= 5000:
-                print("Stage 1 training: Disentangling object identity first")
-                encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
-            else:
-                print("Stage 2 training: Learning Continuous Word MLP")
-                # normalization of the scalers
-                p = torch.Tensor((batch["scalers"])/(2 * math.pi))
-                
-                # Positional Encoding
-                x = torch.Tensor(
-                    [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
-
-                mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
-                text_encoder.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
-                
-                text_encoder.get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
-                encoder_hidden_states = text_encoder(batch["input_ids"])[0]
-
-            """End Adobe CONFIDENTIAL"""
-
-
-            # Predict the noise residual
-            model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
-
-            # Get the target for loss depending on the prediction type
-            if noise_scheduler.config.prediction_type == "epsilon":
-                target = noise
-            elif noise_scheduler.config.prediction_type == "v_prediction":
-                target = noise_scheduler.get_velocity(latents, noise, timesteps)
-            else:
-                raise ValueError(
-                    f"Unknown prediction type {noise_scheduler.config.prediction_type}"
-                )
-
-            if args.with_prior_preservation:
-                # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
-                model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
-                target, target_prior = torch.chunk(target, 2, dim=0)
-
-                # Compute instance loss
-                loss = (
-                    F.mse_loss(model_pred.float(), target.float(), reduction="none")
-                    .mean([1, 2, 3])
-                    .mean()
-                )
-
-                # Compute prior loss
-                prior_loss = F.mse_loss(
-                    model_pred_prior.float(), target_prior.float(), reduction="mean"
-                )
-
-                # Add the prior loss to the instance loss.
-                loss = loss + args.prior_loss_weight * prior_loss
-            else:
-                loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-
-            accelerator.backward(loss)
-            """
-            ADOBE CONFIDENTIAL
-            Copyright 2024 Adobe
-            All Rights Reserved.
-            NOTICE: All information contained herein is, and remains
-            the property of Adobe and its suppliers, if any. The intellectual
-            and technical concepts contained herein are proprietary to Adobe 
-            and its suppliers and are protected by all applicable intellectual 
-            property laws, including trade secret and copyright laws. 
-            Dissemination of this information or reproduction of this material is 
-            strictly forbidden unless prior written permission is obtained from Adobe.
-            """
-            if accelerator.sync_gradients:
-                params_to_clip = (
-                    itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
-                    if args.train_text_encoder
-                    else unet.parameters()
-                )
-                accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-            continuous_word_optimizer.step()
+        # Get the text embedding for conditioning
+        if global_step <= args.num_stage1_steps: 
+            progress_bar.set_description(f"stage 1")
+            encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
+        else:
+            progress_bar.set_description(f"stage 2")
+            # normalization of the scalers
+            p = torch.Tensor((batch["scalers"])/(2 * math.pi))
             
-            optimizer.step()
-            lr_scheduler.step()
-            progress_bar.update(1)
-            optimizer.zero_grad()
-            continuous_word_optimizer.zero_grad()
-            """end Adobe CONFIDENTIAL"""
-            global_step += 1
+            # Positional Encoding
+            x = torch.Tensor(
+                [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
 
-            # Checks if the accelerator has performed an optimization step behind the scenes
-            if accelerator.sync_gradients:
-                if args.save_steps and global_step - last_save >= args.save_steps:
-                    if accelerator.is_main_process:
-                        # newer versions of accelerate allow the 'keep_fp32_wrapper' arg. without passing
-                        # it, the models will be unwrapped, and when they are then used for further training,
-                        # we will crash. pass this, but only to newer versions of accelerate. fixes
-                        # https://github.com/huggingface/diffusers/issues/1566
-                        accepts_keep_fp32_wrapper = "keep_fp32_wrapper" in set(
-                            inspect.signature(
-                                accelerator.unwrap_model
-                            ).parameters.keys()
-                        )
-                        extra_args = (
-                            {"keep_fp32_wrapper": True}
-                            if accepts_keep_fp32_wrapper
-                            else {}
-                        )
-                        pipeline = StableDiffusionPipeline.from_pretrained(
-                            args.pretrained_model_name_or_path,
-                            unet=accelerator.unwrap_model(unet, **extra_args),
-                            text_encoder=accelerator.unwrap_model(
-                                text_encoder, **extra_args
-                            ),
-                            revision=args.revision,
-                        )
+            mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
+            text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
+            
+            text_encoder.module.get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
+            assert torch.allclose(text_encoder.module.get_input_embeddings().weight, initial_weight)
+            encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
-                        filename_unet = (
-                            f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.pt"
-                        )
-                        filename_text_encoder = f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.text_encoder.pt"
-                        print(f"save weights {filename_unet}, {filename_text_encoder}")
-                        save_lora_weight(pipeline.unet, filename_unet)
-                        
-                        if args.output_format == "safe" or args.output_format == "both":
-                            loras = {}
-                            loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+        """End Adobe CONFIDENTIAL"""
 
-                            print("Cross Attention is also updated!")
 
-                            # """ If updating only cross attention """
-                            # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
+        # Predict the noise residual
+        model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-                            if args.train_text_encoder:
-                                loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+        # Get the target for loss depending on the prediction type
+        if noise_scheduler.config.prediction_type == "epsilon":
+            target = noise
+        elif noise_scheduler.config.prediction_type == "v_prediction":
+            target = noise_scheduler.get_velocity(latents, noise, timesteps)
+        else:
+            raise ValueError(
+                f"Unknown prediction type {noise_scheduler.config.prediction_type}"
+            )
 
-                            save_safeloras(loras, f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.safetensors")
-                            
-                            """
-                            ADOBE CONFIDENTIAL
-                            Copyright 2024 Adobe
-                            All Rights Reserved.
-                            NOTICE: All information contained herein is, and remains
-                            the property of Adobe and its suppliers, if any. The intellectual
-                            and technical concepts contained herein are proprietary to Adobe 
-                            and its suppliers and are protected by all applicable intellectual 
-                            property laws, including trade secret and copyright laws. 
-                            Dissemination of this information or reproduction of this material is 
-                            strictly forbidden unless prior written permission is obtained from Adobe.
-                            """
-                            torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp{epoch}_s{global_step}.pt")
-                            """End Adobe CONFIDENTIAL"""
-                        
-                        
+        if args.with_prior_preservation:
+            # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
+            model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
+            target, target_prior = torch.chunk(target, 2, dim=0)
+
+            # Compute instance loss
+            loss = (
+                F.mse_loss(model_pred.float(), target.float(), reduction="none")
+                .mean([1, 2, 3])
+                .mean()
+            )
+
+            # Compute prior loss
+            prior_loss = F.mse_loss(
+                model_pred_prior.float(), target_prior.float(), reduction="mean"
+            )
+
+            # Add the prior loss to the instance loss.
+            loss = loss + args.prior_loss_weight * prior_loss
+        else:
+            loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
+        accelerator.backward(loss)
+        """
+        ADOBE CONFIDENTIAL
+        Copyright 2024 Adobe
+        All Rights Reserved.
+        NOTICE: All information contained herein is, and remains
+        the property of Adobe and its suppliers, if any. The intellectual
+        and technical concepts contained herein are proprietary to Adobe 
+        and its suppliers and are protected by all applicable intellectual 
+        property laws, including trade secret and copyright laws. 
+        Dissemination of this information or reproduction of this material is 
+        strictly forbidden unless prior written permission is obtained from Adobe.
+        """
+        if accelerator.sync_gradients:
+            params_to_clip = (
+                itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
+                if args.train_text_encoder
+                else unet.parameters()
+            )
+            accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+        continuous_word_optimizer.step()
+        
+        optimizer.step()
+        lr_scheduler.step()
+        optimizer.zero_grad()
+        continuous_word_optimizer.zero_grad()
+        """end Adobe CONFIDENTIAL"""
+        global_step = global_step + accelerator.num_processes  
+        progress_bar.update(accelerator.num_processes)
+
+        if accelerator.sync_gradients:
+            if args.save_steps and global_step - last_save >= args.save_steps:
+                if accelerator.is_main_process:
+                    # newer versions of accelerate allow the 'keep_fp32_wrapper' arg. without passing
+                    # it, the models will be unwrapped, and when they are then used for further training,
+                    # we will crash. pass this, but only to newer versions of accelerate. fixes
+                    # https://github.com/huggingface/diffusers/issues/1566
+                    accepts_keep_fp32_wrapper = "keep_fp32_wrapper" in set(
+                        inspect.signature(
+                            accelerator.unwrap_model
+                        ).parameters.keys()
+                    )
+                    extra_args = (
+                        {"keep_fp32_wrapper": True}
+                        if accepts_keep_fp32_wrapper
+                        else {}
+                    )
+                    pipeline = StableDiffusionPipeline.from_pretrained(
+                        args.pretrained_model_name_or_path,
+                        unet=accelerator.unwrap_model(unet, **extra_args),
+                        text_encoder=accelerator.unwrap_model(
+                            text_encoder, **extra_args
+                        ),
+                        revision=args.revision,
+                    )
+
+                    filename_unet = (
+                        f"{args.output_dir}/lora_weight_{global_step}.pt"
+                    )
+                    filename_text_encoder = f"{args.output_dir}/lora_weight_{global_step}.text_encoder.pt"
+                    print(f"save weights {filename_unet}, {filename_text_encoder}")
+                    save_lora_weight(pipeline.unet, filename_unet)
+                    
+                    if args.output_format == "safe" or args.output_format == "both":
+                        loras = {}
+                        loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+
+                        print("Cross Attention is also updated!")
+
+                        # """ If updating only cross attention """
+                        # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
+
                         if args.train_text_encoder:
-                            save_lora_weight(
-                                pipeline.text_encoder,
-                                filename_text_encoder,
-                                target_replace_module=["CLIPAttention"],
-                            )
+                            loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
 
-                        for _up, _down in extract_lora_ups_down(pipeline.unet):
-                            print(
-                                "First Unet Layer's Up Weight is now : ",
-                                _up.weight.data,
-                            )
-                            print(
-                                "First Unet Layer's Down Weight is now : ",
-                                _down.weight.data,
-                            )
-                            break
-                        if args.train_text_encoder:
-                            for _up, _down in extract_lora_ups_down(
-                                pipeline.text_encoder,
-                                target_replace_module=["CLIPAttention"],
-                            ):
-                                print(
-                                    "First Text Encoder Layer's Up Weight is now : ",
-                                    _up.weight.data,
-                                )
-                                print(
-                                    "First Text Encoder Layer's Down Weight is now : ",
-                                    _down.weight.data,
-                                )
-                                break
+                        save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
+                        
+                        """
+                        ADOBE CONFIDENTIAL
+                        Copyright 2024 Adobe
+                        All Rights Reserved.
+                        NOTICE: All information contained herein is, and remains
+                        the property of Adobe and its suppliers, if any. The intellectual
+                        and technical concepts contained herein are proprietary to Adobe 
+                        and its suppliers and are protected by all applicable intellectual 
+                        property laws, including trade secret and copyright laws. 
+                        Dissemination of this information or reproduction of this material is 
+                        strictly forbidden unless prior written permission is obtained from Adobe.
+                        """
+                        torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp_{global_step}.pt")
+                        """End Adobe CONFIDENTIAL"""
+                    
+                    
+                    if args.train_text_encoder:
+                        save_lora_weight(
+                            pipeline.text_encoder,
+                            filename_text_encoder,
+                            target_replace_module=["CLIPAttention"],
+                        )
 
-                        last_save = global_step
+                    # for _up, _down in extract_lora_ups_down(pipeline.unet):
+                    #     print(
+                    #         "First Unet Layer's Up Weight is now : ",
+                    #         _up.weight.data,
+                    #     )
+                    #     print(
+                    #         "First Unet Layer's Down Weight is now : ",
+                    #         _down.weight.data,
+                    #     )
+                    #     break
+                    # if args.train_text_encoder:
+                    #     for _up, _down in extract_lora_ups_down(
+                    #         pipeline.text_encoder,
+                    #         target_replace_module=["CLIPAttention"],
+                    #     ):
+                    #         print(
+                    #             "First Text Encoder Layer's Up Weight is now : ",
+                    #             _up.weight.data,
+                    #         )
+                    #         print(
+                    #             "First Text Encoder Layer's Down Weight is now : ",
+                    #             _down.weight.data,
+                    #         )
+                    #         break
 
-            logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
-            progress_bar.set_postfix(**logs)
-            accelerator.log(logs, step=global_step)
+                    last_save = global_step
 
-            if global_step >= args.max_train_steps:
-                break
+        logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+        progress_bar.set_postfix(logs)
 
     accelerator.wait_for_everyone()
 
