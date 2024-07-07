@@ -993,7 +993,7 @@ def main(args, controlnet_prompts):
     global_step = 0
     last_save = 0
 
-    initial_weight = text_encoder.get_input_embeddings().weight.detach()
+    initial_weight = text_encoder.module.get_input_embeddings().weight.detach()
     
     
     for epoch in range(args.num_train_epochs):

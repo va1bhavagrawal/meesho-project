@@ -11,17 +11,18 @@ export OUTPUT_DIR="../ckpts/$FILE_ID/"
 export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
 
 
-export CUDA_VISIBLE_DEVICES=1
+# export CUDA_VISIBLE_DEVICES=1
 
 
-PROMPT="a photo of a $SUBJECT" 
-python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
+# PROMPT="a photo of a $SUBJECT" 
+# python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
 
 # rm -r ../training_data/img_resized/.ipynb_checkpoints
 # rm -r ../training_data/depth_generated_imgs/.ipynb_checkpoints
 # rm -r ../training_data/wingpose_preservation/.ipynb_checkpoints
 
-python3 train_wingpose.py \
+# python3 train_wingpose.py \
+accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
   --instance_data_dir=$INSTANCE_DIR \
