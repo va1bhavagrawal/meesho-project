@@ -10,13 +10,16 @@ property laws, including trade secret and copyright laws.
 Dissemination of this information or reproduction of this material is 
 strictly forbidden unless prior written permission is obtained from Adobe.
 """
+import os
+import os.path as osp 
+os.environ["HF_HOME"] = "/ssd_scratch/cvit/vaibhav/"
+
+ROOT_CKPT_DIR = "/ssd_scratch/cvit/vaibhav/"
 
 from diffusers import StableDiffusionPipeline, EulerAncestralDiscreteScheduler
 from lora_diffusion import patch_pipe
 import torch
 import torch.nn as nn
-import os
-import os.path as osp 
 from transformers import CLIPTextModel, CLIPTokenizer
 from training_scripts.continuous_word_mlp import continuous_word_mlp
 
@@ -35,28 +38,35 @@ pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.conf
 #     patch_unet=True,
 # )
 
-subject = "shoe"  
+subject = "template_truck"  
 
 checkpoints = [
     # "59_s6000",
     # "119_s12000", 
     # "179_s18000", 
     # "239_s24000", 
-    "299_s30000",
+    "166_s30000",
 ]
 
 for checkpoint in checkpoints:
     print(f"doing checkpoint {checkpoint}") 
     patch_pipe(
         pipe,
-        osp.join(f"ckpts/{subject}/lora_weight_e{checkpoint}.safetensors"), 
+        osp.join(ROOT_CKPT_DIR, f"ckpts/{subject}/lora_weight_e{checkpoint}.safetensors"), 
         patch_text=True,
         patch_ti=True,
         patch_unet=True,
     )
 
     continuous_word_model = continuous_word_mlp(input_size = 2, output_size = 1024)
-    continuous_word_model.load_state_dict(torch.load(f"ckpts/{subject}/mlp{checkpoint}.pt"))
+    new_state_dict = {}
+    state_dict = torch.load(osp.join(ROOT_CKPT_DIR, f"ckpts/{subject}/mlp{checkpoint}.pt"))
+    for key, value in state_dict.items():
+        if key.find(f"module") != -1:
+            new_state_dict[key.replace(f"module.", "")] = value
+        else:
+            new_state_dict[key] = value  
+    continuous_word_model.load_state_dict(new_state_dict) 
     continuous_word_model.eval()
 
     tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
@@ -70,7 +80,7 @@ for checkpoint in checkpoints:
             truncation=True, \
             max_length = tokenizer.model_max_length).input_ids[1]
 
-    interpolation_gap = 12
+    interpolation_gap = 90
     values = []
     for idx in range(interpolation_gap):
         value = idx / interpolation_gap
@@ -87,7 +97,7 @@ for checkpoint in checkpoints:
             pipe.text_encoder.get_input_embeddings().weight[corresponding_emb] = mlp_emb
 
         torch.manual_seed(50)
-        prompt = 'a sks photo of a bnha shoe'  
+        prompt = 'a sks photo of a bnha pickup truck in a modern city. The city is futuristic with modern, high rise buildings, well built roads, street lamps, footpaths and is very modern.'  
         # image = pipe(prompt, negative_prompt="bnha, worst quality", num_inference_steps=50, guidance_scale=6).images[0]
         image = pipe(prompt, negative_prompt="", num_inference_steps=50, guidance_scale=6).images[0]
         img_list.append(image)
