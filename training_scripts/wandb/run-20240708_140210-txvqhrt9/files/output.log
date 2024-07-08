@@ -2973,3 +2973,96 @@ Steps:  23%|█████████████▍                          
 
 Steps:  23%|█████████████▍                                             | 6844/30000 [38:31<2:17:16,  2.81it/s, loss=tensor(0.6829, device='cuda:0'), lr=0.0004]
 Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▍                                             | 6852/30000 [38:34<2:13:00,  2.90it/s, loss=tensor(0.5440, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▍                                             | 6856/30000 [38:35<2:11:33,  2.93it/s, loss=tensor(0.5561, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▍                                             | 6864/30000 [38:38<2:09:28,  2.98it/s, loss=tensor(0.5795, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▌                                             | 6868/30000 [38:39<2:09:36,  2.97it/s, loss=tensor(0.4493, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▌                                             | 6876/30000 [38:42<2:08:54,  2.99it/s, loss=tensor(0.7104, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▌                                             | 6880/30000 [38:43<2:08:45,  2.99it/s, loss=tensor(0.7197, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▌                                             | 6888/30000 [38:46<2:08:02,  3.01it/s, loss=tensor(0.3956, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▌                                             | 6892/30000 [38:47<2:08:00,  3.01it/s, loss=tensor(0.4328, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▌                                             | 6900/30000 [38:50<2:08:04,  3.01it/s, loss=tensor(0.5044, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▌                                             | 6904/30000 [38:51<2:07:58,  3.01it/s, loss=tensor(0.5988, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▌                                             | 6912/30000 [38:54<2:07:56,  3.01it/s, loss=tensor(0.5962, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▌                                             | 6916/30000 [38:55<2:08:10,  3.00it/s, loss=tensor(0.5249, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▌                                             | 6924/30000 [38:58<2:08:17,  3.00it/s, loss=tensor(0.5520, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▋                                             | 6928/30000 [38:59<2:08:45,  2.99it/s, loss=tensor(0.8136, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▋                                             | 6936/30000 [39:02<2:08:44,  2.99it/s, loss=tensor(0.5721, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▋                                             | 6940/30000 [39:03<2:08:07,  3.00it/s, loss=tensor(0.4792, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▋                                             | 6948/30000 [39:06<2:07:39,  3.01it/s, loss=tensor(0.4735, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▋                                             | 6952/30000 [39:07<2:07:31,  3.01it/s, loss=tensor(0.4455, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▋                                             | 6960/30000 [39:10<2:07:48,  3.00it/s, loss=tensor(0.5102, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▋                                             | 6964/30000 [39:11<2:07:14,  3.02it/s, loss=tensor(0.6614, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▋                                             | 6972/30000 [39:14<2:07:44,  3.00it/s, loss=tensor(0.4299, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▋                                             | 6976/30000 [39:15<2:07:40,  3.01it/s, loss=tensor(0.4062, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▋                                             | 6984/30000 [39:18<2:07:19,  3.01it/s, loss=tensor(0.4924, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▋                                             | 6988/30000 [39:19<2:07:31,  3.01it/s, loss=tensor(0.5772, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▊                                             | 6996/30000 [39:22<2:07:02,  3.02it/s, loss=tensor(0.5237, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▊                                             | 7000/30000 [39:23<2:12:57,  2.88it/s, loss=tensor(0.5237, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▊                                             | 7004/30000 [39:25<2:35:50,  2.46it/s, loss=tensor(0.4339, device='cuda:0'), lr=0.0004]
+save weights /ssd_scratch/cvit/vaibhav/ckpts/template_truck//lora_weight_e38_s7000.pt, /ssd_scratch/cvit/vaibhav/ckpts/template_truck//lora_weight_e38_s7000.text_encoder.pt
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+Cross Attention is also updated!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+['CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention']
+Saving weights to /ssd_scratch/cvit/vaibhav/ckpts/template_truck//lora_weight_e38_s7000.safetensors
+['CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention']
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▊                                             | 7008/30000 [39:27<2:27:59,  2.59it/s, loss=tensor(0.4705, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▊                                             | 7016/30000 [39:29<2:17:44,  2.78it/s, loss=tensor(0.5635, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▊                                             | 7020/30000 [39:31<2:17:35,  2.78it/s, loss=tensor(0.4880, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▊                                             | 7028/30000 [39:34<2:17:24,  2.79it/s, loss=tensor(0.4195, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▊                                             | 7032/30000 [39:35<2:14:07,  2.85it/s, loss=tensor(0.5329, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  23%|█████████████▊                                             | 7040/30000 [39:38<2:10:38,  2.93it/s, loss=tensor(0.3893, device='cuda:0'), lr=0.0004]
+
+Steps:  23%|█████████████▊                                             | 7044/30000 [39:39<2:09:41,  2.95it/s, loss=tensor(0.5533, device='cuda:0'), lr=0.0004]
+Stage 2 training: Learning Continuous Word MLP
+
+Steps:  24%|█████████████▊                                             | 7052/30000 [39:42<2:08:20,  2.98it/s, loss=tensor(0.5013, device='cuda:0'), lr=0.0004]
