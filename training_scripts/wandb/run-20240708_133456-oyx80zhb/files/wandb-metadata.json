@@ -1,0 +1,283 @@
+{
+    "os": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+    "python": "3.9.19",
+    "heartbeatAt": "2024-07-08T08:04:57.653357",
+    "startedAt": "2024-07-08T08:04:56.662159",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--pretrained_model_name_or_path=stabilityai/stable-diffusion-2-1",
+        "--controlnet_data_dir=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/controlnet_imgs_template_truck/",
+        "--instance_data_dir=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/ref_imgs_template_truck/",
+        "--output_dir=/ssd_scratch/cvit/vaibhav/ckpts/template_truck/",
+        "--instance_prompt=Continuous MLP Training",
+        "--train_text_encoder",
+        "--resolution=512",
+        "--train_batch_size=1",
+        "--gradient_accumulation_steps=1",
+        "--learning_rate=1e-4",
+        "--learning_rate_text=5e-5",
+        "--color_jitter",
+        "--lr_scheduler=constant",
+        "--lr_warmup_steps=0",
+        "--max_train_steps=30000",
+        "--with_prior_preservation",
+        "--root_data_dir=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/",
+        "--controlnet_prompts_file=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prompts_blue_truck.txt",
+        "--subject=pickup truck",
+        "--class_prompt=a photo of a pickup truck",
+        "--wandb",
+        "--class_data_dir=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prior_imgs_template_truck/"
+    ],
+    "state": "running",
+    "program": "/home2/vaibhav19ada/vaibhav/training_scripts/train.py",
+    "codePathLocal": "train.py",
+    "codePath": "training_scripts/train.py",
+    "git": {
+        "remote": "https://github.com/va1bhavagrawal/meesho-project.git",
+        "commit": "18c6dfaaaa032286eff5de755e01ca3c3b499ed8"
+    },
+    "email": "agrvaibhav19@gmail.com",
+    "root": "/home2/vaibhav19ada/vaibhav",
+    "host": "gnode008",
+    "username": "vaibhav19ada",
+    "executable": "/home2/vaibhav19ada/miniconda3/envs/contwords/bin/python",
+    "cpu_count": 20,
+    "cpu_count_logical": 40,
+    "cpu_freq": {
+        "current": 1278.737175,
+        "min": 1200.0,
+        "max": 3400.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1203.093,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.467,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1584.703,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1203.25,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.688,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.652,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.969,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1288.619,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1697.443,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1203.027,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1613.015,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1203.295,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1201.749,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.835,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.815,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1201.958,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1303.38,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1218.635,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1303.618,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.828,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.561,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.816,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2101.641,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.684,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.626,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.812,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.366,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1289.254,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1896.122,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.934,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1624.535,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.283,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.145,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1282.463,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.491,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.264,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1277.738,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1238.292,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1301.018,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.946,
+            "min": 1200.0,
+            "max": 3400.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 136.48257064819336,
+            "used": 63.940093994140625
+        }
+    },
+    "gpu": "NVIDIA GeForce GTX 1080 Ti",
+    "gpu_count": 4,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce GTX 1080 Ti",
+            "memory_total": 11811160064
+        },
+        {
+            "name": "NVIDIA GeForce GTX 1080 Ti",
+            "memory_total": 11811160064
+        },
+        {
+            "name": "NVIDIA GeForce GTX 1080 Ti",
+            "memory_total": 11811160064
+        },
+        {
+            "name": "NVIDIA GeForce GTX 1080 Ti",
+            "memory_total": 11811160064
+        }
+    ],
+    "memory": {
+        "total": 125.7869987487793
+    }
+}

@@ -1,0 +1,283 @@
+{
+    "os": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+    "python": "3.9.19",
+    "heartbeatAt": "2024-07-08T08:32:11.275611",
+    "startedAt": "2024-07-08T08:32:10.243246",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--pretrained_model_name_or_path=stabilityai/stable-diffusion-2-1",
+        "--controlnet_data_dir=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/controlnet_imgs_template_truck/",
+        "--instance_data_dir=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/ref_imgs_template_truck/",
+        "--output_dir=/ssd_scratch/cvit/vaibhav/ckpts/template_truck/",
+        "--instance_prompt=Continuous MLP Training",
+        "--train_text_encoder",
+        "--resolution=512",
+        "--train_batch_size=1",
+        "--gradient_accumulation_steps=1",
+        "--learning_rate=1e-4",
+        "--learning_rate_text=5e-5",
+        "--color_jitter",
+        "--lr_scheduler=constant",
+        "--lr_warmup_steps=0",
+        "--max_train_steps=30000",
+        "--with_prior_preservation",
+        "--root_data_dir=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/",
+        "--controlnet_prompts_file=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prompts_blue_truck.txt",
+        "--subject=pickup truck",
+        "--class_prompt=a photo of a pickup truck",
+        "--wandb",
+        "--class_data_dir=/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prior_imgs_template_truck/"
+    ],
+    "state": "running",
+    "program": "/home2/vaibhav19ada/vaibhav/training_scripts/train.py",
+    "codePathLocal": "train.py",
+    "codePath": "training_scripts/train.py",
+    "git": {
+        "remote": "https://github.com/va1bhavagrawal/meesho-project.git",
+        "commit": "18c6dfaaaa032286eff5de755e01ca3c3b499ed8"
+    },
+    "email": "agrvaibhav19@gmail.com",
+    "root": "/home2/vaibhav19ada/vaibhav",
+    "host": "gnode075",
+    "username": "vaibhav19ada",
+    "executable": "/home2/vaibhav19ada/miniconda3/envs/contwords/bin/python",
+    "cpu_count": 20,
+    "cpu_count_logical": 40,
+    "cpu_freq": {
+        "current": 1269.3489250000002,
+        "min": 1200.0,
+        "max": 3400.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2329.995,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1203.012,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1201.471,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1201.915,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.532,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.884,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1429.64,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1201.404,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.539,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.531,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2011.314,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1203.363,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.087,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1204.075,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.59,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.684,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.504,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.403,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.327,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1202.371,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2146.36,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.265,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1199.964,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.911,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.521,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.521,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1471.446,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.85,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.739,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1201.136,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 2318.646,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.216,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.055,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.484,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.881,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.707,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.502,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.632,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.972,
+            "min": 1200.0,
+            "max": 3400.0
+        },
+        {
+            "current": 1200.701,
+            "min": 1200.0,
+            "max": 3400.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 219.00129318237305,
+            "used": 63.63309860229492
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 2080 Ti",
+    "gpu_count": 4,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 2080 Ti",
+            "memory_total": 11811160064
+        },
+        {
+            "name": "NVIDIA GeForce RTX 2080 Ti",
+            "memory_total": 11811160064
+        },
+        {
+            "name": "NVIDIA GeForce RTX 2080 Ti",
+            "memory_total": 11811160064
+        },
+        {
+            "name": "NVIDIA GeForce RTX 2080 Ti",
+            "memory_total": 11811160064
+        }
+    ],
+    "memory": {
+        "total": 125.78252792358398
+    }
+}

@@ -1,0 +1,28 @@
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Current SDK version is 0.17.4
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Configure stats pid to 36241
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Loading settings from /home2/vaibhav19ada/.config/wandb/settings
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Loading settings from /home2/vaibhav19ada/vaibhav/training_scripts/wandb/settings
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'training_scripts/train.py', 'program_abspath': '/home2/vaibhav19ada/vaibhav/training_scripts/train.py', 'program': '/home2/vaibhav19ada/vaibhav/training_scripts/train.py'}
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Applying login settings: {'api_key': '***REDACTED***'}
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Applying login settings: {'api_key': '***REDACTED***'}
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_setup.py:_flush():76] Applying login settings: {}
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_init.py:_log_setup():529] Logging user logs to /home2/vaibhav19ada/vaibhav/training_scripts/wandb/run-20240708_134217-pwrv1zyh/logs/debug.log
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_init.py:_log_setup():530] Logging internal logs to /home2/vaibhav19ada/vaibhav/training_scripts/wandb/run-20240708_134217-pwrv1zyh/logs/debug-internal.log
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_init.py:init():569] calling init triggers
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_init.py:init():576] wandb.init called with sweep_config: {}
+config: {}
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_init.py:init():619] starting backend
+2024-07-08 13:42:17,172 INFO    MainThread:36241 [wandb_init.py:init():623] setting up manager
+2024-07-08 13:42:17,174 INFO    MainThread:36241 [backend.py:_multiprocessing_setup():105] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2024-07-08 13:42:17,177 INFO    MainThread:36241 [wandb_init.py:init():631] backend started and connected
+2024-07-08 13:42:17,182 INFO    MainThread:36241 [wandb_init.py:init():720] updated telemetry
+2024-07-08 13:42:17,214 INFO    MainThread:36241 [wandb_init.py:init():753] communicating run to backend with 90.0 second timeout
+2024-07-08 13:42:17,956 INFO    MainThread:36241 [wandb_run.py:_on_init():2402] communicating current version
+2024-07-08 13:42:18,064 INFO    MainThread:36241 [wandb_run.py:_on_init():2411] got version response 
+2024-07-08 13:42:18,065 INFO    MainThread:36241 [wandb_init.py:init():804] starting run threads in backend
+2024-07-08 13:42:21,389 INFO    MainThread:36241 [wandb_run.py:_console_start():2380] atexit reg
+2024-07-08 13:42:21,389 INFO    MainThread:36241 [wandb_run.py:_redirect():2235] redirect: wrap_raw
+2024-07-08 13:42:21,390 INFO    MainThread:36241 [wandb_run.py:_redirect():2300] Wrapping output streams.
+2024-07-08 13:42:21,390 INFO    MainThread:36241 [wandb_run.py:_redirect():2325] Redirects installed.
+2024-07-08 13:42:21,395 INFO    MainThread:36241 [wandb_init.py:init():847] run started, returning control to user process

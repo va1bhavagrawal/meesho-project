@@ -1,0 +1,20 @@
+/home2/vaibhav19ada/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1132: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+Differences: 0
+Updating cross attention only!
+['CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention', 'CLIPAttention']
+/home2/vaibhav19ada/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+Differences: 0
+Length of images used for training 180
+The current continuous MLP: continuous_word_mlp(
+  (fc1): Linear(in_features=2, out_features=20, bias=True)
+  (fc2): Linear(in_features=20, out_features=1024, bias=True)
+  (relu): ReLU()
+  (tanh): Tanh()
+)
+Steps:   0%|                                                                                                                         | 0/30000 [00:00<?, ?it/s]
+Stage 1 training: Disentangling object identity first
+

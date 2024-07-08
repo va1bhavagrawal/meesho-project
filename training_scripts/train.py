@@ -55,6 +55,7 @@ from continuous_word_mlp import continuous_word_mlp
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
+import wandb 
 
 """
 ADOBE CONFIDENTIAL
@@ -96,12 +97,9 @@ class ContinuousWordDataset(Dataset):
         self.resize = resize
         self.controlnet_prompts = controlnet_prompts
 
-        print(f"{instance_data_root = }")
-        print(f"{glob.glob(instance_data_root) = }")
         self.instance_images_path = []
         for cur_root in glob.glob(instance_data_root):
             self.instance_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
-            print(self.instance_images_path)
         
         self.controlnet_images_path = []
         for cur_root in glob.glob(controlnet_data_dir):
@@ -152,24 +150,7 @@ class ContinuousWordDataset(Dataset):
 
     def __getitem__(self, index):
         example = {}
-        
-        # Randomly ControlNet images for data augmentation
-        # if index % 5 != 0:
-        #     instance_image = Image.open(
-        #         self.instance_images_path[index % self.num_instance_images]
-        #     )
-        #     print("Choosing from standard viewpoint set!, Not control")
-        # else:
-        #     instance_image = Image.open(
-        #         self.controlnet_images_path[index % self.num_controlnet_images]
-        #     )
-        #     print("Choosing from controlnet viewpoint set!")
-        
-        # if not instance_image.mode == "RGB":
-        #     instance_image = instance_image.convert("RGB")
-        # example["instance_images"] = self.image_transforms(instance_image)
 
-            
         instance_img_path = self.instance_images_path[index % self.num_instance_images]
         angle = float(str(instance_img_path).split("/")[-1].split("_.jpg")[0]) 
         example["scaler"] = angle 
@@ -271,11 +252,28 @@ logger = get_logger(__name__)
 def parse_args(input_args=None):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
+        "--wandb",
+        action="store_true",
+        help="whether to use wandb or not ",
+    )
+    parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
         default=None,
         required=True,
         help="Path to pretrained model or model identifier from huggingface.co/models.",
+    )
+    parser.add_argument(
+        "--run_name",
+        type=str,
+        default=None,
+        help="the wandb run name",
+    )
+    parser.add_argument(
+        "--project",
+        type=str,
+        default="iisc",
+        help="the wandb project name",
     )
     parser.add_argument(
         "--controlnet_prompts_file",
@@ -461,12 +459,6 @@ def parse_args(input_args=None):
         help="Initial learning rate for text encoder (after the potential warmup period) to use.",
     )
     parser.add_argument(
-        "--scale_lr",
-        action="store_true",
-        default=False,
-        help="Scale the learning rate by the number of GPUs, gradient accumulation steps, and batch size.",
-    )
-    parser.add_argument(
         "--lr_scheduler",
         type=str,
         default="constant",
@@ -627,6 +619,17 @@ def main(args, controlnet_prompts):
         logging_dir=logging_dir,
     )
 
+    if args.wandb and accelerator.is_main_process:
+        wandb.login(key="6ab81b60046f7d7f6a7dca014a2fcaf4538ff14a") 
+        if args.run_name is None: 
+            wandb.init(project=args.project)
+        else:
+            wandb.init(project=args.project, name=args.run_name)
+    
+    if args.wandb:
+        wandb_log_data = {}
+        
+
     # Currently, it's not possible to do gradient accumulation when training two models with accelerate.accumulate
     # This will be enabled soon in accelerate. For now, we don't allow gradient accumulation when training two models.
     # TODO (patil-suraj): Remove this check when gradient accumulation with two models is enabled in accelerate.
@@ -650,47 +653,6 @@ def main(args, controlnet_prompts):
         cur_class_images = len(list(class_images_dir.iterdir()))
 
         assert cur_class_images == args.num_class_images 
-        # if cur_class_images < args.num_class_images:
-        #     torch_dtype = (
-        #         torch.float16 if accelerator.device.type == "cuda" else torch.float32
-        #     )
-        #     pipeline = StableDiffusionPipeline.from_pretrained(
-        #         args.pretrained_model_name_or_path,
-        #         torch_dtype=torch_dtype,
-        #         safety_checker=None,
-        #         revision=args.revision,
-        #     )
-        #     pipeline.set_progress_bar_config(disable=True)
-
-        #     num_new_images = args.num_class_images - cur_class_images
-        #     logger.info(f"Number of class images to sample: {num_new_images}.")
-
-        #     sample_dataset = PromptDataset(args.class_prompt, num_new_images)
-        #     sample_dataloader = torch.utils.data.DataLoader(
-        #         sample_dataset, batch_size=args.sample_batch_size
-        #     )
-
-        #     sample_dataloader = accelerator.prepare(sample_dataloader)
-        #     pipeline.to(accelerator.device)
-
-        #     for example in tqdm(
-        #         sample_dataloader,
-        #         desc="Generating class images",
-        #         disable=not accelerator.is_local_main_process,
-        #     ):
-        #         images = pipeline(example["prompt"]).images
-
-        #         for i, image in enumerate(images):
-        #             hash_image = hashlib.sha1(image.tobytes()).hexdigest()
-        #             image_filename = (
-        #                 class_images_dir
-        #                 / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
-        #             )
-        #             image.save(image_filename)
-
-        #     del pipeline
-        #     if torch.cuda.is_available():
-        #         torch.cuda.empty_cache()
 
     # Handle the repository creation
     if accelerator.is_main_process:
@@ -764,13 +726,12 @@ def main(args, controlnet_prompts):
         if args.train_text_encoder:
             text_encoder.gradient_checkpointing_enable()
 
-    if args.scale_lr:
-        args.learning_rate = (
-            args.learning_rate
-            * args.gradient_accumulation_steps
-            * args.train_batch_size
-            * accelerator.num_processes
-        )
+    args.learning_rate = (
+        args.learning_rate
+        * args.gradient_accumulation_steps
+        * args.train_batch_size
+        * accelerator.num_processes
+    )
 
     # Use 8-bit Adam for lower memory usage or to fine-tune the model in 16GB GPUs
     if args.use_8bit_adam:
@@ -982,30 +943,13 @@ def main(args, controlnet_prompts):
     if accelerator.is_main_process:
         accelerator.init_trackers("dreambooth", config=vars(args))
 
-    # Train!
-    total_batch_size = (
-        args.train_batch_size
-        * accelerator.num_processes
-        * args.gradient_accumulation_steps
-    )
-
-    print("***** Running training *****")
-    print(f"  Num examples = {len(train_dataset)}")
-    print(f"  Num batches each epoch = {len(train_dataloader)}")
-    print(f"  Num Epochs = {args.num_train_epochs}")
-    print(f"  Instantaneous batch size per device = {args.train_batch_size}")
-    print(
-        f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}"
-    )
-    print(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
-    print(f"  Total optimization steps = {args.max_train_steps}")
-
     # Only show the progress bar once on each machine.
     progress_bar = tqdm(
         range(args.max_train_steps), disable=not accelerator.is_local_main_process
     )
     progress_bar.set_description("Steps")
     global_step = 0
+    ddp_step = 0
     last_save = 0
 
     initial_weight = text_encoder.module.get_input_embeddings().weight.detach()
@@ -1136,11 +1080,46 @@ def main(args, controlnet_prompts):
             Dissemination of this information or reproduction of this material is 
             strictly forbidden unless prior written permission is obtained from Adobe.
             """
+
+            # since backward pass is done, the gradients would be ready! time to store grad norms!
+
+            # calculate the gradient norm for each of the trainable parameters 
+            # TODO: see the error in the grad norm computation, gathering and logging 
+            # if args.wandb:
+            #     unet_grad_norm = [param.grad.norm() for param in unet.parameters() if param.grad is not None]
+            #     if len(unet_grad_norm) == 0:
+            #         unet_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+            #     else:
+            #         unet_grad_norm = torch.norm(torch.stack(unet_grad_norm)) 
+            #     mlp_grad_norm = [param.grad.norm() for param in continuous_word_model.parameters() if param.grad is not None]
+            #     if len(mlp_grad_norm) == 0:
+            #         mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+            #     else:
+            #         mlp_grad_norm = torch.norm(torch.stack(mlp_grad_norm)) 
+            #     if args.train_text_encoder: 
+            #         text_encoder_grad_norm = [param.grad.norm() for param in text_encoder.parameters() if param.grad is not None]
+            #         if len(text_encoder_grad_norm) == 0:
+            #             text_encoder_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+            #         else:
+            #             text_encoder_grad_norm = torch.norm(torch.stack(text_encoder_grad_norm)) 
+            #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm, text_encoder_grad_norm]) 
+            #     else:
+            #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm]) 
+
+            #     # gathering all the norms at once to prevent excessive multi gpu communication 
+            #     gathered_grad_norms = torch.mean(accelerator.gather(all_grad_norms), 0) 
+            #     wandb_log_data["unet_grad_norm"] = gathered_grad_norms[0] 
+            #     wandb_log_data["mlp_grad_norm"] =  gathered_grad_norms[1] 
+            #     if args.train_text_encoder: 
+            #         wandb_log_data["text_encoder_grad_norm"] = gathered_grad_norms[2]   
+
+
+            # gradient clipping 
             if accelerator.sync_gradients:
                 params_to_clip = (
                     itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
                     if args.train_text_encoder
-                    else unet.parameters()
+                    else itertools.chain(unet.parameters(), continuous_word_model.parameters())
                 )
                 accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
             continuous_word_optimizer.step()
@@ -1151,7 +1130,30 @@ def main(args, controlnet_prompts):
             optimizer.zero_grad()
             continuous_word_optimizer.zero_grad()
             """end Adobe CONFIDENTIAL"""
+
+            # since we have stepped, time to log weight norms!
+
+            # calculate the weight norm for each of the trainable parameters 
+            # if args.wandb:
+            #     unet_norm = torch.norm(torch.stack([param for param in unet.parameters()])) 
+            #     mlp_norm = torch.norm(torch.stack([param for param in continuous_word_model.parameters()])) 
+            #     if args.train_text_encoder: 
+            #         text_encoder_norm = torch.norm(torch.stack([param for param in text_encoder.parameters()])) 
+            #         all_grad_norms = torch.stack([unet_norm, mlp_norm, text_encoder_norm]) 
+            #     else:
+            #         all_grad_norms = torch.stack([unet_norm, mlp_norm]) 
+                
+            #     gathered_norms = torch.mean(accelerator.gather(all_grad_norms), 0)
+            #     wandb_log_data["unet_weight_norm"] = gathered_norms[0]
+            #     wandb_log_data["mlp_weight_norm"] = gathered_norms[1]
+            #     if args.train_text_encoder: 
+            #         wandb_log_data["text_encoder_weight_norm"] = gathered_norms[2] 
+
+            
             global_step += accelerator.num_processes  
+            ddp_step += 1
+            if args.wandb:
+                wandb_log_data["global_step"] = global_step 
 
             # Checks if the accelerator has performed an optimization step behind the scenes
             if accelerator.sync_gradients:
@@ -1224,34 +1226,45 @@ def main(args, controlnet_prompts):
                                 target_replace_module=["CLIPAttention"],
                             )
 
-                        for _up, _down in extract_lora_ups_down(pipeline.unet):
-                            print(
-                                "First Unet Layer's Up Weight is now : ",
-                                _up.weight.data,
-                            )
-                            print(
-                                "First Unet Layer's Down Weight is now : ",
-                                _down.weight.data,
-                            )
-                            break
-                        if args.train_text_encoder:
-                            for _up, _down in extract_lora_ups_down(
-                                pipeline.text_encoder,
-                                target_replace_module=["CLIPAttention"],
-                            ):
-                                print(
-                                    "First Text Encoder Layer's Up Weight is now : ",
-                                    _up.weight.data,
-                                )
-                                print(
-                                    "First Text Encoder Layer's Down Weight is now : ",
-                                    _down.weight.data,
-                                )
-                                break
+                        # for _up, _down in extract_lora_ups_down(pipeline.unet):
+                        #     print(
+                        #         "First Unet Layer's Up Weight is now : ",
+                        #         _up.weight.data,
+                        #     )
+                        #     print(
+                        #         "First Unet Layer's Down Weight is now : ",
+                        #         _down.weight.data,
+                        #     )
+                        #     break
+                        # if args.train_text_encoder:
+                        #     for _up, _down in extract_lora_ups_down(
+                        #         pipeline.text_encoder,
+                        #         target_replace_module=["CLIPAttention"],
+                        #     ):
+                        #         print(
+                        #             "First Text Encoder Layer's Up Weight is now : ",
+                        #             _up.weight.data,
+                        #         )
+                        #         print(
+                        #             "First Text Encoder Layer's Down Weight is now : ",
+                        #             _down.weight.data,
+                        #         )
+                        #         break
 
                         last_save = global_step
 
-            logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+            loss = loss.detach()
+            gathered_loss = torch.mean(accelerator.gather(loss), 0)
+            if args.wandb:
+                wandb_log_data["loss"] = gathered_loss
+                wandb_log_data["lr"] =  lr_scheduler.get_last_lr()[0]
+
+            if args.wandb and accelerator.is_main_process and ddp_step % 5 == 0: 
+                # finally logging!
+                wandb.log(wandb_log_data) 
+
+            logs = {"loss": gathered_loss, "lr": lr_scheduler.get_last_lr()[0]}
+
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
 
@@ -1259,6 +1272,7 @@ def main(args, controlnet_prompts):
                 break
 
     accelerator.wait_for_everyone()
+    wandb.finish() 
 
     # Create the pipeline using using the trained modules and save it.
     if accelerator.is_main_process:

@@ -34,7 +34,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
   --color_jitter \
-  --scale_lr \
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
   --max_train_steps=30000 \
@@ -43,4 +42,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

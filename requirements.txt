@@ -5,3 +5,4 @@ accelerate==0.18.0
 diffusers==0.16.1
 fire==0.6.0
 safetensors==0.4.3
+wandb 

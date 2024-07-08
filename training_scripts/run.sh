@@ -1,27 +1,20 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
 
-export HF_HOME="/ssd_scratch/cvit/vaibhav/"
-
-rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav/
-mkdir /ssd_scratch/cvit/vaibhav 
-scp -r vaibhav19ada@ada.iiit.ac.in:/share3/vaibhav19ada/training_data_vaibhav.zip /ssd_scratch/cvit/vaibhav/
-cd /ssd_scratch/cvit/vaibhav
-unzip training_data_vaibhav.zip
-cd -
-
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/ref_imgs_$FILE_ID/"
-export CONTROLNET_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/controlnet_imgs_$FILE_ID/"
-export OUTPUT_DIR="/ssd_scratch/cvit/vaibhav/ckpts/$FILE_ID/"
-export CLASS_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prior_imgs_$FILE_ID/"
-export ROOT_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/"
-export CONTROLNET_PROMPTS_FILE="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prompts_blue_truck.txt"
+export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$FILE_ID"
+export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_$FILE_ID"
+export OUTPUT_DIR="../ckpts/$FILE_ID/"
+export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
+
+# export CUDA_VISIBLE_DEVICES=1
 
 # PROMPT="a photo of a $SUBJECT" 
 # python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
 
-accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
+# python3 train_wingpose.py \
+
+accelerate launch --config_file accelerate_config.yaml train.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
   --instance_data_dir=$INSTANCE_DIR \
@@ -34,7 +27,6 @@ accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
   --color_jitter \
-  --scale_lr \
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
   --max_train_steps=30000 \
@@ -43,4 +35,5 @@ accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
