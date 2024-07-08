@@ -21,7 +21,7 @@ export CONTROLNET_PROMPTS_FILE="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/
 # PROMPT="a photo of a $SUBJECT" 
 # python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
 
-accelerate launch --config_file accelerate_config.yaml train_wingpose.py \
+accelerate launch --config_file accelerate_config.yaml train.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
   --instance_data_dir=$INSTANCE_DIR \

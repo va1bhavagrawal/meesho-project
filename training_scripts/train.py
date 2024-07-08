@@ -9,6 +9,7 @@ import hashlib
 import itertools
 import math
 import os
+import os.path as osp 
 import inspect
 from pathlib import Path
 from typing import Optional
@@ -275,6 +276,20 @@ def parse_args(input_args=None):
         default=None,
         required=True,
         help="Path to pretrained model or model identifier from huggingface.co/models.",
+    )
+    parser.add_argument(
+        "--controlnet_prompts_file",
+        type=str,
+        default=None,
+        required=True,
+        help="path to the txt file containing prompts for controlnet augmentation",
+    )
+    parser.add_argument(
+        "--root_data_dir",
+        type=str,
+        default=None,
+        required=True,
+        help="root data directory",
     )
     parser.add_argument(
         "--pretrained_vae_name_or_path",
@@ -1304,11 +1319,11 @@ def main(args, controlnet_prompts):
 
 
 if __name__ == "__main__":
+    args = parse_args()
     controlnet_prompts = []
-    prompts_file = open(f"../training_data_vaibhav/prompts_blue_truck.txt", "r")
+    prompts_file = open(args.controlnet_prompts_file)
     for line in prompts_file.readlines():
         prompt = str(line)
         prompt = "a" + prompt[1:]
         controlnet_prompts.append(prompt)
-    args = parse_args()
     main(args, controlnet_prompts)
