@@ -4,8 +4,9 @@ export FILE_ID="template_truck"
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$FILE_ID"
 export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_$FILE_ID"
-export OUTPUT_DIR="../ckpts/$FILE_ID/"
+export OUTPUT_DIR="../ckpts/"
 export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_nature.txt" 
 
 # export CUDA_VISIBLE_DEVICES=1
 
@@ -21,19 +22,16 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --instance_prompt="Continuous MLP Training" \
   --train_text_encoder \
-  --resolution=512 \
-  --train_batch_size=1 \
-  --gradient_accumulation_steps=1 \
+  --train_batch_size=8 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
   --color_jitter \
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
-  --max_train_steps=30000 \
   --with_prior_preservation \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
-  --wandb \
+  --file_id=$FILE_ID \
   --class_data_dir=$CLASS_DATA_DIR 

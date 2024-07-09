@@ -57,6 +57,11 @@ from continuous_word_mlp import continuous_word_mlp
 import glob
 import wandb 
 
+TOKEN2ID = {
+    "sks": 48136,
+    "bnha": 49336, 
+}
+
 """
 ADOBE CONFIDENTIAL
 Copyright 2024 Adobe
@@ -78,6 +83,7 @@ class ContinuousWordDataset(Dataset):
 
     def __init__(
         self,
+        total_n_steps,
         controlnet_prompts,
         instance_data_root,
         controlnet_data_dir,
@@ -110,14 +116,13 @@ class ContinuousWordDataset(Dataset):
         self.num_instance_images = len(self.instance_images_path)
         self.num_controlnet_images = len(self.controlnet_images_path)
         self.instance_prompt = instance_prompt
-        self._length = self.num_instance_images
+        self._length = total_n_steps  
 
         if class_data_root is not None:
             self.class_data_root = Path(class_data_root)
             self.class_data_root.mkdir(parents=True, exist_ok=True)
             self.class_images_path = list(self.class_data_root.iterdir())
             self.num_class_images = len(self.class_images_path)
-            self._length = max(self.num_class_images, self.num_instance_images)
             self.class_prompt = class_prompt
         else:
             self.class_data_root = None
@@ -174,7 +179,7 @@ class ContinuousWordDataset(Dataset):
                 max_length=self.tokenizer.model_max_length,
             ).input_ids
 
-            print(f"choosing from standard viewpoint only!, path is: {instance_img_path}")
+            # print(f"choosing from standard viewpoint only!, path is: {instance_img_path}")
             instance_img = Image.open(
                 instance_img_path 
             )
@@ -204,7 +209,7 @@ class ContinuousWordDataset(Dataset):
                 max_length=self.tokenizer.model_max_length,
             ).input_ids
 
-            print(f"not using standard viewpoint, using controlnet augmentation instead!, path is: {controlnet_img_path}")
+            # print(f"not using standard viewpoint, using controlnet augmentation instead!, path is: {controlnet_img_path}")
             instance_img = Image.open(controlnet_img_path) 
 
         if not instance_img.mode == "RGB": 
@@ -255,6 +260,13 @@ def parse_args(input_args=None):
         "--wandb",
         action="store_true",
         help="whether to use wandb or not ",
+    )
+    parser.add_argument(
+        "--file_id",
+        type=str,
+        default=None,
+        required=True,
+        help="the file id of the object being trained",
     )
     parser.add_argument(
         "--pretrained_model_name_or_path",
@@ -365,9 +377,16 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
+        "--log_every",
+        type=int,
+        default=5,
+        help=(
+            "after how many ddp steps wandb logging should take place "
+        ),
+    )
+    parser.add_argument(
         "--output_dir",
         type=str,
-        default="text-inversion-model",
         help="The output directory where the model predictions and checkpoints will be written.",
     )
     parser.add_argument(
@@ -411,17 +430,16 @@ def parse_args(input_args=None):
         help="Batch size (per device) for the training dataloader.",
     )
     parser.add_argument(
-        "--sample_batch_size",
+        "--stage1_steps",
         type=int,
-        default=4,
-        help="Batch size (per device) for sampling images.",
+        default=20,
+        help="stage 1 training steps to perform",
     )
-    parser.add_argument("--num_train_epochs", type=int, default=1)
     parser.add_argument(
-        "--max_train_steps",
+        "--stage2_steps",
         type=int,
-        default=None,
-        help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",
+        default=25000,
+        help="stage2 training steps to perform",
     )
     parser.add_argument(
         "--save_steps",
@@ -569,7 +587,6 @@ def parse_args(input_args=None):
         help="the object name",
     )
     
-    
 
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -610,8 +627,9 @@ def parse_args(input_args=None):
 
 
 def main(args, controlnet_prompts):
+    args.output_dir = osp.join(args.output_dir, args.subject + f"__{args.run_name}")  
     logging_dir = Path(args.output_dir, args.logging_dir)
-
+    total_n_steps = args.stage1_steps + args.stage2_steps  
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
@@ -776,6 +794,7 @@ def main(args, controlnet_prompts):
     )
 
     train_dataset = ContinuousWordDataset(
+        total_n_steps=total_n_steps,
         controlnet_prompts=controlnet_prompts,
         instance_data_root=args.instance_data_dir,
         controlnet_data_dir = args.controlnet_data_dir,
@@ -852,20 +871,12 @@ def main(args, controlnet_prompts):
         num_workers=1,
     )
 
-    # Scheduler and math around the number of training steps.
-    overrode_max_train_steps = False
-    num_update_steps_per_epoch = math.ceil(
-        len(train_dataloader) / args.gradient_accumulation_steps
-    )
-    if args.max_train_steps is None:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-        overrode_max_train_steps = True
 
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
         optimizer=optimizer,
         num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
-        num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,
+        num_training_steps=total_n_steps * args.gradient_accumulation_steps,
     )
 
     """
@@ -929,14 +940,6 @@ def main(args, controlnet_prompts):
     if not args.train_text_encoder:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
 
-    # We need to recalculate our total training steps as the size of the training dataloader may have changed.
-    num_update_steps_per_epoch = math.ceil(
-        len(train_dataloader) / args.gradient_accumulation_steps
-    )
-    if overrode_max_train_steps:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-    # Afterwards we recalculate our number of training epochs
-    args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
@@ -945,18 +948,55 @@ def main(args, controlnet_prompts):
 
     # Only show the progress bar once on each machine.
     progress_bar = tqdm(
-        range(args.max_train_steps), disable=not accelerator.is_local_main_process
+        range(total_n_steps), disable=not accelerator.is_local_main_process
     )
-    progress_bar.set_description("Steps")
     global_step = 0
     ddp_step = 0
     last_save = 0
 
     initial_weight = text_encoder.module.get_input_embeddings().weight.detach()
     
-    
-    for epoch in range(args.num_train_epochs):
-        unet.train()
+    unet.train()
+    """
+    ADOBE CONFIDENTIAL
+    Copyright 2024 Adobe
+    All Rights Reserved.
+    NOTICE: All information contained herein is, and remains
+    the property of Adobe and its suppliers, if any. The intellectual
+    and technical concepts contained herein are proprietary to Adobe 
+    and its suppliers and are protected by all applicable intellectual 
+    property laws, including trade secret and copyright laws. 
+    Dissemination of this information or reproduction of this material is 
+    strictly forbidden unless prior written permission is obtained from Adobe.
+    """
+    continuous_word_model.train()
+    """End Adobe CONFIDENTIAL"""
+    if args.train_text_encoder:
+        text_encoder.train()
+
+    for step, batch in enumerate(train_dataloader):
+        # Convert images to latent space
+        latents = vae.encode(
+            batch["pixel_values"].to(dtype=weight_dtype)
+        ).latent_dist.sample()
+        latents = latents * 0.18215
+
+        # Sample noise that we'll add to the latents
+        noise = torch.randn_like(latents)
+        bsz = latents.shape[0]
+        # Sample a random timestep for each image
+        timesteps = torch.randint(
+            0,
+            noise_scheduler.config.num_train_timesteps,
+            (bsz,),
+            device=latents.device,
+        )
+        timesteps = timesteps.long()
+
+        # Add noise to the latents according to the noise magnitude at each timestep
+        # (this is the forward diffusion process)
+        noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+
         """
         ADOBE CONFIDENTIAL
         Copyright 2024 Adobe
@@ -969,307 +1009,285 @@ def main(args, controlnet_prompts):
         Dissemination of this information or reproduction of this material is 
         strictly forbidden unless prior written permission is obtained from Adobe.
         """
-        continuous_word_model.train()
+
+        # Get the text embedding for conditioning
+        if global_step <= args.stage1_steps:
+            progress_bar.set_description("stage 1:")
+            encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
+        else:
+            progress_bar.set_description("stage 2:")
+            # normalization of the scalers
+            p = torch.Tensor(batch["scalers"] / (2 * math.pi)) 
+            p = p.unsqueeze(-1)
+            p = p.repeat(1, 2)
+            p[:, 0] = torch.sin(2 * torch.pi * p[:, 0]) 
+            p[:, 1] = torch.cos(2 * torch.pi * p[:, 1])
+
+            # getting the embeddings from the mlp
+            mlp_emb = continuous_word_model(p) 
+
+            # setting requires_grad = False for the input embeddings 
+            text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
+
+            # checking what token is actually used for pose conditioning 
+            assert batch["input_ids"][0][2] == TOKEN2ID["sks"]  
+
+            # storing the original input embeddings
+            org_input_embeddings = torch.clone(text_encoder.module.get_input_embeddings().weight) 
+
+            # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
+            # must run a for loop here, first changing the input embeddings of the text encoder for each 
+            encoder_hidden_states = []
+            input_ids, input_ids_prior = torch.chunk(batch["input_ids"], 2, dim=0) 
+            for batch_idx, batch_item in enumerate(input_ids): 
+                text_encoder.module.get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp_emb[batch_idx] 
+                encoder_hidden_states.append(text_encoder(batch_item.unsqueeze(0))[0].squeeze()) 
+            encoder_hidden_states = torch.stack(encoder_hidden_states)  
+            text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(org_input_embeddings)  
+            encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
+            assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
+            encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0) 
+
         """End Adobe CONFIDENTIAL"""
-        if args.train_text_encoder:
-            text_encoder.train()
 
-        for step, batch in enumerate(train_dataloader):
-            # Convert images to latent space
-            latents = vae.encode(
-                batch["pixel_values"].to(dtype=weight_dtype)
-            ).latent_dist.sample()
-            latents = latents * 0.18215
+        # Predict the noise residual
+        model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-            # Sample noise that we'll add to the latents
-            noise = torch.randn_like(latents)
-            bsz = latents.shape[0]
-            # Sample a random timestep for each image
-            timesteps = torch.randint(
-                0,
-                noise_scheduler.config.num_train_timesteps,
-                (bsz,),
-                device=latents.device,
+        # Get the target for loss depending on the prediction type
+        if noise_scheduler.config.prediction_type == "epsilon":
+            target = noise
+        elif noise_scheduler.config.prediction_type == "v_prediction":
+            target = noise_scheduler.get_velocity(latents, noise, timesteps)
+        else:
+            raise ValueError(
+                f"Unknown prediction type {noise_scheduler.config.prediction_type}"
             )
-            timesteps = timesteps.long()
 
-            # Add noise to the latents according to the noise magnitude at each timestep
-            # (this is the forward diffusion process)
-            noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+        if args.with_prior_preservation:
+            # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
+            model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
+            target, target_prior = torch.chunk(target, 2, dim=0)
 
-            """
-            ADOBE CONFIDENTIAL
-            Copyright 2024 Adobe
-            All Rights Reserved.
-            NOTICE: All information contained herein is, and remains
-            the property of Adobe and its suppliers, if any. The intellectual
-            and technical concepts contained herein are proprietary to Adobe 
-            and its suppliers and are protected by all applicable intellectual 
-            property laws, including trade secret and copyright laws. 
-            Dissemination of this information or reproduction of this material is 
-            strictly forbidden unless prior written permission is obtained from Adobe.
-            """
+            # Compute instance loss
+            loss = (
+                F.mse_loss(model_pred.float(), target.float(), reduction="none")
+                .mean([1, 2, 3])
+                .mean()
+            )
 
-            # Get the text embedding for conditioning
-            if global_step <= 5000:
-                print("Stage 1 training: Disentangling object identity first")
-                encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
-            else:
-                print("Stage 2 training: Learning Continuous Word MLP")
-                # normalization of the scalers
-                p = torch.Tensor((batch["scalers"])/(2 * math.pi))
-                
-                # Positional Encoding
-                x = torch.Tensor(
-                    [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
+            # Compute prior loss
+            prior_loss = F.mse_loss(
+                model_pred_prior.float(), target_prior.float(), reduction="mean"
+            )
 
-                mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
-                text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
-                
-                text_encoder.module.get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
-                encoder_hidden_states = text_encoder(batch["input_ids"])[0]
+            # Add the prior loss to the instance loss.
+            loss = loss + args.prior_loss_weight * prior_loss
+        else:
+            loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
-            """End Adobe CONFIDENTIAL"""
+        accelerator.backward(loss)
+        """
+        ADOBE CONFIDENTIAL
+        Copyright 2024 Adobe
+        All Rights Reserved.
+        NOTICE: All information contained herein is, and remains
+        the property of Adobe and its suppliers, if any. The intellectual
+        and technical concepts contained herein are proprietary to Adobe 
+        and its suppliers and are protected by all applicable intellectual 
+        property laws, including trade secret and copyright laws. 
+        Dissemination of this information or reproduction of this material is 
+        strictly forbidden unless prior written permission is obtained from Adobe.
+        """
 
+        # since backward pass is done, the gradients would be ready! time to store grad norms!
 
-            # Predict the noise residual
-            model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+        # calculate the gradient norm for each of the trainable parameters 
+        # TODO: see the error in the grad norm computation, gathering and logging 
+        # if args.wandb:
+        #     unet_grad_norm = [param.grad.norm() for param in unet.parameters() if param.grad is not None]
+        #     if len(unet_grad_norm) == 0:
+        #         unet_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+        #     else:
+        #         unet_grad_norm = torch.norm(torch.stack(unet_grad_norm)) 
+        #     mlp_grad_norm = [param.grad.norm() for param in continuous_word_model.parameters() if param.grad is not None]
+        #     if len(mlp_grad_norm) == 0:
+        #         mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+        #     else:
+        #         mlp_grad_norm = torch.norm(torch.stack(mlp_grad_norm)) 
+        #     if args.train_text_encoder: 
+        #         text_encoder_grad_norm = [param.grad.norm() for param in text_encoder.parameters() if param.grad is not None]
+        #         if len(text_encoder_grad_norm) == 0:
+        #             text_encoder_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+        #         else:
+        #             text_encoder_grad_norm = torch.norm(torch.stack(text_encoder_grad_norm)) 
+        #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm, text_encoder_grad_norm]) 
+        #     else:
+        #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm]) 
 
-            # Get the target for loss depending on the prediction type
-            if noise_scheduler.config.prediction_type == "epsilon":
-                target = noise
-            elif noise_scheduler.config.prediction_type == "v_prediction":
-                target = noise_scheduler.get_velocity(latents, noise, timesteps)
-            else:
-                raise ValueError(
-                    f"Unknown prediction type {noise_scheduler.config.prediction_type}"
-                )
-
-            if args.with_prior_preservation:
-                # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
-                model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
-                target, target_prior = torch.chunk(target, 2, dim=0)
-
-                # Compute instance loss
-                loss = (
-                    F.mse_loss(model_pred.float(), target.float(), reduction="none")
-                    .mean([1, 2, 3])
-                    .mean()
-                )
-
-                # Compute prior loss
-                prior_loss = F.mse_loss(
-                    model_pred_prior.float(), target_prior.float(), reduction="mean"
-                )
-
-                # Add the prior loss to the instance loss.
-                loss = loss + args.prior_loss_weight * prior_loss
-            else:
-                loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-
-            accelerator.backward(loss)
-            """
-            ADOBE CONFIDENTIAL
-            Copyright 2024 Adobe
-            All Rights Reserved.
-            NOTICE: All information contained herein is, and remains
-            the property of Adobe and its suppliers, if any. The intellectual
-            and technical concepts contained herein are proprietary to Adobe 
-            and its suppliers and are protected by all applicable intellectual 
-            property laws, including trade secret and copyright laws. 
-            Dissemination of this information or reproduction of this material is 
-            strictly forbidden unless prior written permission is obtained from Adobe.
-            """
-
-            # since backward pass is done, the gradients would be ready! time to store grad norms!
-
-            # calculate the gradient norm for each of the trainable parameters 
-            # TODO: see the error in the grad norm computation, gathering and logging 
-            # if args.wandb:
-            #     unet_grad_norm = [param.grad.norm() for param in unet.parameters() if param.grad is not None]
-            #     if len(unet_grad_norm) == 0:
-            #         unet_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-            #     else:
-            #         unet_grad_norm = torch.norm(torch.stack(unet_grad_norm)) 
-            #     mlp_grad_norm = [param.grad.norm() for param in continuous_word_model.parameters() if param.grad is not None]
-            #     if len(mlp_grad_norm) == 0:
-            #         mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-            #     else:
-            #         mlp_grad_norm = torch.norm(torch.stack(mlp_grad_norm)) 
-            #     if args.train_text_encoder: 
-            #         text_encoder_grad_norm = [param.grad.norm() for param in text_encoder.parameters() if param.grad is not None]
-            #         if len(text_encoder_grad_norm) == 0:
-            #             text_encoder_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-            #         else:
-            #             text_encoder_grad_norm = torch.norm(torch.stack(text_encoder_grad_norm)) 
-            #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm, text_encoder_grad_norm]) 
-            #     else:
-            #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm]) 
-
-            #     # gathering all the norms at once to prevent excessive multi gpu communication 
-            #     gathered_grad_norms = torch.mean(accelerator.gather(all_grad_norms), 0) 
-            #     wandb_log_data["unet_grad_norm"] = gathered_grad_norms[0] 
-            #     wandb_log_data["mlp_grad_norm"] =  gathered_grad_norms[1] 
-            #     if args.train_text_encoder: 
-            #         wandb_log_data["text_encoder_grad_norm"] = gathered_grad_norms[2]   
+        #     # gathering all the norms at once to prevent excessive multi gpu communication 
+        #     gathered_grad_norms = torch.mean(accelerator.gather(all_grad_norms), 0) 
+        #     wandb_log_data["unet_grad_norm"] = gathered_grad_norms[0] 
+        #     wandb_log_data["mlp_grad_norm"] =  gathered_grad_norms[1] 
+        #     if args.train_text_encoder: 
+        #         wandb_log_data["text_encoder_grad_norm"] = gathered_grad_norms[2]   
 
 
-            # gradient clipping 
-            if accelerator.sync_gradients:
-                params_to_clip = (
-                    itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
-                    if args.train_text_encoder
-                    else itertools.chain(unet.parameters(), continuous_word_model.parameters())
-                )
-                accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-            continuous_word_optimizer.step()
+        # gradient clipping 
+        if accelerator.sync_gradients:
+            params_to_clip = (
+                itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
+                if args.train_text_encoder
+                else itertools.chain(unet.parameters(), continuous_word_model.parameters())
+            )
+            accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+        continuous_word_optimizer.step()
+        
+        optimizer.step()
+        lr_scheduler.step()
+        progress_bar.update(accelerator.num_processes * args.train_batch_size)
+        optimizer.zero_grad()
+        continuous_word_optimizer.zero_grad()
+        """end Adobe CONFIDENTIAL"""
+
+        # since we have stepped, time to log weight norms!
+
+        # calculate the weight norm for each of the trainable parameters 
+        # if args.wandb:
+        #     unet_norm = torch.norm(torch.stack([param for param in unet.parameters()])) 
+        #     mlp_norm = torch.norm(torch.stack([param for param in continuous_word_model.parameters()])) 
+        #     if args.train_text_encoder: 
+        #         text_encoder_norm = torch.norm(torch.stack([param for param in text_encoder.parameters()])) 
+        #         all_grad_norms = torch.stack([unet_norm, mlp_norm, text_encoder_norm]) 
+        #     else:
+        #         all_grad_norms = torch.stack([unet_norm, mlp_norm]) 
             
-            optimizer.step()
-            lr_scheduler.step()
-            progress_bar.update(accelerator.num_processes)
-            optimizer.zero_grad()
-            continuous_word_optimizer.zero_grad()
-            """end Adobe CONFIDENTIAL"""
+        #     gathered_norms = torch.mean(accelerator.gather(all_grad_norms), 0)
+        #     wandb_log_data["unet_weight_norm"] = gathered_norms[0]
+        #     wandb_log_data["mlp_weight_norm"] = gathered_norms[1]
+        #     if args.train_text_encoder: 
+        #         wandb_log_data["text_encoder_weight_norm"] = gathered_norms[2] 
 
-            # since we have stepped, time to log weight norms!
+        
+        global_step += accelerator.num_processes * args.train_batch_size  
+        ddp_step += 1
+        if args.wandb:
+            wandb_log_data["global_step"] = global_step 
 
-            # calculate the weight norm for each of the trainable parameters 
-            # if args.wandb:
-            #     unet_norm = torch.norm(torch.stack([param for param in unet.parameters()])) 
-            #     mlp_norm = torch.norm(torch.stack([param for param in continuous_word_model.parameters()])) 
-            #     if args.train_text_encoder: 
-            #         text_encoder_norm = torch.norm(torch.stack([param for param in text_encoder.parameters()])) 
-            #         all_grad_norms = torch.stack([unet_norm, mlp_norm, text_encoder_norm]) 
-            #     else:
-            #         all_grad_norms = torch.stack([unet_norm, mlp_norm]) 
-                
-            #     gathered_norms = torch.mean(accelerator.gather(all_grad_norms), 0)
-            #     wandb_log_data["unet_weight_norm"] = gathered_norms[0]
-            #     wandb_log_data["mlp_weight_norm"] = gathered_norms[1]
-            #     if args.train_text_encoder: 
-            #         wandb_log_data["text_encoder_weight_norm"] = gathered_norms[2] 
+        # Checks if the accelerator has performed an optimization step behind the scenes
+        if accelerator.sync_gradients:
+            if args.save_steps and global_step - last_save >= args.save_steps:
+                if accelerator.is_main_process:
+                    # newer versions of accelerate allow the 'keep_fp32_wrapper' arg. without passing
+                    # it, the models will be unwrapped, and when they are then used for further training,
+                    # we will crash. pass this, but only to newer versions of accelerate. fixes
+                    # https://github.com/huggingface/diffusers/issues/1566
+                    accepts_keep_fp32_wrapper = "keep_fp32_wrapper" in set(
+                        inspect.signature(
+                            accelerator.unwrap_model
+                        ).parameters.keys()
+                    )
+                    extra_args = (
+                        {"keep_fp32_wrapper": True}
+                        if accepts_keep_fp32_wrapper
+                        else {}
+                    )
+                    pipeline = StableDiffusionPipeline.from_pretrained(
+                        args.pretrained_model_name_or_path,
+                        unet=accelerator.unwrap_model(unet, **extra_args),
+                        text_encoder=accelerator.unwrap_model(
+                            text_encoder, **extra_args
+                        ),
+                        revision=args.revision,
+                    )
 
-            
-            global_step += accelerator.num_processes  
-            ddp_step += 1
-            if args.wandb:
-                wandb_log_data["global_step"] = global_step 
+                    filename_unet = (
+                        f"{args.output_dir}/lora_weight_{global_step}.pt"
+                    )
+                    filename_text_encoder = f"{args.output_dir}/lora_weight_{global_step}.text_encoder.pt"
+                    print(f"save weights {filename_unet}, {filename_text_encoder}")
+                    save_lora_weight(pipeline.unet, filename_unet)
+                    
+                    if args.output_format == "safe" or args.output_format == "both":
+                        loras = {}
+                        loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
 
-            # Checks if the accelerator has performed an optimization step behind the scenes
-            if accelerator.sync_gradients:
-                if args.save_steps and global_step - last_save >= args.save_steps:
-                    if accelerator.is_main_process:
-                        # newer versions of accelerate allow the 'keep_fp32_wrapper' arg. without passing
-                        # it, the models will be unwrapped, and when they are then used for further training,
-                        # we will crash. pass this, but only to newer versions of accelerate. fixes
-                        # https://github.com/huggingface/diffusers/issues/1566
-                        accepts_keep_fp32_wrapper = "keep_fp32_wrapper" in set(
-                            inspect.signature(
-                                accelerator.unwrap_model
-                            ).parameters.keys()
-                        )
-                        extra_args = (
-                            {"keep_fp32_wrapper": True}
-                            if accepts_keep_fp32_wrapper
-                            else {}
-                        )
-                        pipeline = StableDiffusionPipeline.from_pretrained(
-                            args.pretrained_model_name_or_path,
-                            unet=accelerator.unwrap_model(unet, **extra_args),
-                            text_encoder=accelerator.unwrap_model(
-                                text_encoder, **extra_args
-                            ),
-                            revision=args.revision,
-                        )
+                        print("Cross Attention is also updated!")
 
-                        filename_unet = (
-                            f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.pt"
-                        )
-                        filename_text_encoder = f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.text_encoder.pt"
-                        print(f"save weights {filename_unet}, {filename_text_encoder}")
-                        save_lora_weight(pipeline.unet, filename_unet)
-                        
-                        if args.output_format == "safe" or args.output_format == "both":
-                            loras = {}
-                            loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+                        # """ If updating only cross attention """
+                        # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
 
-                            print("Cross Attention is also updated!")
-
-                            # """ If updating only cross attention """
-                            # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
-
-                            if args.train_text_encoder:
-                                loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
-
-                            save_safeloras(loras, f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.safetensors")
-                            
-                            """
-                            ADOBE CONFIDENTIAL
-                            Copyright 2024 Adobe
-                            All Rights Reserved.
-                            NOTICE: All information contained herein is, and remains
-                            the property of Adobe and its suppliers, if any. The intellectual
-                            and technical concepts contained herein are proprietary to Adobe 
-                            and its suppliers and are protected by all applicable intellectual 
-                            property laws, including trade secret and copyright laws. 
-                            Dissemination of this information or reproduction of this material is 
-                            strictly forbidden unless prior written permission is obtained from Adobe.
-                            """
-                            torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp{epoch}_s{global_step}.pt")
-                            """End Adobe CONFIDENTIAL"""
-                        
-                        
                         if args.train_text_encoder:
-                            save_lora_weight(
-                                pipeline.text_encoder,
-                                filename_text_encoder,
-                                target_replace_module=["CLIPAttention"],
-                            )
+                            loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
 
-                        # for _up, _down in extract_lora_ups_down(pipeline.unet):
-                        #     print(
-                        #         "First Unet Layer's Up Weight is now : ",
-                        #         _up.weight.data,
-                        #     )
-                        #     print(
-                        #         "First Unet Layer's Down Weight is now : ",
-                        #         _down.weight.data,
-                        #     )
-                        #     break
-                        # if args.train_text_encoder:
-                        #     for _up, _down in extract_lora_ups_down(
-                        #         pipeline.text_encoder,
-                        #         target_replace_module=["CLIPAttention"],
-                        #     ):
-                        #         print(
-                        #             "First Text Encoder Layer's Up Weight is now : ",
-                        #             _up.weight.data,
-                        #         )
-                        #         print(
-                        #             "First Text Encoder Layer's Down Weight is now : ",
-                        #             _down.weight.data,
-                        #         )
-                        #         break
+                        save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
+                        
+                        """
+                        ADOBE CONFIDENTIAL
+                        Copyright 2024 Adobe
+                        All Rights Reserved.
+                        NOTICE: All information contained herein is, and remains
+                        the property of Adobe and its suppliers, if any. The intellectual
+                        and technical concepts contained herein are proprietary to Adobe 
+                        and its suppliers and are protected by all applicable intellectual 
+                        property laws, including trade secret and copyright laws. 
+                        Dissemination of this information or reproduction of this material is 
+                        strictly forbidden unless prior written permission is obtained from Adobe.
+                        """
+                        torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp_{global_step}.pt")
+                        """End Adobe CONFIDENTIAL"""
+                    
+                    
+                    if args.train_text_encoder:
+                        save_lora_weight(
+                            pipeline.text_encoder,
+                            filename_text_encoder,
+                            target_replace_module=["CLIPAttention"],
+                        )
 
-                        last_save = global_step
+                    # for _up, _down in extract_lora_ups_down(pipeline.unet):
+                    #     print(
+                    #         "First Unet Layer's Up Weight is now : ",
+                    #         _up.weight.data,
+                    #     )
+                    #     print(
+                    #         "First Unet Layer's Down Weight is now : ",
+                    #         _down.weight.data,
+                    #     )
+                    #     break
+                    # if args.train_text_encoder:
+                    #     for _up, _down in extract_lora_ups_down(
+                    #         pipeline.text_encoder,
+                    #         target_replace_module=["CLIPAttention"],
+                    #     ):
+                    #         print(
+                    #             "First Text Encoder Layer's Up Weight is now : ",
+                    #             _up.weight.data,
+                    #         )
+                    #         print(
+                    #             "First Text Encoder Layer's Down Weight is now : ",
+                    #             _down.weight.data,
+                    #         )
+                    #         break
 
-            loss = loss.detach()
-            gathered_loss = torch.mean(accelerator.gather(loss), 0)
-            if args.wandb:
-                wandb_log_data["loss"] = gathered_loss
-                wandb_log_data["lr"] =  lr_scheduler.get_last_lr()[0]
+                    last_save = global_step
 
-            if args.wandb and accelerator.is_main_process and ddp_step % 5 == 0: 
-                # finally logging!
-                wandb.log(wandb_log_data) 
+        loss = loss.detach()
+        gathered_loss = torch.mean(accelerator.gather(loss), 0)
+        if args.wandb:
+            wandb_log_data["loss"] = gathered_loss
+            wandb_log_data["lr"] =  lr_scheduler.get_last_lr()[0]
 
-            logs = {"loss": gathered_loss, "lr": lr_scheduler.get_last_lr()[0]}
+        if args.wandb and accelerator.is_main_process and ddp_step % args.log_every == 0: 
+            # finally logging!
+            wandb.log(wandb_log_data) 
 
-            progress_bar.set_postfix(**logs)
-            accelerator.log(logs, step=global_step)
+        logs = {"loss": gathered_loss, "lr": lr_scheduler.get_last_lr()[0]}
 
-            if global_step >= args.max_train_steps:
-                break
+        progress_bar.set_postfix(**logs)
+        accelerator.log(logs, step=global_step)
+
+        if global_step >= total_n_steps:  
+            break
 
     accelerator.wait_for_everyone()
     wandb.finish() 
