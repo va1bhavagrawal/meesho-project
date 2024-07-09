@@ -50,6 +50,7 @@ from pathlib import Path
 
 import random
 import re
+import copy 
 
 from continuous_word_mlp import continuous_word_mlp
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
@@ -354,6 +355,14 @@ def parse_args(input_args=None):
         type=float,
         default=1.0,
         help="The weight of prior preservation loss.",
+    )
+    parser.add_argument(
+        "--log_every",
+        type=int,
+        default=5,
+        help=(
+            "log every ddim steps"
+        ),
     )
     parser.add_argument(
         "--num_class_images",
@@ -953,6 +962,7 @@ def main(args, controlnet_prompts):
     last_save = 0
 
     initial_weight = text_encoder.module.get_input_embeddings().weight.detach()
+    mlp_state_initial = copy.deepcopy(continuous_word_model.state_dict())
     
     
     for epoch in range(args.num_train_epochs):
@@ -1011,7 +1021,7 @@ def main(args, controlnet_prompts):
             """
 
             # Get the text embedding for conditioning
-            if global_step <= 5000:
+            if global_step <= -1:
                 print("Stage 1 training: Disentangling object identity first")
                 encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
             else:
@@ -1024,9 +1034,14 @@ def main(args, controlnet_prompts):
                     [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
 
                 mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
+                # replace the text encoder embeddings by initial_weight stored earlier
                 text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
-                
+                # replace sks with the continuous mlp output 
                 text_encoder.module.get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
+
+                # if this assertion passes, this would imply that even though detached and then applied, the initial_weight and text_encoder's input embeddings are still the same object 
+                assert torch.allclose(text_encoder.module.get_input_embeddings().weight, initial_weight) 
+                print(f"assertion passed!")
                 encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
             """End Adobe CONFIDENTIAL"""
@@ -1083,6 +1098,14 @@ def main(args, controlnet_prompts):
 
             # since backward pass is done, the gradients would be ready! time to store grad norms!
 
+            # mlp_grads = [(name, param.grad) for name, param in continuous_word_model.named_parameters()] 
+            mlp_grad_norm = [param.grad.norm() for param in continuous_word_model.parameters() if param.grad is not None]
+            # print(f"{mlp_grads = }")
+            assert len(mlp_grad_norm) > 0
+            print(f"{mlp_grad_norm = }")
+            print(f"YAYY! THE MLP DOES HAVE SOME GRADIENT")
+            sys.exit(0) 
+
             # calculate the gradient norm for each of the trainable parameters 
             # TODO: see the error in the grad norm computation, gathering and logging 
             # if args.wandb:
@@ -1126,6 +1149,23 @@ def main(args, controlnet_prompts):
             
             optimizer.step()
             lr_scheduler.step()
+
+            # now that every optimizer has stepped, we must see that the continuous word mlp was updated.
+            updated = False
+            updated_state_dict = continuous_word_model.state_dict()
+            keys = [key for key, value in updated_state_dict.items()] 
+            print(f"the keys are: {keys}")
+            for key, value in updated_state_dict.items(): 
+                old_value = mlp_state_initial[key]
+                if not torch.allclose(old_value, value): 
+                    print(f"{key} was updated!")
+                    updated = True
+                else:
+                    print(f"{key} was NOT updated!")
+            assert updated 
+            print(f"assertion passed!")
+            sys.exit(0)
+
             progress_bar.update(accelerator.num_processes)
             optimizer.zero_grad()
             continuous_word_optimizer.zero_grad()
@@ -1259,7 +1299,7 @@ def main(args, controlnet_prompts):
                 wandb_log_data["loss"] = gathered_loss
                 wandb_log_data["lr"] =  lr_scheduler.get_last_lr()[0]
 
-            if args.wandb and accelerator.is_main_process and ddp_step % 5 == 0: 
+            if args.wandb and accelerator.is_main_process and ddp_step % args.log_every == 0: 
                 # finally logging!
                 wandb.log(wandb_log_data) 
 

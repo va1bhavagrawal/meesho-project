@@ -6,6 +6,7 @@ export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$FILE_ID"
 export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_$FILE_ID"
 export OUTPUT_DIR="../ckpts/$FILE_ID/"
 export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_nature.txt" 
 
 # export CUDA_VISIBLE_DEVICES=1
 
@@ -35,5 +36,4 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
