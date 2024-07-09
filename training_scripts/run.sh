@@ -29,7 +29,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
   --with_prior_preservation \
-  --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \

@@ -295,13 +295,6 @@ def parse_args(input_args=None):
         help="path to the txt file containing prompts for controlnet augmentation",
     )
     parser.add_argument(
-        "--root_data_dir",
-        type=str,
-        default=None,
-        required=True,
-        help="root data directory",
-    )
-    parser.add_argument(
         "--pretrained_vae_name_or_path",
         type=str,
         default=None,
@@ -372,8 +365,7 @@ def parse_args(input_args=None):
         type=int,
         default=100,
         help=(
-            "Minimal class images for prior preservation loss. If not have enough images, additional images will be"
-            " sampled with class_prompt."
+            "number of images for prior preservation"
         ),
     )
     parser.add_argument(
@@ -397,7 +389,7 @@ def parse_args(input_args=None):
         help="The output format of the model predicitions and checkpoints.",
     )
     parser.add_argument(
-        "--seed", type=int, default=None, help="A seed for reproducible training."
+        "--seed", type=int, default=1709, help="A seed for reproducible training."
     )
     parser.add_argument(
         "--resolution",
@@ -552,12 +544,6 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
-        "--local_rank",
-        type=int,
-        default=-1,
-        help="For distributed training: local_rank",
-    )
-    parser.add_argument(
         "--resume_unet",
         type=str,
         default=None,
@@ -592,10 +578,6 @@ def parse_args(input_args=None):
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
-
-    env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
-    if env_local_rank != -1 and env_local_rank != args.local_rank:
-        args.local_rank = env_local_rank
 
     if args.with_prior_preservation:
         if args.class_data_dir is None:
