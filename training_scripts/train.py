@@ -424,7 +424,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=5000,
+        default=8,
         help="stage 1 training steps to perform",
     )
     parser.add_argument(
@@ -1123,7 +1123,14 @@ def main(args, controlnet_prompts):
                 else itertools.chain(unet.parameters(), continuous_word_model.parameters())
             )
             accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+
+
         continuous_word_optimizer.step()
+        
+        if global_step > args.stage1_steps: 
+            print(f"{mlp_emb.grad = }")
+            print(f"{mlp_emb.requires_grad = }")
+            sys.exit(0)
         
         optimizer.step()
         lr_scheduler.step()
