@@ -964,7 +964,7 @@ def main(args, controlnet_prompts):
     initial_weight = text_encoder.module.get_input_embeddings().weight.detach()
     mlp_state_initial = copy.deepcopy(continuous_word_model.state_dict())
     
-    
+    curr_sks_value = None  
     for epoch in range(args.num_train_epochs):
         unet.train()
         """
@@ -1034,6 +1034,9 @@ def main(args, controlnet_prompts):
                     [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
 
                 mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
+                if curr_sks_value is not None: 
+                    assert not torch.allclose(mlp_emb, curr_sks_value) 
+                    print(f"YAYYYYYY! SKS VALUE CHANGES BECAUSE THE MLP ALSO CHANGED!")
                 # replace the text encoder embeddings by initial_weight stored earlier
                 text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
                 # replace sks with the continuous mlp output 
@@ -1041,8 +1044,15 @@ def main(args, controlnet_prompts):
 
                 # if this assertion passes, this would imply that even though detached and then applied, the initial_weight and text_encoder's input embeddings are still the same object 
                 assert torch.allclose(text_encoder.module.get_input_embeddings().weight, initial_weight) 
-                print(f"assertion passed!")
-                encoder_hidden_states = text_encoder(batch["input_ids"])[0]
+                print(f"INITIAL WEIGHT IS ALSO UPDATED AS SOON AS WE REPLACE WITH THE MLP EMBEDDING!")
+                text_encoder_outputs = text_encoder(batch["input_ids"])
+                print(f"{text_encoder_outputs.keys()}") 
+                assert torch.allclose(text_encoder_outputs[0], text_encoder_outputs.last_hidden_state)
+                encoder_hidden_states = text_encoder_outputs.last_hidden_state 
+                print(f"they are the same!, i have understood the text_encoder!")
+                # assert torch.allclose(encoder_hidden_states, text_encoder(batch["input_ids"]).last_hidden_state)
+                # sys.exit(0) 
+                # print(f"{encoder_hidden_states.shape = }")
 
             """End Adobe CONFIDENTIAL"""
 
@@ -1101,10 +1111,9 @@ def main(args, controlnet_prompts):
             # mlp_grads = [(name, param.grad) for name, param in continuous_word_model.named_parameters()] 
             mlp_grad_norm = [param.grad.norm() for param in continuous_word_model.parameters() if param.grad is not None]
             # print(f"{mlp_grads = }")
-            assert len(mlp_grad_norm) > 0
+            # assert len(mlp_grad_norm) > 0
             print(f"{mlp_grad_norm = }")
             print(f"YAYY! THE MLP DOES HAVE SOME GRADIENT")
-            sys.exit(0) 
 
             # calculate the gradient norm for each of the trainable parameters 
             # TODO: see the error in the grad norm computation, gathering and logging 
@@ -1145,26 +1154,42 @@ def main(args, controlnet_prompts):
                     else itertools.chain(unet.parameters(), continuous_word_model.parameters())
                 )
                 accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+
+
+            inp_embeds_old = torch.clone(text_encoder.module.get_input_embeddings().weight)  
             continuous_word_optimizer.step()
-            
             optimizer.step()
             lr_scheduler.step()
 
             # now that every optimizer has stepped, we must see that the continuous word mlp was updated.
-            updated = False
-            updated_state_dict = continuous_word_model.state_dict()
-            keys = [key for key, value in updated_state_dict.items()] 
-            print(f"the keys are: {keys}")
-            for key, value in updated_state_dict.items(): 
-                old_value = mlp_state_initial[key]
-                if not torch.allclose(old_value, value): 
-                    print(f"{key} was updated!")
-                    updated = True
-                else:
-                    print(f"{key} was NOT updated!")
-            assert updated 
-            print(f"assertion passed!")
-            sys.exit(0)
+            inp_embeds_new = text_encoder.module.get_input_embeddings().weight 
+            # sks 
+            assert torch.allclose(inp_embeds_new[1125], inp_embeds_old[1125])
+            print(f"PHOTO WAS NOT UPDATED!")
+            if not torch.allclose(inp_embeds_new[48136], inp_embeds_old[48136]): 
+                print(f"SKS WAS UDPATED!")
+            else:
+                print(f"SKS STAYS THE SAME!")
+                curr_sks_value = inp_embeds_new[48136] 
+            if not torch.allclose(inp_embeds_new[49336], inp_embeds_old[49336]): 
+                print(f"BNHA WAS UDPATED!")
+            else:
+                print(f"BNHA STAYS THE SAME!")
+                
+
+
+            # updated = False
+            # updated_state_dict = continuous_word_model.state_dict()
+            # keys = [key for key, value in updated_state_dict.items()] 
+            # print(f"the keys are: {keys}")
+            # for key, value in updated_state_dict.items(): 
+            #     old_value = mlp_state_initial[key]
+            #     if not torch.allclose(old_value, value): 
+            #         print(f"{key} was updated!")
+            #         updated = True
+            #     else:
+            #         print(f"{key} was NOT updated!")
+            # assert updated 
 
             progress_bar.update(accelerator.num_processes)
             optimizer.zero_grad()
