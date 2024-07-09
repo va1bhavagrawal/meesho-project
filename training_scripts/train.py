@@ -424,7 +424,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=20,
+        default=5000,
         help="stage 1 training steps to perform",
     )
     parser.add_argument(
@@ -620,11 +620,12 @@ def main(args, controlnet_prompts):
     )
 
     if args.wandb and accelerator.is_main_process:
+        wandb_config = vars(args) 
         wandb.login(key="6ab81b60046f7d7f6a7dca014a2fcaf4538ff14a") 
         if args.run_name is None: 
-            wandb.init(project=args.project)
+            wandb.init(project=args.project, config=wandb_config)
         else:
-            wandb.init(project=args.project, name=args.run_name)
+            wandb.init(project=args.project, name=args.run_name, config=wandb_config) 
     
     if args.wandb:
         wandb_log_data = {}
