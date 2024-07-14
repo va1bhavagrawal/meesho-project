@@ -405,6 +405,11 @@ def parse_args(input_args=None):
         help="Whether to apply color jitter to images",
     )
     parser.add_argument(
+        "--train_unet",
+        action="store_true",
+        help="Whether to train the unet",
+    )
+    parser.add_argument(
         "--train_text_encoder",
         action="store_true",
         help="Whether to train the text encoder",
@@ -423,10 +428,16 @@ def parse_args(input_args=None):
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
     parser.add_argument(
-        "--max_train_steps",
+        "--stage1_steps",
         type=int,
-        default=None,
-        help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",
+        default=5000,
+        help="Total number of stage 1 training steps to perform.  If provided, overrides num_train_epochs.",
+    )
+    parser.add_argument(
+        "--stage2_steps",
+        type=int,
+        default=25000,
+        help="Total number of stage 2 training steps to perform.  If provided, overrides num_train_epochs.",
     )
     parser.add_argument(
         "--save_steps",
@@ -607,6 +618,7 @@ def parse_args(input_args=None):
 
 def main(args, controlnet_prompts):
 
+    args.max_train_steps = args.stage1_steps + args.stage2_steps 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
@@ -638,7 +650,7 @@ def main(args, controlnet_prompts):
         )
 
     if args.seed is not None:
-        set_seed(1709)
+        set_seed(args.seed)
 
     if args.with_prior_preservation:
         class_images_dir = Path(args.class_data_dir)
@@ -684,9 +696,11 @@ def main(args, controlnet_prompts):
         revision=args.revision,
     )
     unet.requires_grad_(False)
-    unet_lora_params, _ = inject_trainable_lora(
-        unet, r=args.lora_rank, loras=args.resume_unet
-    )
+
+    if args.train_unet: 
+        unet_lora_params, _ = inject_trainable_lora(
+            unet, r=args.lora_rank, loras=args.resume_unet
+        )
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -740,15 +754,8 @@ def main(args, controlnet_prompts):
     else:
         optimizer_class = torch.optim.AdamW
 
-    text_lr = (
-        args.learning_rate
-        if args.learning_rate_text is None
-        else args.learning_rate_text
-    )
-
-    
-    text_lr = (
-        text_lr
+    args.learning_rate_text = (
+        args.learning_rate_text  
         * args.gradient_accumulation_steps
         * args.train_batch_size
         * accelerator.num_processes
@@ -772,22 +779,26 @@ def main(args, controlnet_prompts):
     #     weight_decay=args.adam_weight_decay,
     #     eps=args.adam_epsilon,
     # )
+    optimizers = [] 
+    if args.train_unet: 
+        optimizer_unet = optimizer_class(
+            itertools.chain(*unet_lora_params),  
+            lr=args.learning_rate, 
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        optimizers.append(optimizer_unet) 
 
-    optimizer_unet = optimizer_class(
-        itertools.chain(*unet_lora_params), 
-        lr=args.learning_rate,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
-
-    optimizer_text_encoder = optimizer_class(
-        itertools.chain(*text_encoder_lora_params),  
-        lr=args.learning_rate,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
+    if args.train_text_encoder:  
+        optimizer_text_encoder = optimizer_class(
+            itertools.chain(*text_encoder_lora_params),  
+            lr=args.learning_rate_text,  
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        optimizers.append(optimizer_text_encoder)  
 
     noise_scheduler = DDPMScheduler.from_config(
         args.pretrained_model_name_or_path, subfolder="scheduler"
@@ -879,12 +890,12 @@ def main(args, controlnet_prompts):
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
         overrode_max_train_steps = True
 
-    lr_scheduler = get_scheduler(
+    lr_schedulers = [get_scheduler(
         args.lr_scheduler,
-        optimizer=optimizer_unet,
+        optimizer=optimizer,
         num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
         num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,
-    )
+    ) for optimizer in optimizers] 
 
     """
     ADOBE CONFIDENTIAL
@@ -902,25 +913,24 @@ def main(args, controlnet_prompts):
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
     continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=1e-3)
     print("The current continuous MLP: {}".format(continuous_word_model))
+
     
-    
-    if args.train_text_encoder:
-        (
-            unet,
-            text_encoder,
-            optimizer_unet,
-            optimizer_text_encoder,
-            train_dataloader,
-            lr_scheduler,
-            continuous_word_model,
-            continuous_word_optimizer
-        ) = accelerator.prepare(
-            unet, text_encoder, optimizer_unet, optimizer_text_encoder, train_dataloader, lr_scheduler, continuous_word_model, continuous_word_optimizer
-        )
-    else:
-        unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            unet, optimizer, train_dataloader, lr_scheduler
-        )
+    (
+        unet,
+        text_encoder,
+        *optimizers,
+        train_dataloader,
+        continuous_word_model,
+        continuous_word_optimizer,
+    ) = accelerator.prepare(
+        unet, text_encoder, *optimizers, train_dataloader, continuous_word_model, continuous_word_optimizer
+    )
+
+    lr_schedulers_ = [] 
+    for idx in range(len(lr_schedulers)): 
+        lr_schedulers_.append(accelerator.prepare(lr_schedulers[idx])) 
+
+    lr_schedulers = lr_schedulers_ 
     """End Adobe CONFIDENTIAL"""
 
     weight_dtype = torch.float32
@@ -945,8 +955,13 @@ def main(args, controlnet_prompts):
     """End Adobe CONFIDENTIAL"""
     
     vae.to(accelerator.device, dtype=weight_dtype)
-    if not args.train_text_encoder:
-        text_encoder.to(accelerator.device, dtype=weight_dtype)
+    # FROM THE ORIGINAL CODE, SEEMS WRONG...
+    # if not args.train_text_encoder:
+    #     text_encoder.to(accelerator.device, dtype=weight_dtype)
+
+    text_encoder.to(accelerator.device, dtype=weight_dtype) 
+    unet.to(accelerator.device, dtype=weight_dtype) 
+
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(
@@ -973,7 +988,8 @@ def main(args, controlnet_prompts):
 
     
     for epoch in range(args.num_train_epochs):
-        unet.train()
+        if args.train_unet: 
+            unet.train()
         """
         ADOBE CONFIDENTIAL
         Copyright 2024 Adobe
@@ -1028,7 +1044,7 @@ def main(args, controlnet_prompts):
             """
 
             # Get the text embedding for conditioning
-            if global_step <= 5000:
+            if global_step <= args.stage1_steps:
                 input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
                 print("Stage 1 training: Disentangling object identity first")
                 accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)
@@ -1180,11 +1196,13 @@ def main(args, controlnet_prompts):
                 accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
             continuous_word_optimizer.step()
             
-            optimizer_unet.step()
-            optimizer_text_encoder.step()
-            lr_scheduler.step()
+            for optimizer in optimizers: 
+                optimizer.step() 
+            for lr_scheduler in lr_schedulers: 
+                lr_scheduler.step()
             progress_bar.update(accelerator.num_processes * args.train_batch_size) 
-            optimizer.zero_grad()
+            for optimizer in optimizers: 
+                optimizer.zero_grad()
             continuous_word_optimizer.zero_grad()
             """end Adobe CONFIDENTIAL"""
 
@@ -1283,30 +1301,6 @@ def main(args, controlnet_prompts):
                                 target_replace_module=["CLIPAttention"],
                             )
 
-                        # for _up, _down in extract_lora_ups_down(pipeline.unet):
-                        #     print(
-                        #         "First Unet Layer's Up Weight is now : ",
-                        #         _up.weight.data,
-                        #     )
-                        #     print(
-                        #         "First Unet Layer's Down Weight is now : ",
-                        #         _down.weight.data,
-                        #     )
-                        #     break
-                        # if args.train_text_encoder:
-                        #     for _up, _down in extract_lora_ups_down(
-                        #         pipeline.text_encoder,
-                        #         target_replace_module=["CLIPAttention"],
-                        #     ):
-                        #         print(
-                        #             "First Text Encoder Layer's Up Weight is now : ",
-                        #             _up.weight.data,
-                        #         )
-                        #         print(
-                        #             "First Text Encoder Layer's Down Weight is now : ",
-                        #             _down.weight.data,
-                        #         )
-                        #         break
 
                         last_save = global_step
 
@@ -1314,7 +1308,7 @@ def main(args, controlnet_prompts):
             gathered_loss = torch.mean(accelerator.gather(loss), 0)
             if args.wandb:
                 wandb_log_data["loss"] = gathered_loss
-                wandb_log_data["lr"] =  lr_scheduler.get_last_lr()[0]
+                # wandb_log_data["lr"] =  lr_scheduler.get_last_lr()[0]
 
             if args.wandb and accelerator.is_main_process and ddp_step % 5 == 0: 
                 # finally logging!
@@ -1328,6 +1322,9 @@ def main(args, controlnet_prompts):
             if global_step >= args.max_train_steps:
                 break
 
+        if global_step >= args.max_train_steps:
+            break
+
     accelerator.wait_for_everyone()
     wandb.finish() 
 
@@ -1340,7 +1337,7 @@ def main(args, controlnet_prompts):
             revision=args.revision,
         )
 
-        print("\n\nLora TRAINING DONE!\n\n")
+        print("\n\TRAINING DONE!\n\n")
 
         if args.output_format == "pt" or args.output_format == "both":
             save_lora_weight(pipeline.unet, args.output_dir + "/lora_weight.pt")
