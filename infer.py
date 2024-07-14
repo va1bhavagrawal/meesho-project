@@ -32,10 +32,10 @@ pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float
 )
 pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
-file_id = "template_truck"  
+file_id = "template_truck/__multibatch_scale"  
 
 checkpoints = [
-    "19_s3500",
+    "161_s29736",
 ]
 
 def generate_prompts(subject="bnha pickup truck", use_sks=True, prompts_file="prompts/prompts_new.txt"):
@@ -55,10 +55,6 @@ def generate_prompts(subject="bnha pickup truck", use_sks=True, prompts_file="pr
 
 subjects = [
     "bnha pickup truck",
-    "pickup truck",
-    "sedan car",
-    "sporty car",
-    "motorbike",
 ]
 
 tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
@@ -76,7 +72,7 @@ for checkpoint in checkpoints:
     )
     for subject in subjects:
         prompts = [
-            "a photo of a bnha pickup truck"
+            "a sks photo of a bnha pickup truck"
         ]
         for prompt in prompts:
             print(f"doing prompt: {prompt}")

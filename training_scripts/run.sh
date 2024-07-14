@@ -28,13 +28,11 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
   --color_jitter \
-  --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
-  --max_train_steps=30000 \
   --with_prior_preservation \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
-  --run_name="multibatch_scale" \
+  --run_name="noepoch" \
   --class_data_dir=$CLASS_DATA_DIR 
