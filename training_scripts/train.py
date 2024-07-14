@@ -783,7 +783,7 @@ def main(args, controlnet_prompts):
 
     optimizer_text_encoder = optimizer_class(
         itertools.chain(*text_encoder_lora_params),  
-        lr=args.learning_rate,
+        lr=args.learning_rate_text,
         betas=(args.adam_beta1, args.adam_beta2),
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
