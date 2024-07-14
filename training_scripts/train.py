@@ -405,6 +405,11 @@ def parse_args(input_args=None):
         help="Whether to apply color jitter to images",
     )
     parser.add_argument(
+        "--train_unet",
+        action="store_true",
+        help="Whether to train the unet",
+    )
+    parser.add_argument(
         "--train_text_encoder",
         action="store_true",
         help="Whether to train the text encoder",
@@ -424,7 +429,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--save_steps",
         type=int,
-        default=500,
+        default=1000,
         help="Save checkpoint every X updates steps.",
     )
     parser.add_argument(
@@ -678,9 +683,10 @@ def main(args, controlnet_prompts):
         revision=args.revision,
     )
     unet.requires_grad_(False)
-    unet_lora_params, _ = inject_trainable_lora(
-        unet, r=args.lora_rank, loras=args.resume_unet
-    )
+    if args.train_unet: 
+        unet_lora_params, _ = inject_trainable_lora(
+            unet, r=args.lora_rank, loras=args.resume_unet
+        )
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -767,21 +773,26 @@ def main(args, controlnet_prompts):
     #     eps=args.adam_epsilon,
     # )
 
-    optimizer_unet = optimizer_class(
-        itertools.chain(*unet_lora_params), 
-        lr=args.learning_rate,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
+    optimizers = [] 
+    if args.train_unet: 
+        optimizer_unet = optimizer_class(
+            itertools.chain(*unet_lora_params), 
+            lr=args.learning_rate,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        optimizers.append(optimizer_unet) 
 
-    optimizer_text_encoder = optimizer_class(
-        itertools.chain(*text_encoder_lora_params),  
-        lr=args.learning_rate_text,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
+    if args.train_text_encoder: 
+        optimizer_text_encoder = optimizer_class(
+            itertools.chain(*text_encoder_lora_params),  
+            lr=args.learning_rate_text,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        optimizers.append(optimizer_text_encoder) 
 
     noise_scheduler = DDPMScheduler.from_config(
         args.pretrained_model_name_or_path, subfolder="scheduler"
@@ -888,26 +899,23 @@ def main(args, controlnet_prompts):
     pos_size = 2
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
     continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=1e-3)
+    optimizers.append(continuous_word_optimizer) 
     print("The current continuous MLP: {}".format(continuous_word_model))
     
     
-    if args.train_text_encoder:
-        (
-            unet,
-            text_encoder,
-            optimizer_unet,
-            optimizer_text_encoder,
-            train_dataloader,
-            lr_scheduler,
-            continuous_word_model,
-            continuous_word_optimizer
-        ) = accelerator.prepare(
-            unet, text_encoder, optimizer_unet, optimizer_text_encoder, train_dataloader, lr_scheduler, continuous_word_model, continuous_word_optimizer
-        )
-    else:
-        unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            unet, optimizer, train_dataloader, lr_scheduler
-        )
+    (
+        unet,
+        text_encoder,
+        train_dataloader,
+        lr_scheduler,
+        continuous_word_model,
+    ) = accelerator.prepare(
+        unet, text_encoder, train_dataloader, lr_scheduler, continuous_word_model
+    )
+
+    for optimizer in optimizers:  
+        optimizer = accelerator.prepare(optimizer) 
+
     """End Adobe CONFIDENTIAL"""
 
     weight_dtype = torch.float32
@@ -1156,15 +1164,19 @@ def main(args, controlnet_prompts):
                 else itertools.chain(unet.parameters(), continuous_word_model.parameters())
             )
             accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-        continuous_word_optimizer.step()
+        # continuous_word_optimizer.step()
         
-        optimizer_unet.step()
-        optimizer_text_encoder.step()
-        lr_scheduler.step()
+        # optimizer_unet.step()
+        # optimizer_text_encoder.step()
+        for optimizer in optimizers: 
+            optimizer.step() 
+        # lr_scheduler.step()
         progress_bar.update(accelerator.num_processes * args.train_batch_size) 
-        optimizer_unet.zero_grad()
-        optimizer_text_encoder.zero_grad()
-        continuous_word_optimizer.zero_grad()
+        # optimizer_unet.zero_grad()
+        # optimizer_text_encoder.zero_grad()
+        # continuous_word_optimizer.zero_grad()
+        for optimizer in optimizers: 
+            optimizer.zero_grad() 
         """end Adobe CONFIDENTIAL"""
 
         # since we have stepped, time to log weight norms!
