@@ -23,7 +23,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_prompt="Continuous MLP Training" \
   --train_text_encoder \
   --resolution=512 \
-  --train_batch_size=1 \
+  --train_batch_size=4 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
@@ -36,5 +36,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
-  --run_name="autograd_magic" \
+  --run_name="multibatch" \
   --class_data_dir=$CLASS_DATA_DIR 

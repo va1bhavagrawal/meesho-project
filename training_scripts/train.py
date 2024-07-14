@@ -607,7 +607,7 @@ def parse_args(input_args=None):
 
 def main(args, controlnet_prompts):
 
-    args.output_dir = osp.join(args.output_dir, f"{args.file_id}__{args.run_name}") 
+    args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
@@ -1157,7 +1157,7 @@ def main(args, controlnet_prompts):
             
             optimizer.step()
             lr_scheduler.step()
-            progress_bar.update(accelerator.num_processes)
+            progress_bar.update(accelerator.num_processes * args.train_batch_size) 
             optimizer.zero_grad()
             continuous_word_optimizer.zero_grad()
             """end Adobe CONFIDENTIAL"""
@@ -1181,7 +1181,7 @@ def main(args, controlnet_prompts):
             #         wandb_log_data["text_encoder_weight_norm"] = gathered_norms[2] 
 
             
-            global_step += accelerator.num_processes  
+            global_step += accelerator.num_processes * args.train_batch_size  
             ddp_step += 1
             if args.wandb:
                 wandb_log_data["global_step"] = global_step 
