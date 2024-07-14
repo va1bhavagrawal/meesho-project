@@ -638,7 +638,7 @@ def main(args, controlnet_prompts):
         )
 
     if args.seed is not None:
-        set_seed(args.seed)
+        set_seed(1709)
 
     if args.with_prior_preservation:
         class_images_dir = Path(args.class_data_dir)
@@ -927,7 +927,6 @@ def main(args, controlnet_prompts):
     continuous_word_model.to(accelerator.device, dtype=weight_dtype)
     """End Adobe CONFIDENTIAL"""
     
-    vae.to(accelerator.device, dtype=weight_dtype)
     if not args.train_text_encoder:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
 
@@ -975,10 +974,12 @@ def main(args, controlnet_prompts):
             text_encoder.train()
 
         for step, batch in enumerate(train_dataloader):
+            vae = vae.to(accelerator.device, dtype=weight_dtype)
             # Convert images to latent space
             latents = vae.encode(
                 batch["pixel_values"].to(dtype=weight_dtype)
             ).latent_dist.sample()
+            vae = vae.to(torch.device(f"cpu"))
             latents = latents * 0.18215
 
             # Sample noise that we'll add to the latents

@@ -42,5 +42,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
-  --wandb \
+  --run_name="multibatch_scale" \
   --class_data_dir=$CLASS_DATA_DIR 
