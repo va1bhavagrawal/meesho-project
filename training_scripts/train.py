@@ -18,6 +18,11 @@ import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
 
+TOKEN2ID = {
+    "sks": 48136,
+    "bnha": 49336, 
+}
+
 
 from accelerate import Accelerator
 from accelerate.logging import get_logger
@@ -514,15 +519,6 @@ def parse_args(input_args=None):
         help="The token to use to push to the Model Hub.",
     )
     parser.add_argument(
-        "--logging_dir",
-        type=str,
-        default="logs",
-        help=(
-            "[TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to"
-            " *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***."
-        ),
-    )
-    parser.add_argument(
         "--mixed_precision",
         type=str,
         default=None,
@@ -610,13 +606,11 @@ def parse_args(input_args=None):
 
 
 def main(args, controlnet_prompts):
-    logging_dir = Path(args.output_dir, args.logging_dir)
 
+    args.output_dir = osp.join(args.output_dir, f"{args.file_id}__{args.run_name}") 
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
-        log_with="tensorboard",
-        logging_dir=logging_dir,
     )
 
     if args.wandb and accelerator.is_main_process:
@@ -952,8 +946,6 @@ def main(args, controlnet_prompts):
     ddp_step = 0
     last_save = 0
 
-    initial_weight = text_encoder.module.get_input_embeddings().weight.detach()
-    
     
     for epoch in range(args.num_train_epochs):
         unet.train()
@@ -1012,22 +1004,61 @@ def main(args, controlnet_prompts):
 
             # Get the text embedding for conditioning
             if global_step <= 5000:
+                input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
                 print("Stage 1 training: Disentangling object identity first")
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)
                 encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
             else:
-                print("Stage 2 training: Learning Continuous Word MLP")
-                # normalization of the scalers
-                p = torch.Tensor((batch["scalers"])/(2 * math.pi))
+                input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
+                # print("Stage 2 training: Learning Continuous Word MLP")
+                # # normalization of the scalers
+                # p = torch.Tensor((batch["scalers"])/(2 * math.pi))
                 
-                # Positional Encoding
-                x = torch.Tensor(
-                    [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
+                # # Positional Encoding
+                # x = torch.Tensor(
+                #     [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
 
-                mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
-                text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(initial_weight, requires_grad=False)
+                # mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
+                # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)
                 
-                text_encoder.module.get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
-                encoder_hidden_states = text_encoder(batch["input_ids"])[0]
+                # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
+                # encoder_hidden_states = text_encoder(batch["input_ids"])[0]
+                p = torch.Tensor(batch["scalers"] / (2 * math.pi)) 
+                p = p.unsqueeze(-1)
+                p = p.repeat(1, 2)
+                p[:, 0] = torch.sin(2 * torch.pi * p[:, 0]) 
+                p[:, 1] = torch.cos(2 * torch.pi * p[:, 1])
+
+                # getting the embeddings from the mlp
+                mlp_emb = continuous_word_model(p) 
+
+                # checking what token is actually used for pose conditioning 
+                assert batch["input_ids"][0][2] == TOKEN2ID["sks"]  
+
+                # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
+                # must run a for loop here, first changing the input embeddings of the text encoder for each 
+                encoder_hidden_states = []
+                input_ids, input_ids_prior = torch.chunk(batch["input_ids"], 2, dim=0) 
+
+
+                for batch_idx, batch_item in enumerate(input_ids): 
+                    # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
+                    text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)  
+
+                    # performing the replacement on cold embeddings by a hot embedding -- allowed 
+                    text_encoder.module.get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp_emb[batch_idx] 
+
+                    # appending to the encoder states 
+                    encoder_hidden_states.append(text_encoder(batch_item.unsqueeze(0))[0].squeeze()) 
+
+
+                encoder_hidden_states = torch.stack(encoder_hidden_states)  
+
+                # replacing the text encoder input embeddings by the original ones, this time setting them to be HOT, this will be useful in case we choose to do textual inversion 
+                text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=True)   
+                encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
+                assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
+                encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0)
 
             """End Adobe CONFIDENTIAL"""
 

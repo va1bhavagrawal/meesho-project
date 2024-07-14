@@ -35,7 +35,7 @@ pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.conf
 file_id = "template_truck"  
 
 checkpoints = [
-    "166_s30000",
+    "19_s3500",
 ]
 
 def generate_prompts(subject="bnha pickup truck", use_sks=True, prompts_file="prompts/prompts_new.txt"):
@@ -64,8 +64,8 @@ subjects = [
 tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
 os.makedirs(file_id, exist_ok=True)
 for checkpoint in checkpoints:
-    if osp.exists(f"{file_id}/outputs_{checkpoint}"):
-        shutil.rmtree(f"{file_id}/outputs_{checkpoint}") 
+    # if osp.exists(f"{file_id}/outputs_{checkpoint}"):
+    #     shutil.rmtree(f"{file_id}/outputs_{checkpoint}") 
     os.makedirs(f"{file_id}/outputs_{checkpoint}", exist_ok=True)
     patch_pipe(
         pipe,
@@ -75,7 +75,9 @@ for checkpoint in checkpoints:
         patch_unet=True,
     )
     for subject in subjects:
-        prompts = generate_prompts(subject, use_sks=True)
+        prompts = [
+            "a photo of a bnha pickup truck"
+        ]
         for prompt in prompts:
             print(f"doing prompt: {prompt}")
             prompt_ = "_".join(prompt.split()) 
@@ -112,7 +114,6 @@ for checkpoint in checkpoints:
                 with torch.no_grad():
                     pipe.text_encoder.get_input_embeddings().weight[corresponding_emb] = mlp_emb
 
-                torch.manual_seed(50)
                 # image = pipe(prompt, negative_prompt="bnha, worst quality", num_inference_steps=50, guidance_scale=6).images[0]
                 image = pipe(prompt, negative_prompt="worst quality", num_inference_steps=50, guidance_scale=6).images[0]
                 img_list.append(image)
