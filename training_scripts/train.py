@@ -746,6 +746,14 @@ def main(args, controlnet_prompts):
         else args.learning_rate_text
     )
 
+    
+    text_lr = (
+        text_lr
+        * args.gradient_accumulation_steps
+        * args.train_batch_size
+        * accelerator.num_processes
+    )
+
     params_to_optimize = (
         [
             {"params": itertools.chain(*unet_lora_params), "lr": args.learning_rate},
