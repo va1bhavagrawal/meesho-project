@@ -1184,7 +1184,8 @@ def main(args, controlnet_prompts):
             optimizer_text_encoder.step()
             lr_scheduler.step()
             progress_bar.update(accelerator.num_processes * args.train_batch_size) 
-            optimizer.zero_grad()
+            optimizer_unet.zero_grad()
+            optimizer_text_encoder.zero_grad()
             continuous_word_optimizer.zero_grad()
             """end Adobe CONFIDENTIAL"""
 
