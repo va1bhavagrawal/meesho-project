@@ -620,8 +620,6 @@ def main(args, controlnet_prompts):
         else:
             wandb.init(project=args.project, name=args.run_name)
     
-    if args.wandb:
-        wandb_log_data = {}
         
 
     # Currently, it's not possible to do gradient accumulation when training two models with accelerate.accumulate
@@ -992,6 +990,10 @@ def main(args, controlnet_prompts):
             text_encoder.train()
 
         for step, batch in enumerate(train_dataloader):
+
+            if args.wandb:
+                wandb_log_data = {}
+
             # Convert images to latent space
             latents = vae.encode(
                 batch["pixel_values"].to(dtype=weight_dtype)
@@ -1138,37 +1140,50 @@ def main(args, controlnet_prompts):
             """
 
             # since backward pass is done, the gradients would be ready! time to store grad norms!
+            if args.wandb: 
+                with torch.no_grad(): 
+                    all_grad_norms = []
 
-            # calculate the gradient norm for each of the trainable parameters 
-            # TODO: see the error in the grad norm computation, gathering and logging 
-            # if args.wandb:
-            #     unet_grad_norm = [param.grad.norm() for param in unet.parameters() if param.grad is not None]
-            #     if len(unet_grad_norm) == 0:
-            #         unet_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-            #     else:
-            #         unet_grad_norm = torch.norm(torch.stack(unet_grad_norm)) 
-            #     mlp_grad_norm = [param.grad.norm() for param in continuous_word_model.parameters() if param.grad is not None]
-            #     if len(mlp_grad_norm) == 0:
-            #         mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-            #     else:
-            #         mlp_grad_norm = torch.norm(torch.stack(mlp_grad_norm)) 
-            #     if args.train_text_encoder: 
-            #         text_encoder_grad_norm = [param.grad.norm() for param in text_encoder.parameters() if param.grad is not None]
-            #         if len(text_encoder_grad_norm) == 0:
-            #             text_encoder_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-            #         else:
-            #             text_encoder_grad_norm = torch.norm(torch.stack(text_encoder_grad_norm)) 
-            #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm, text_encoder_grad_norm]) 
-            #     else:
-            #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm]) 
+                    # mlp 
+                    mlp_grad_norm = [torch.linalg.norm(param.grad) for param in continuous_word_model.parameters() if param.grad is not None]
+                    if len(mlp_grad_norm) == 0:
+                        mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        mlp_grad_norm = torch.mean(torch.stack(mlp_grad_norm)) 
+                    all_grad_norms.append(mlp_grad_norm) 
 
-            #     # gathering all the norms at once to prevent excessive multi gpu communication 
-            #     gathered_grad_norms = torch.mean(accelerator.gather(all_grad_norms), 0) 
-            #     wandb_log_data["unet_grad_norm"] = gathered_grad_norms[0] 
-            #     wandb_log_data["mlp_grad_norm"] =  gathered_grad_norms[1] 
-            #     if args.train_text_encoder: 
-            #         wandb_log_data["text_encoder_grad_norm"] = gathered_grad_norms[2]   
+                    # unet 
+                    unet_grad_norm = [torch.linalg.norm(param.grad) for param in unet.parameters() if param.grad is not None]
+                    if len(unet_grad_norm) == 0:
+                        unet_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        unet_grad_norm = torch.mean(torch.stack(unet_grad_norm)) 
+                    all_grad_norms.append(unet_grad_norm) 
+                            
+                    # text encoder 
+                    text_encoder_grad_norm = [torch.linalg.norm(param.grad) for param in text_encoder.parameters() if param.grad is not None]
+                    if len(text_encoder_grad_norm) == 0:
+                        text_encoder_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        text_encoder_grad_norm = torch.mean(torch.stack(text_encoder_grad_norm)) 
+                    all_grad_norms.append(text_encoder_grad_norm) 
+                    
+                    # grad_norms would be in the order (if available): mlp, unet, text_encoder, embedding  
+                    # gathering all the norms at once to prevent excessive multi gpu communication 
+                    all_grad_norms = torch.stack(all_grad_norms).unsqueeze(0)  
+                    gathered_grad_norms = torch.mean(accelerator.gather(all_grad_norms), dim=0)  
+                    wandb_log_data["mlp_grad_norm"] = gathered_grad_norms[0] 
+                    curr = 1 
+                    while curr < len(gathered_grad_norms):  
+                        if "unet_grad_norm" not in wandb_log_data.keys(): 
+                            wandb_log_data["unet_grad_norm"] = gathered_grad_norms[curr]  
 
+                        elif "text_encoder_grad_norm" not in wandb_log_data.keys(): 
+                            wandb_log_data["text_encoder_grad_norm"] = gathered_grad_norms[curr] 
+                        
+                        else:
+                            assert False 
+                        curr += 1
 
             # gradient clipping 
             if accelerator.sync_gradients:
@@ -1188,25 +1203,6 @@ def main(args, controlnet_prompts):
             optimizer_text_encoder.zero_grad()
             continuous_word_optimizer.zero_grad()
             """end Adobe CONFIDENTIAL"""
-
-            # since we have stepped, time to log weight norms!
-
-            # calculate the weight norm for each of the trainable parameters 
-            # if args.wandb:
-            #     unet_norm = torch.norm(torch.stack([param for param in unet.parameters()])) 
-            #     mlp_norm = torch.norm(torch.stack([param for param in continuous_word_model.parameters()])) 
-            #     if args.train_text_encoder: 
-            #         text_encoder_norm = torch.norm(torch.stack([param for param in text_encoder.parameters()])) 
-            #         all_grad_norms = torch.stack([unet_norm, mlp_norm, text_encoder_norm]) 
-            #     else:
-            #         all_grad_norms = torch.stack([unet_norm, mlp_norm]) 
-                
-            #     gathered_norms = torch.mean(accelerator.gather(all_grad_norms), 0)
-            #     wandb_log_data["unet_weight_norm"] = gathered_norms[0]
-            #     wandb_log_data["mlp_weight_norm"] = gathered_norms[1]
-            #     if args.train_text_encoder: 
-            #         wandb_log_data["text_encoder_weight_norm"] = gathered_norms[2] 
-
             
             global_step += accelerator.num_processes * args.train_batch_size  
             ddp_step += 1
