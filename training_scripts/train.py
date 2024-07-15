@@ -431,7 +431,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--save_steps",
         type=int,
-        default=500,
+        default=1000,
         help="Save checkpoint every X updates steps.",
     )
     parser.add_argument(
@@ -1240,18 +1240,11 @@ def main(args, controlnet_prompts):
                             revision=args.revision,
                         )
 
-                        filename_unet = (
-                            f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.pt"
-                        )
-                        filename_text_encoder = f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.text_encoder.pt"
-                        print(f"save weights {filename_unet}, {filename_text_encoder}")
-                        save_lora_weight(pipeline.unet, filename_unet)
                         
                         if args.output_format == "safe" or args.output_format == "both":
                             loras = {}
                             loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
 
-                            print("Cross Attention is also updated!")
 
                             # """ If updating only cross attention """
                             # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
@@ -1259,7 +1252,7 @@ def main(args, controlnet_prompts):
                             if args.train_text_encoder:
                                 loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
 
-                            save_safeloras(loras, f"{args.output_dir}/lora_weight_e{epoch}_s{global_step}.safetensors")
+                            save_safeloras(loras, f"{args.output_dir}/lora_weight_{last_save + args.save_steps}.safetensors")
                             
                             """
                             ADOBE CONFIDENTIAL
@@ -1273,16 +1266,10 @@ def main(args, controlnet_prompts):
                             Dissemination of this information or reproduction of this material is 
                             strictly forbidden unless prior written permission is obtained from Adobe.
                             """
-                            torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp{epoch}_s{global_step}.pt")
+                            torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp_{last_save + args.save_steps}.pt")
                             """End Adobe CONFIDENTIAL"""
                         
                         
-                        if args.train_text_encoder:
-                            save_lora_weight(
-                                pipeline.text_encoder,
-                                filename_text_encoder,
-                                target_replace_module=["CLIPAttention"],
-                            )
 
                         # for _up, _down in extract_lora_ups_down(pipeline.unet):
                         #     print(
@@ -1309,7 +1296,7 @@ def main(args, controlnet_prompts):
                         #         )
                         #         break
 
-                        last_save = global_step
+                        last_save = last_save + args.save_steps 
 
             loss = loss.detach()
             gathered_loss = torch.mean(accelerator.gather(loss), 0)
@@ -1328,6 +1315,9 @@ def main(args, controlnet_prompts):
 
             if global_step >= args.max_train_steps:
                 break
+        
+        if global_step >= args.max_train_steps:
+            break
 
     accelerator.wait_for_everyone()
     wandb.finish() 
