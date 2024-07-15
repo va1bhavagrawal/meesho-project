@@ -887,7 +887,7 @@ def main(args, controlnet_prompts):
     """
     pos_size = 2
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
-    continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=1e-3)
+    continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=1e-3 * 4)
     print("The current continuous MLP: {}".format(continuous_word_model))
     
     
