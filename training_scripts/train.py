@@ -22,6 +22,10 @@ TOKEN2ID = {
     "sks": 48136,
     "bnha": 49336, 
 }
+DEBUG = False  
+BS = 4 
+SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
+VLOG_STEPS = SAVE_STEPS 
 
 
 from accelerate import Accelerator
@@ -55,6 +59,7 @@ from pathlib import Path
 
 import random
 import re
+import copy 
 
 from continuous_word_mlp import continuous_word_mlp
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
@@ -83,6 +88,7 @@ class ContinuousWordDataset(Dataset):
 
     def __init__(
         self,
+        args, 
         controlnet_prompts,
         instance_data_root,
         controlnet_data_dir,
@@ -96,6 +102,7 @@ class ContinuousWordDataset(Dataset):
         h_flip=False,
         resize=False,
     ):
+        self.args = args 
         self.size = size
         self.center_crop = center_crop
         self.tokenizer = tokenizer
@@ -151,7 +158,7 @@ class ContinuousWordDataset(Dataset):
         self.rare_token = 'sks'
 
     def __len__(self):
-        return 30000 
+        return args.max_train_steps  
 
     def __getitem__(self, index):
         example = {}
@@ -179,7 +186,7 @@ class ContinuousWordDataset(Dataset):
                 max_length=self.tokenizer.model_max_length,
             ).input_ids
 
-            print(f"choosing from standard viewpoint only!, path is: {instance_img_path}")
+            # print(f"choosing from standard viewpoint only!, path is: {instance_img_path}")
             instance_img = Image.open(
                 instance_img_path 
             )
@@ -209,7 +216,7 @@ class ContinuousWordDataset(Dataset):
                 max_length=self.tokenizer.model_max_length,
             ).input_ids
 
-            print(f"not using standard viewpoint, using controlnet augmentation instead!, path is: {controlnet_img_path}")
+            # print(f"not using standard viewpoint, using controlnet augmentation instead!, path is: {controlnet_img_path}")
             instance_img = Image.open(controlnet_img_path) 
 
         if not instance_img.mode == "RGB": 
@@ -383,7 +390,7 @@ def parse_args(input_args=None):
         help="The output format of the model predicitions and checkpoints.",
     )
     parser.add_argument(
-        "--seed", type=int, default=None, help="A seed for reproducible training."
+        "--seed", type=int, default=1709, help="A seed for reproducible training."
     )
     parser.add_argument(
         "--resolution",
@@ -405,6 +412,11 @@ def parse_args(input_args=None):
         help="Whether to apply color jitter to images",
     )
     parser.add_argument(
+        "--train_unet",
+        action="store_true",
+        help="Whether to train the unet",
+    )
+    parser.add_argument(
         "--train_text_encoder",
         action="store_true",
         help="Whether to train the text encoder",
@@ -420,12 +432,6 @@ def parse_args(input_args=None):
         type=int,
         default=4,
         help="Batch size (per device) for sampling images.",
-    )
-    parser.add_argument(
-        "--save_steps",
-        type=int,
-        default=500,
-        help="Save checkpoint every X updates steps.",
     )
     parser.add_argument(
         "--gradient_accumulation_steps",
@@ -453,8 +459,14 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--learning_rate_text",
         type=float,
-        default=5e-6,
+        default=None, 
         help="Initial learning rate for text encoder (after the potential warmup period) to use.",
+    )
+    parser.add_argument(
+        "--learning_rate_mlp",
+        type=float,
+        default=None, 
+        help="Initial learning rate for mlp (after the potential warmup period) to use.",
     )
     parser.add_argument(
         "--lr_scheduler",
@@ -464,6 +476,18 @@ def parse_args(input_args=None):
             'The scheduler type to use. Choose between ["linear", "cosine", "cosine_with_restarts", "polynomial",'
             ' "constant", "constant_with_warmup"]'
         ),
+    )
+    parser.add_argument(
+        "--stage1_steps",
+        type=int,
+        default=5000,
+        help="Number of steps for stage 1 training", 
+    )
+    parser.add_argument(
+        "--stage2_steps",
+        type=int,
+        default=25000,
+        help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
         "--lr_warmup_steps",
@@ -601,11 +625,13 @@ def parse_args(input_args=None):
 def main(args, controlnet_prompts):
 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
-    args.max_train_steps = 30000
+    args.max_train_steps = args.stage1_steps + args.stage2_steps 
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
     )
+
+    assert accelerator.num_processes * args.train_batch_size == BS 
 
     if args.wandb and accelerator.is_main_process:
         wandb.login(key="6ab81b60046f7d7f6a7dca014a2fcaf4538ff14a") 
@@ -631,8 +657,7 @@ def main(args, controlnet_prompts):
             "Please set gradient_accumulation_steps to 1. This feature will be supported in the future."
         )
 
-    if args.seed is not None:
-        set_seed(1709)
+    set_seed(args.seed)
 
     if args.with_prior_preservation:
         class_images_dir = Path(args.class_data_dir)
@@ -678,9 +703,10 @@ def main(args, controlnet_prompts):
         revision=args.revision,
     )
     unet.requires_grad_(False)
-    unet_lora_params, _ = inject_trainable_lora(
-        unet, r=args.lora_rank, loras=args.resume_unet
-    )
+    if args.train_unet: 
+        unet_lora_params, _ = inject_trainable_lora(
+            unet, r=args.lora_rank, loras=args.resume_unet
+        )
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -714,12 +740,6 @@ def main(args, controlnet_prompts):
         if args.train_text_encoder:
             text_encoder.gradient_checkpointing_enable()
 
-    args.learning_rate = (
-        args.learning_rate
-        * args.gradient_accumulation_steps
-        * args.train_batch_size
-        * accelerator.num_processes
-    )
 
     # Use 8-bit Adam for lower memory usage or to fine-tune the model in 16GB GPUs
     if args.use_8bit_adam:
@@ -734,19 +754,8 @@ def main(args, controlnet_prompts):
     else:
         optimizer_class = torch.optim.AdamW
 
-    text_lr = (
-        args.learning_rate
-        if args.learning_rate_text is None
-        else args.learning_rate_text
-    )
 
     
-    text_lr = (
-        text_lr
-        * args.gradient_accumulation_steps
-        * args.train_batch_size
-        * accelerator.num_processes
-    )
 
     # params_to_optimize = (
     #     [
@@ -766,28 +775,33 @@ def main(args, controlnet_prompts):
     #     weight_decay=args.adam_weight_decay,
     #     eps=args.adam_epsilon,
     # )
+    optimizers = [] 
+    if args.train_unet: 
+        optimizer_unet = optimizer_class(
+            itertools.chain(*unet_lora_params), 
+            lr=args.learning_rate,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        optimizers.append(optimizer_unet) 
 
-    optimizer_unet = optimizer_class(
-        itertools.chain(*unet_lora_params), 
-        lr=args.learning_rate,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
-
-    optimizer_text_encoder = optimizer_class(
-        itertools.chain(*text_encoder_lora_params),  
-        lr=args.learning_rate_text,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
+    if args.train_text_encoder: 
+        optimizer_text_encoder = optimizer_class(
+            itertools.chain(*text_encoder_lora_params),  
+            lr=args.learning_rate_text,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        optimizers.append(optimizer_text_encoder) 
 
     noise_scheduler = DDPMScheduler.from_config(
         args.pretrained_model_name_or_path, subfolder="scheduler"
     )
 
     train_dataset = ContinuousWordDataset(
+        args=args,
         controlnet_prompts=controlnet_prompts,
         instance_data_root=args.instance_data_dir,
         controlnet_data_dir = args.controlnet_data_dir,
@@ -861,7 +875,7 @@ def main(args, controlnet_prompts):
         batch_size=args.train_batch_size,
         shuffle=True,
         collate_fn=collate_fn,
-        num_workers=1,
+        num_workers=accelerator.num_processes * 2,
     )
 
     # Scheduler and math around the number of training steps.
@@ -887,27 +901,35 @@ def main(args, controlnet_prompts):
     """
     pos_size = 2
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
-    continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=1e-3 * 4)
+    continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=args.learning_rate_mlp) 
+    optimizers.append(continuous_word_optimizer) 
     print("The current continuous MLP: {}".format(continuous_word_model))
     
     
-    if args.train_text_encoder:
-        (
-            unet,
-            text_encoder,
-            optimizer_unet,
-            optimizer_text_encoder,
-            train_dataloader,
-            lr_scheduler,
-            continuous_word_model,
-            continuous_word_optimizer
-        ) = accelerator.prepare(
-            unet, text_encoder, optimizer_unet, optimizer_text_encoder, train_dataloader, lr_scheduler, continuous_word_model, continuous_word_optimizer
-        )
-    else:
-        unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            unet, optimizer, train_dataloader, lr_scheduler
-        )
+    # if args.train_text_encoder:
+    #     (
+    #         unet,
+    #         text_encoder,
+    #         optimizer_unet,
+    #         optimizer_text_encoder,
+    #         train_dataloader,
+    #         lr_scheduler,
+    #         continuous_word_model,
+    #         continuous_word_optimizer
+    #     ) = accelerator.prepare(
+    #         unet, text_encoder, optimizer_unet, optimizer_text_encoder, train_dataloader, lr_scheduler, continuous_word_model, continuous_word_optimizer
+    #     )
+    # else:
+    #     unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+    #         unet, optimizer, train_dataloader, lr_scheduler
+    #     )
+    unet, text_encoder, continuous_word_model, train_dataloader = accelerator.prepare(unet, text_encoder, continuous_word_model, train_dataloader)  
+    optimizers_ = [] 
+    for optimizer in optimizers: 
+        optimizer = accelerator.prepare(optimizer) 
+        optimizers_.append(optimizer) 
+    optimizers = optimizers_  
+
     """End Adobe CONFIDENTIAL"""
 
     weight_dtype = torch.float32
@@ -945,13 +967,12 @@ def main(args, controlnet_prompts):
     progress_bar = tqdm(
         range(args.max_train_steps), disable=not accelerator.is_local_main_process
     )
-    progress_bar.set_description("Steps")
     global_step = 0
     ddp_step = 0
-    last_save = 0
 
     
-    unet.train()
+    if args.train_unet: 
+        unet.train()
     """
     ADOBE CONFIDENTIAL
     Copyright 2024 Adobe
@@ -1006,12 +1027,13 @@ def main(args, controlnet_prompts):
         """
 
         # Get the text embedding for conditioning
-        if global_step <= 5000:
+        if global_step <= args.stage1_steps: 
+            progress_bar.set_description(f"stage 1: ")
             input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
-            print("Stage 1 training: Disentangling object identity first")
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)
             encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
         else:
+            progress_bar.set_description(f"stage 2: ")
             input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
             # print("Stage 2 training: Learning Continuous Word MLP")
             # # normalization of the scalers
@@ -1102,6 +1124,13 @@ def main(args, controlnet_prompts):
             loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
         accelerator.backward(loss)
+        # everytime the continuous word mlp must receive gradients 
+        if DEBUG: 
+            with torch.no_grad(): 
+                if global_step > args.stage1_steps:  
+                    check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None] 
+                    assert len(check_mlp_params) == 0 
+                    del check_mlp_params 
         """
         ADOBE CONFIDENTIAL
         Copyright 2024 Adobe
@@ -1150,21 +1179,80 @@ def main(args, controlnet_prompts):
 
         # gradient clipping 
         if accelerator.sync_gradients:
-            params_to_clip = (
-                itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
-                if args.train_text_encoder
-                else itertools.chain(unet.parameters(), continuous_word_model.parameters())
-            )
+            parmas_to_clip = list(itertools.chain(continuous_word_model.parameters()))  
+            if args.train_unet: 
+                params_to_clip = parmas_to_clip + list(itertools.chain(unet.parameters()))  
+            if args.train_text_encoder: 
+                params_to_clip = parmas_to_clip + list(itertools.chain(text_encoder.parameters()))  
+            # params_to_clip = (
+            #     itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
+            #     if args.train_text_encoder
+            #     else itertools.chain(unet.parameters(), continuous_word_model.parameters())
+            # )
             accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-        continuous_word_optimizer.step()
-        
-        optimizer_unet.step()
-        optimizer_text_encoder.step()
-        lr_scheduler.step()
+        if DEBUG: 
+            with torch.no_grad(): 
+                if global_step > args.stage1_steps: 
+                    mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+                if args.train_unet: 
+                    unet_before = copy.deepcopy([p for p in unet.parameters()]) 
+                if args.train_text_encoder: 
+                    text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
+
+        for optimizer in optimizers: 
+            optimizer.step() 
+
+        if DEBUG: 
+            with torch.no_grad(): 
+                if global_step > args.stage1_steps: 
+                    mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+                if args.train_unet: 
+                    unet_after = copy.deepcopy([p for p in unet.parameters()]) 
+                if args.train_text_encoder: 
+                    text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
+
+                if global_step > args.stage1_steps: 
+                    mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
+                    del mlp_before 
+                if args.train_unet: 
+                    unet_after = [p1 - p2 for p1, p2 in zip(unet_before, unet_after)]  
+                    del unet_before 
+                if args.train_text_encoder: 
+                    text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
+                    del text_encoder_before
+
+                if global_step > args.stage1_steps: 
+                    for p_diff in mlp_after:  
+                        if torch.sum(p_diff): 
+                            change = True 
+                            break 
+                    assert change 
+
+                change = False 
+                if args.train_unet: 
+                    for p_diff in unet_after:  
+                        if torch.sum(p_diff): 
+                            change = True 
+                            break 
+                    assert change 
+
+                change = False 
+                if args.train_text_encoder: 
+                    for p_diff in text_encoder_after:  
+                        if torch.sum(p_diff): 
+                            change = True 
+                            break 
+                    assert change 
+            
+
         progress_bar.update(accelerator.num_processes * args.train_batch_size) 
-        optimizer_unet.zero_grad()
-        optimizer_text_encoder.zero_grad()
-        continuous_word_optimizer.zero_grad()
+
+        # optimizer_unet.zero_grad()
+        # optimizer_text_encoder.zero_grad()
+        # continuous_word_optimizer.zero_grad()
+        for optimizer in optimizers: 
+            optimizer.zero_grad() 
+
         """end Adobe CONFIDENTIAL"""
 
         # since we have stepped, time to log weight norms!
@@ -1193,7 +1281,10 @@ def main(args, controlnet_prompts):
 
         # Checks if the accelerator has performed an optimization step behind the scenes
         if accelerator.sync_gradients:
-            if args.save_steps and global_step - last_save >= args.save_steps:
+            # if args.save_steps and global_step - last_save >= args.save_steps:
+            if len(SAVE_STEPS) > 0 and global_step >= SAVE_STEPS[0]: 
+                save_step = SAVE_STEPS[0] 
+                SAVE_STEPS.pop(0) 
                 if accelerator.is_main_process:
                     # newer versions of accelerate allow the 'keep_fp32_wrapper' arg. without passing
                     # it, the models will be unwrapped, and when they are then used for further training,
@@ -1218,12 +1309,12 @@ def main(args, controlnet_prompts):
                         revision=args.revision,
                     )
 
-                    filename_unet = (
-                        f"{args.output_dir}/lora_weight_{global_step}.pt"
-                    )
-                    filename_text_encoder = f"{args.output_dir}/lora_weight_{global_step}.text_encoder.pt"
-                    print(f"save weights {filename_unet}, {filename_text_encoder}")
-                    save_lora_weight(pipeline.unet, filename_unet)
+                    # filename_unet = (
+                    #     f"{args.output_dir}/lora_weight_{global_step}.pt"
+                    # )
+                    # filename_text_encoder = f"{args.output_dir}/lora_weight_{global_step}.text_encoder.pt"
+                    # print(f"save weights {filename_unet}, {filename_text_encoder}")
+                    # save_lora_weight(pipeline.unet, filename_unet)
                     
                     if args.output_format == "safe" or args.output_format == "both":
                         loras = {}
@@ -1255,12 +1346,12 @@ def main(args, controlnet_prompts):
                         """End Adobe CONFIDENTIAL"""
                     
                     
-                    if args.train_text_encoder:
-                        save_lora_weight(
-                            pipeline.text_encoder,
-                            filename_text_encoder,
-                            target_replace_module=["CLIPAttention"],
-                        )
+                    # if args.train_text_encoder:
+                    #     save_lora_weight(
+                    #         pipeline.text_encoder,
+                    #         filename_text_encoder,
+                    #         target_replace_module=["CLIPAttention"],
+                    #     )
 
                     # for _up, _down in extract_lora_ups_down(pipeline.unet):
                     #     print(
@@ -1287,7 +1378,7 @@ def main(args, controlnet_prompts):
                     #         )
                     #         break
 
-                    last_save = global_step
+
 
         loss = loss.detach()
         gathered_loss = torch.mean(accelerator.gather(loss), 0)
