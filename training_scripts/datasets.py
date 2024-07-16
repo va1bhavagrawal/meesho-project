@@ -14,17 +14,17 @@ import glob
 class PromptDataset(Dataset):
     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
-    def __init__(self, num_samples=6, use_sks=True):
+    def __init__(self, num_samples=24, use_sks=True):
         self.num_samples = num_samples 
         self.subjects = [
             "bnha pickup truck",
-            # "motorbike", 
+            "motorbike", 
         ]
 
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
             "a SUBJECT parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-            # "a SUBJECT parked on a bustling city street, surrounded by towering skyscrapers and neon lights",
+            "a SUBJECT parked on a bustling city street, surrounded by towering skyscrapers and neon lights",
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  

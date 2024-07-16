@@ -138,7 +138,8 @@ def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, b
         accelerator.print(f"collecting the encoder hidden states...") 
         for azimuth in range(prompts_dataset.num_samples): 
             if azimuth % accelerator.num_processes == accelerator.process_index: 
-                sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(azimuth)), torch.cos(2 * torch.pi * torch.tensor(azimuth))]).to(accelerator.device) 
+                normalized_azimuth = azimuth / prompts_dataset.num_prompts  
+                sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(accelerator.device) 
                 accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
                 tokens = tokenizer(
                     prompts_dataset.prompts, 
