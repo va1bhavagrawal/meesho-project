@@ -1,5 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
+export RUN_NAME="first_wandb_run"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$FILE_ID"
@@ -7,6 +8,7 @@ export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_$FILE_ID"
 export OUTPUT_DIR="../ckpts/$FILE_ID/"
 export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_nature.txt" 
+export VIS_DIR="../$FILE_ID/"  
 
 # export CUDA_VISIBLE_DEVICES=1
 
@@ -20,11 +22,13 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
   --instance_data_dir=$INSTANCE_DIR \
   --output_dir=$OUTPUT_DIR \
+  --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
   --train_unet \
   --train_text_encoder \
   --resolution=512 \
   --train_batch_size=2 \
+  --inference_batch_size=4 \
   --gradient_accumulation_steps=1 \
   --learning_rate=4e-4 \
   --learning_rate_text=2e-4 \
@@ -32,10 +36,12 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter \
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
+  --online_inference \
   --with_prior_preservation \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
-  --run_name="first_run" \
+  --run_name="$RUN_NAME" \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

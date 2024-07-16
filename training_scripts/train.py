@@ -14,9 +14,14 @@ import inspect
 from pathlib import Path
 from typing import Optional
 
+import copy 
+
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
+import numpy as np 
+from io import BytesIO
+
 
 TOKEN2ID = {
     "sks": 48136,
@@ -25,7 +30,7 @@ TOKEN2ID = {
 DEBUG = False  
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
-VLOG_STEPS = SAVE_STEPS 
+VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
 
 
 from accelerate import Accelerator
@@ -51,6 +56,7 @@ from lora_diffusion_utils import (
     save_safeloras,
 )
 
+import cv2 
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -59,13 +65,14 @@ from pathlib import Path
 
 import random
 import re
-import copy 
 
 from continuous_word_mlp import continuous_word_mlp
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
 import wandb 
+
+from datasets import PromptDataset  
 
 """
 ADOBE CONFIDENTIAL
@@ -79,6 +86,161 @@ property laws, including trade secret and copyright laws.
 Dissemination of this information or reproduction of this material is 
 strictly forbidden unless prior written permission is obtained from Adobe.
 """
+
+def create_gif(images, duration=1):
+    """
+    Convert a sequence of NumPy array images to a GIF.
+    
+    Args:
+        images (list): A list of NumPy array images.
+        fps (int): The frames per second of the GIF (default is 1).
+        loop (int): The number of times the animation should loop (0 means loop indefinitely) (default is 0).
+    """
+    frames = []
+    for img in images:
+        # Convert NumPy array to PIL Image
+        img_pil = Image.fromarray(img.astype(np.uint8))
+        # Append to frames list
+        frames.append(img_pil)
+    
+    # Save frames to a BytesIO object
+    # bytes_io = BytesIO()
+    # frames[0].save(bytes_io, save_all=True, append_images=frames[1:], duration=1000/fps, loop=loop, 
+                #    disposal=2, optimize=True, subrectangles=True)
+    frames[0].save("temp.gif", save_all=True, append_images=frames[1:], loop=0, duration=int(duration * 1000))
+    
+    # gif_bytes = bytes_io.getvalue()
+    # with open("temp.gif", "wb") as f:
+    #     f.write(gif_bytes)
+    # return gif_bytes 
+    return 
+
+
+def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, bnha_embed=None):  
+    with torch.no_grad(): 
+        # the list of videos 
+        # each item in the list is the video of a prompt at different viewpoints, or just random generations if use_sks=False  
+        accelerator.print(f"performing inference...") 
+        videos = {}  
+        tokenizer = CLIPTokenizer.from_pretrained(
+            args.pretrained_model_name_or_path,
+            subfolder="tokenizer", 
+        ) 
+
+        prompts_dataset = PromptDataset(use_sks=use_sks) 
+
+        # if args.textual_inv: 
+        #     accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)   
+
+        n_prompts_per_azimuth = len(prompts_dataset.subjects) * len(prompts_dataset.template_prompts) 
+        encoder_hidden_states = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 77, 1024)).to(accelerator.device).contiguous()  
+
+        accelerator.print(f"collecting the encoder hidden states...") 
+        for azimuth in range(prompts_dataset.num_samples): 
+            if azimuth % accelerator.num_processes == accelerator.process_index: 
+                sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(azimuth)), torch.cos(2 * torch.pi * torch.tensor(azimuth))]).to(accelerator.device) 
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
+                tokens = tokenizer(
+                    prompts_dataset.prompts, 
+                    padding="max_length", 
+                    max_length=tokenizer.model_max_length,
+                    truncation=True, 
+                    return_tensors="pt"
+                ).input_ids 
+                text_encoder_outputs = text_encoder(tokens.to(accelerator.device))[0]   
+                encoder_hidden_states[azimuth * n_prompts_per_azimuth : (azimuth + 1) * n_prompts_per_azimuth] = text_encoder_outputs  
+        encoder_hidden_states = torch.sum(accelerator.gather(encoder_hidden_states.unsqueeze(0)), dim=0)  
+
+        encoder_states_dataset = torch.utils.data.TensorDataset(encoder_hidden_states, torch.arange(encoder_hidden_states.shape[0]))  
+
+        generated_images = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 3, 512, 512)).to(accelerator.device)  
+        encoder_states_dataloader = torch.utils.data.DataLoader(
+            encoder_states_dataset, 
+            batch_size=args.inference_batch_size,  
+            shuffle=False, 
+        ) 
+
+        encoder_states_dataloader = accelerator.prepare(encoder_states_dataloader) 
+
+        uncond_tokens = tokenizer(
+            [""], 
+            padding="max_length", 
+            max_length=tokenizer.model_max_length,
+            truncation=True, 
+            return_tensors="pt", 
+        ).input_ids 
+        uncond_encoder_states = text_encoder(uncond_tokens.to(accelerator.device))[0] 
+
+        torch.manual_seed(args.seed * accelerator.process_index) 
+        accelerator.print(f"starting generation...")  
+        for batch in tqdm(encoder_states_dataloader, disable = not accelerator.is_main_process):  
+            encoder_states, ids = batch 
+            B = encoder_states.shape[0] 
+            assert encoder_states.shape == (B, 77, 1024) 
+            latents = torch.randn(B, 4, 64, 64).to(accelerator.device)  
+            scheduler.set_timesteps(50)
+            for t in scheduler.timesteps:
+                # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
+                latent_model_input = torch.cat([latents] * 2)
+
+                # scaling the latents for the scheduler timestep  
+                latent_model_input = scheduler.scale_model_input(latent_model_input, timestep=t)
+
+                # predict the noise residual
+                concat_encoder_states = torch.cat([uncond_encoder_states.repeat(B, 1, 1), encoder_states], dim=0) 
+                noise_pred = unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample
+
+                # perform guidance
+                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                noise_pred = noise_pred_uncond + 7.5 * (noise_pred_text - noise_pred_uncond)
+
+                # compute the previous noisy sample x_t -> x_t-1
+                latents = scheduler.step(noise_pred, t, latents).prev_sample
+
+            # scale the latents 
+            latents = 1 / 0.18215 * latents
+
+            # decode the latents 
+            images = vae.decode(latents).sample 
+
+            # post processing the images and storing them 
+            os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
+            for idx, image in zip(ids, images):  
+                image = (image / 2 + 0.5).clamp(0, 1).squeeze()
+                image = (image * 255).to(torch.uint8) 
+                generated_images[idx] = image 
+                # image = image.cpu().numpy()  
+                # image = np.transpose(image, (1, 2, 0)) 
+                # image = Image.fromarray(image) 
+                # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
+
+        # sometimes the same index is passed to multiple gpus, therefore an explicit gathering has to be done to make sure no image has been "generated twice" 
+        accelerator.print(f"collecting outputs across processes...")  
+        generated_images = accelerator.gather(generated_images.unsqueeze(0)) 
+        gathered_generated_images = torch.zeros_like(generated_images[0]) 
+        generated_images = generated_images.permute(1, 0, 2, 3, 4)  
+        assert generated_images.shape[0] == encoder_hidden_states.shape[0] 
+        for idx in range(generated_images.shape[0]): 
+            for gpu_idx in range(generated_images.shape[1]): 
+                if torch.sum(generated_images[idx][gpu_idx]): 
+                    # this is a generated image 
+                    gathered_generated_images[idx] = generated_images[idx][gpu_idx] 
+        for idx in range(gathered_generated_images.shape[0]): 
+            assert torch.sum(gathered_generated_images[idx]) 
+
+        generated_images = gathered_generated_images 
+        generated_images = generated_images.cpu().numpy() 
+        for idx in range(generated_images.shape[0]): 
+            azimuth = idx // n_prompts_per_azimuth 
+            prompt_idx = idx % n_prompts_per_azimuth 
+            prompt = prompts_dataset.prompts[prompt_idx] 
+            if prompt not in videos.keys(): 
+                videos[prompt] = np.zeros((prompts_dataset.num_samples, 3, 512, 512)).astype(np.uint8)  
+            videos[prompt][azimuth] = generated_images[idx].astype(np.uint8)  
+
+        accelerator.print(f"done!")  
+        return videos 
+
 
 class ContinuousWordDataset(Dataset):
     """
@@ -241,22 +403,6 @@ class ContinuousWordDataset(Dataset):
         return example
 
 """end Adobe CONFIDENTIAL"""
-class PromptDataset(Dataset):
-    "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
-
-    def __init__(self, prompt, num_samples):
-        self.prompt = prompt
-        self.num_samples = num_samples
-
-    def __len__(self):
-        return self.num_samples
-
-    def __getitem__(self, index):
-        example = {}
-        example["prompt"] = self.prompt
-        example["index"] = index
-        return example
-
 
 logger = get_logger(__name__)
 
@@ -377,6 +523,11 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
+        "--vis_dir",
+        type=str,
+        help="the directory where the intermediate visualizations and inferences are stored",
+    )
+    parser.add_argument(
         "--output_dir",
         type=str,
         default="text-inversion-model",
@@ -422,6 +573,17 @@ def parse_args(input_args=None):
         help="Whether to train the text encoder",
     )
     parser.add_argument(
+        "--online_inference", 
+        action="store_true", 
+        help="whether to do online inference", 
+    )
+    parser.add_argument(
+        "--inference_batch_size",
+        type=int,
+        default=4,
+        help="Batch size (per device) for the inference dataloader.",
+    )
+    parser.add_argument(
         "--train_batch_size",
         type=int,
         default=4,
@@ -443,6 +605,12 @@ def parse_args(input_args=None):
         "--gradient_checkpointing",
         action="store_true",
         help="Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.",
+    )
+    parser.add_argument(
+        "--log_every",
+        type=int,
+        default=5,
+        help="wandb log every ddp steps",
     )
     parser.add_argument(
         "--lora_rank",
@@ -640,8 +808,6 @@ def main(args, controlnet_prompts):
         else:
             wandb.init(project=args.project, name=args.run_name)
     
-    if args.wandb:
-        wandb_log_data = {}
         
 
     # Currently, it's not possible to do gradient accumulation when training two models with accelerate.accumulate
@@ -991,6 +1157,9 @@ def main(args, controlnet_prompts):
         text_encoder.train()
 
     for step, batch in enumerate(train_dataloader):
+        if args.wandb:
+            wandb_log_data = {}
+        force_wandb_log = False 
         # Convert images to latent space
         latents = vae.encode(
             batch["pixel_values"].to(dtype=weight_dtype)
@@ -1147,35 +1316,65 @@ def main(args, controlnet_prompts):
         # since backward pass is done, the gradients would be ready! time to store grad norms!
 
         # calculate the gradient norm for each of the trainable parameters 
-        # TODO: see the error in the grad norm computation, gathering and logging 
-        # if args.wandb:
-        #     unet_grad_norm = [param.grad.norm() for param in unet.parameters() if param.grad is not None]
-        #     if len(unet_grad_norm) == 0:
-        #         unet_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-        #     else:
-        #         unet_grad_norm = torch.norm(torch.stack(unet_grad_norm)) 
-        #     mlp_grad_norm = [param.grad.norm() for param in continuous_word_model.parameters() if param.grad is not None]
-        #     if len(mlp_grad_norm) == 0:
-        #         mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-        #     else:
-        #         mlp_grad_norm = torch.norm(torch.stack(mlp_grad_norm)) 
-        #     if args.train_text_encoder: 
-        #         text_encoder_grad_norm = [param.grad.norm() for param in text_encoder.parameters() if param.grad is not None]
-        #         if len(text_encoder_grad_norm) == 0:
-        #             text_encoder_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-        #         else:
-        #             text_encoder_grad_norm = torch.norm(torch.stack(text_encoder_grad_norm)) 
-        #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm, text_encoder_grad_norm]) 
-        #     else:
-        #         all_grad_norms = torch.stack([unet_grad_norm, mlp_grad_norm]) 
+        if args.wandb and ((ddp_step + 1) % args.log_every == 0): 
+            with torch.no_grad(): 
+                all_grad_norms = []
 
-        #     # gathering all the norms at once to prevent excessive multi gpu communication 
-        #     gathered_grad_norms = torch.mean(accelerator.gather(all_grad_norms), 0) 
-        #     wandb_log_data["unet_grad_norm"] = gathered_grad_norms[0] 
-        #     wandb_log_data["mlp_grad_norm"] =  gathered_grad_norms[1] 
-        #     if args.train_text_encoder: 
-        #         wandb_log_data["text_encoder_grad_norm"] = gathered_grad_norms[2]   
+                # mlp 
+                mlp_grad_norm = [torch.linalg.norm(param.grad) for param in continuous_word_model.parameters() if param.grad is not None]
+                if len(mlp_grad_norm) == 0:
+                    mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                else:
+                    mlp_grad_norm = torch.mean(torch.stack(mlp_grad_norm)) 
+                all_grad_norms.append(mlp_grad_norm) 
 
+                # unet 
+                if args.train_unet: 
+                    unet_grad_norm = [torch.linalg.norm(param.grad) for param in unet.parameters() if param.grad is not None]
+                    if len(unet_grad_norm) == 0:
+                        unet_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        unet_grad_norm = torch.mean(torch.stack(unet_grad_norm)) 
+                    all_grad_norms.append(unet_grad_norm) 
+                        
+                # text encoder 
+                if args.train_text_encoder: 
+                    text_encoder_grad_norm = [torch.linalg.norm(param.grad) for param in text_encoder.parameters() if param.grad is not None]
+                    if len(text_encoder_grad_norm) == 0:
+                        text_encoder_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        text_encoder_grad_norm = torch.mean(torch.stack(text_encoder_grad_norm)) 
+                    all_grad_norms.append(text_encoder_grad_norm) 
+                
+                # # embedding  
+                # if args.textual_inv: 
+                #     bnha_grad_norm = [torch.linalg.vector_norm(param.grad) for param in bnha_embed.parameters() if param.grad is not None] 
+                #     if len(bnha_grad_norm) == 0: 
+                #         bnha_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                #     else: 
+                #         bnha_grad_norm = torch.mean(torch.stack(bnha_grad_norm)) 
+                #     all_grad_norms.append(bnha_grad_norm) 
+
+
+                # grad_norms would be in the order (if available): mlp, unet, text_encoder, embedding  
+                # gathering all the norms at once to prevent excessive multi gpu communication 
+                all_grad_norms = torch.stack(all_grad_norms).unsqueeze(0)  
+                gathered_grad_norms = torch.mean(accelerator.gather(all_grad_norms), dim=0)  
+                wandb_log_data["mlp_grad_norm"] = gathered_grad_norms[0] 
+                curr = 1 
+                while curr < len(gathered_grad_norms):  
+                    if args.train_unet and ("unet_grad_norm" not in wandb_log_data.keys()): 
+                        wandb_log_data["unet_grad_norm"] = gathered_grad_norms[curr]  
+
+                    elif args.train_text_encoder and ("text_encoder_grad_norm" not in wandb_log_data.keys()): 
+                        wandb_log_data["text_encoder_grad_norm"] = gathered_grad_norms[curr] 
+
+                    # elif args.textual_inv and ("bnha_grad_norm" not in wandb_log_data.keys()): 
+                    #     wandb_log_data["bnha_grad_norm"] = gathered_grad_norms[curr] 
+                    
+                    else:
+                        assert False 
+                    curr += 1
 
         # gradient clipping 
         if accelerator.sync_gradients:
@@ -1201,6 +1400,67 @@ def main(args, controlnet_prompts):
 
         for optimizer in optimizers: 
             optimizer.step() 
+
+        # calculating weight norms 
+        if args.wandb and ((ddp_step + 1) % args.log_every == 0): 
+            with torch.no_grad(): 
+                all_norms = []
+
+                # mlp 
+                mlp_norm = [torch.linalg.norm(param) for param in continuous_word_model.parameters() if param.grad is not None]
+                if len(mlp_norm) == 0:
+                    mlp_norm = torch.tensor(0.0).to(accelerator.device) 
+                else:
+                    mlp_norm = torch.mean(torch.stack(mlp_norm)) 
+                all_norms.append(mlp_norm) 
+
+                # unet 
+                if args.train_unet: 
+                    unet_norm = [torch.linalg.norm(param) for param in unet.parameters() if param.grad is not None]
+                    if len(unet_norm) == 0:
+                        unet_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        unet_norm = torch.mean(torch.stack(unet_norm)) 
+                    all_norms.append(unet_norm) 
+                        
+                # text encoder 
+                if args.train_text_encoder: 
+                    text_encoder_norm = [torch.linalg.norm(param) for param in text_encoder.parameters() if param.grad is not None]
+                    if len(text_encoder_norm) == 0:
+                        text_encoder_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        text_encoder_norm = torch.mean(torch.stack(text_encoder_norm)) 
+                    all_norms.append(text_encoder_norm) 
+                
+                # # embedding  
+                # if args.textual_inv: 
+                #     bnha_norm = [torch.linalg.vector_norm(param.grad) for param in bnha_embed.parameters() if param.grad is not None] 
+                #     if len(bnha_norm) == 0: 
+                #         bnha_norm = torch.tensor(0.0).to(accelerator.device) 
+                #     else: 
+                #         bnha_norm = torch.mean(torch.stack(bnha_norm)) 
+                #     all_norms.append(bnha_norm) 
+
+
+                # grad_norms would be in the order (if available): mlp, unet, text_encoder, embedding  
+                # gathering all the norms at once to prevent excessive multi gpu communication 
+                all_norms = torch.stack(all_norms).unsqueeze(0)  
+                gathered_norms = torch.mean(accelerator.gather(all_norms), dim=0)  
+                wandb_log_data["mlp_norm"] = gathered_norms[0] 
+                curr = 1 
+                while curr < len(gathered_norms):  
+                    if args.train_unet and ("unet_norm" not in wandb_log_data.keys()): 
+                        wandb_log_data["unet_norm"] = gathered_norms[curr]  
+
+                    elif args.train_text_encoder and ("text_encoder_norm" not in wandb_log_data.keys()): 
+                        wandb_log_data["text_encoder_norm"] = gathered_norms[curr] 
+
+                    # elif args.textual_inv and ("bnha_norm" not in wandb_log_data.keys()): 
+                    #     wandb_log_data["bnha_norm"] = gathered_norms[curr] 
+                    
+                    else:
+                        assert False 
+                    curr += 1
 
         if DEBUG: 
             with torch.no_grad(): 
@@ -1257,27 +1517,62 @@ def main(args, controlnet_prompts):
 
         # since we have stepped, time to log weight norms!
 
-        # calculate the weight norm for each of the trainable parameters 
-        # if args.wandb:
-        #     unet_norm = torch.norm(torch.stack([param for param in unet.parameters()])) 
-        #     mlp_norm = torch.norm(torch.stack([param for param in continuous_word_model.parameters()])) 
-        #     if args.train_text_encoder: 
-        #         text_encoder_norm = torch.norm(torch.stack([param for param in text_encoder.parameters()])) 
-        #         all_grad_norms = torch.stack([unet_norm, mlp_norm, text_encoder_norm]) 
-        #     else:
-        #         all_grad_norms = torch.stack([unet_norm, mlp_norm]) 
-            
-        #     gathered_norms = torch.mean(accelerator.gather(all_grad_norms), 0)
-        #     wandb_log_data["unet_weight_norm"] = gathered_norms[0]
-        #     wandb_log_data["mlp_weight_norm"] = gathered_norms[1]
-        #     if args.train_text_encoder: 
-        #         wandb_log_data["text_encoder_weight_norm"] = gathered_norms[2] 
-
-        
         global_step += accelerator.num_processes * args.train_batch_size  
         ddp_step += 1
-        if args.wandb:
-            wandb_log_data["global_step"] = global_step 
+
+        if args.online_inference and len(VLOG_STEPS) > 0 and global_step >= VLOG_STEPS[0]:  
+            step = VLOG_STEPS[0] 
+            VLOG_STEPS.pop(0) 
+            if global_step <= args.stage1_steps:  
+                use_sks = False 
+            else:
+                use_sks = True 
+            # if args.textual_inv: 
+            #     videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks, bnha_embed) 
+            # else: 
+            videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
+
+            for key, value in videos.items():  
+                # this weird transposing had to be done, because earlier was trying to save raw data, but that gives a lot of BT with wandb.Video 
+                value = np.transpose(value, (0, 2, 3, 1)) 
+
+                # Get the frame size
+                height, width, _ = value[0].shape
+
+                # # Create the video writer
+                # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                # video_writer = cv2.VideoWriter('temp.gif', fourcc, 1, (width, height))
+
+                # # Write the frames to the video
+                # for frame in value: 
+                #     video_writer.write(frame)
+
+                # # Release the video writer
+                # video_writer.release()
+                create_gif(value, duration=1) 
+
+                wandb_log_data[key] = wandb.Video("temp.gif")  
+
+                force_wandb_log = True 
+            
+            # trying to push raw data to wandb.Video, does not work properly 
+            # if args.wandb: 
+            #     for key, value in videos.items(): 
+            #         wandb_log_data[key] = wandb.Video(value, fps=1)
+            #     force_wandb_log = True 
+            
+            # also saving the video locally! 
+            os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}"), exist_ok=True)    
+
+            for key, value in videos.items(): 
+                prompt_foldername = "_".join(key.split()) 
+                os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername), exist_ok=True) 
+                for image_idx, image in enumerate(value):  
+                    # image would be present in cwh format 
+                    image = np.transpose(image, (1, 2, 0)) 
+                    image = Image.fromarray(image) 
+                    image.save(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername, str(image_idx).zfill(3) + ".jpg"), exist_ok=True) 
+
 
         # Checks if the accelerator has performed an optimization step behind the scenes
         if accelerator.sync_gradients:
@@ -1382,15 +1677,27 @@ def main(args, controlnet_prompts):
 
         loss = loss.detach()
         gathered_loss = torch.mean(accelerator.gather(loss), 0)
-        if args.wandb:
+        if args.wandb and ddp_step % args.log_every == 0:
             wandb_log_data["loss"] = gathered_loss
-            wandb_log_data["lr"] =  lr_scheduler.get_last_lr()[0]
 
-        if args.wandb and accelerator.is_main_process and ddp_step % 5 == 0: 
+        if args.wandb: 
             # finally logging!
-            wandb.log(wandb_log_data) 
+            if accelerator.is_main_process and (force_wandb_log or ddp_step % args.log_every == 0): 
+                for step in range(global_step - BS, global_step - 1): 
+                    wandb.log({
+                        "global_step": step, 
+                    })
+                wandb_log_data["global_step"] = global_step 
+                wandb.log(wandb_log_data) 
 
-        logs = {"loss": gathered_loss, "lr": lr_scheduler.get_last_lr()[0]}
+            # hack to make sure that the wandb step and the global_step are in sync 
+            elif accelerator.is_main_process: 
+                for step in range(global_step - BS, global_step): 
+                    wandb.log({
+                        "global_step": step, 
+                    })
+
+        logs = {"loss": gathered_loss.item()} 
 
         progress_bar.set_postfix(**logs)
         accelerator.log(logs, step=global_step)
@@ -1399,6 +1706,7 @@ def main(args, controlnet_prompts):
             break
 
     accelerator.wait_for_everyone()
+
     wandb.finish() 
 
     # Create the pipeline using using the trained modules and save it.

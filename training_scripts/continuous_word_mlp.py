@@ -28,3 +28,12 @@ class continuous_word_mlp(nn.Module):
         x = self.relu(self.fc1(x))
         x = self.tanh(self.fc2(x))
         return x
+
+
+class HotEmbedding(nn.Module):
+    def __init__(self, init_embedding):
+        super().__init__() 
+        self.embed = torch.nn.Parameter(torch.clone(init_embedding)) 
+    
+    def forward(self, x): 
+        return self.embed
