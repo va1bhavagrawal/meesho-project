@@ -127,7 +127,10 @@ def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, b
             subfolder="tokenizer", 
         ) 
 
-        prompts_dataset = PromptDataset(use_sks=use_sks) 
+        if not use_sks: 
+            prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=6)  
+        else: 
+            prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=24)  
 
         # if args.textual_inv: 
         #     accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)   
