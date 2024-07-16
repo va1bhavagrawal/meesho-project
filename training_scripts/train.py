@@ -141,7 +141,7 @@ def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, b
         accelerator.print(f"collecting the encoder hidden states...") 
         for azimuth in range(prompts_dataset.num_samples): 
             if azimuth % accelerator.num_processes == accelerator.process_index: 
-                normalized_azimuth = azimuth / prompts_dataset.num_prompts  
+                normalized_azimuth = azimuth / prompts_dataset.num_samples 
                 sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(accelerator.device) 
                 accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
                 tokens = tokenizer(
@@ -806,11 +806,12 @@ def main(args, controlnet_prompts):
     assert accelerator.num_processes * args.train_batch_size == BS 
 
     if args.wandb and accelerator.is_main_process:
+        wandb_config = vars(args) 
         wandb.login(key="6ab81b60046f7d7f6a7dca014a2fcaf4538ff14a") 
         if args.run_name is None: 
-            wandb.init(project=args.project)
+            wandb.init(project=args.project, config=wandb_config) 
         else:
-            wandb.init(project=args.project, name=args.run_name)
+            wandb.init(project=args.project, name=args.run_name, config=wandb_config) 
     
         
 
