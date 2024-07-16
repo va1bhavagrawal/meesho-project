@@ -13,8 +13,8 @@ strictly forbidden unless prior written permission is obtained from Adobe.
 import os
 import os.path as osp 
 
-os.environ["HF_HOME"] = "/ssd_scratch/cvit/vaibhav/"
 ROOT_CKPT_DIR = "/ssd_scratch/cvit/vaibhav/"
+os.environ["HF_HOME"] = ROOT_CKPT_DIR
 
 from diffusers import StableDiffusionPipeline, EulerAncestralDiscreteScheduler
 from lora_diffusion import patch_pipe
@@ -33,10 +33,10 @@ pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float
 )
 pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
-file_id = "template_truck"  
+file_id = "template_truck/__verify_fixbatchsize"   
 
 checkpoints = [
-    "166_s30000",
+    30000,
 ]
 
 def generate_prompts(subject="bnha pickup truck", use_sks=True, prompts_file="prompts/prompts_new.txt"):
@@ -56,34 +56,32 @@ def generate_prompts(subject="bnha pickup truck", use_sks=True, prompts_file="pr
 
 subjects = [
     "bnha pickup truck",
-    "pickup truck",
-    "sedan car",
-    "sporty car",
-    "motorbike",
 ]
 
 tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
 os.makedirs(file_id, exist_ok=True)
 for checkpoint in checkpoints:
-    if osp.exists(f"{file_id}/outputs_{checkpoint}"):
-        shutil.rmtree(f"{file_id}/outputs_{checkpoint}") 
+    # if osp.exists(f"{file_id}/outputs_{checkpoint}"):
+    #     shutil.rmtree(f"{file_id}/outputs_{checkpoint}") 
     os.makedirs(f"{file_id}/outputs_{checkpoint}", exist_ok=True)
     patch_pipe(
         pipe,
-        osp.join(ROOT_CKPT_DIR, f"ckpts/{file_id}/lora_weight_e{checkpoint}.safetensors"), 
+        osp.join(ROOT_CKPT_DIR, f"ckpts/{file_id}/lora_weight_{checkpoint}.safetensors"), 
         patch_text=True,
         patch_ti=True,
         patch_unet=True,
     )
     for subject in subjects:
-        prompts = generate_prompts(subject, use_sks=True)
+        prompts = [
+            "a sks photo of a bnha pickup truck in a lust green forest with tall trees."
+        ]
         for prompt in prompts:
             print(f"doing prompt: {prompt}")
             prompt_ = "_".join(prompt.split()) 
             os.makedirs(f"{file_id}/outputs_{checkpoint}/{prompt_}", exist_ok=True)
             continuous_word_model = continuous_word_mlp(input_size = 2, output_size = 1024)
             new_state_dict = {}
-            state_dict = torch.load(osp.join(ROOT_CKPT_DIR, f"ckpts/{file_id}/mlp{checkpoint}.pt"))
+            state_dict = torch.load(osp.join(ROOT_CKPT_DIR, f"ckpts/{file_id}/mlp_{checkpoint}.pt"))
             for key, value in state_dict.items():
                 if key.find(f"module") != -1:
                     new_state_dict[key.replace(f"module.", "")] = value
@@ -99,7 +97,7 @@ for checkpoint in checkpoints:
                     truncation=True, \
                     max_length = tokenizer.model_max_length).input_ids[1]
 
-            interpolation_gap = 12
+            interpolation_gap = 36
             values = []
             for idx in range(interpolation_gap):
                 value = idx / interpolation_gap
@@ -113,7 +111,6 @@ for checkpoint in checkpoints:
                 with torch.no_grad():
                     pipe.text_encoder.get_input_embeddings().weight[corresponding_emb] = mlp_emb
 
-                torch.manual_seed(50)
                 # image = pipe(prompt, negative_prompt="bnha, worst quality", num_inference_steps=50, guidance_scale=6).images[0]
                 image = pipe(prompt, negative_prompt="worst quality", num_inference_steps=50, guidance_scale=6).images[0]
                 img_list.append(image)
