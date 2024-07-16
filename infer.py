@@ -32,10 +32,10 @@ pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float
 )
 pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
-file_id = "template_truck"  
+file_id = "template_truck/__verify_fixbatchsize"   
 
 checkpoints = [
-    "19_s3500",
+    30000,
 ]
 
 def generate_prompts(subject="bnha pickup truck", use_sks=True, prompts_file="prompts/prompts_new.txt"):
@@ -55,10 +55,6 @@ def generate_prompts(subject="bnha pickup truck", use_sks=True, prompts_file="pr
 
 subjects = [
     "bnha pickup truck",
-    "pickup truck",
-    "sedan car",
-    "sporty car",
-    "motorbike",
 ]
 
 tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
@@ -69,14 +65,14 @@ for checkpoint in checkpoints:
     os.makedirs(f"{file_id}/outputs_{checkpoint}", exist_ok=True)
     patch_pipe(
         pipe,
-        osp.join(ROOT_CKPT_DIR, f"ckpts/{file_id}/lora_weight_e{checkpoint}.safetensors"), 
+        osp.join(ROOT_CKPT_DIR, f"ckpts/{file_id}/lora_weight_{checkpoint}.safetensors"), 
         patch_text=True,
         patch_ti=True,
         patch_unet=True,
     )
     for subject in subjects:
         prompts = [
-            "a photo of a bnha pickup truck"
+            "a sks photo of a bnha pickup truck in a lust green forest with tall trees."
         ]
         for prompt in prompts:
             print(f"doing prompt: {prompt}")
@@ -84,7 +80,7 @@ for checkpoint in checkpoints:
             os.makedirs(f"{file_id}/outputs_{checkpoint}/{prompt_}", exist_ok=True)
             continuous_word_model = continuous_word_mlp(input_size = 2, output_size = 1024)
             new_state_dict = {}
-            state_dict = torch.load(osp.join(ROOT_CKPT_DIR, f"ckpts/{file_id}/mlp{checkpoint}.pt"))
+            state_dict = torch.load(osp.join(ROOT_CKPT_DIR, f"ckpts/{file_id}/mlp_{checkpoint}.pt"))
             for key, value in state_dict.items():
                 if key.find(f"module") != -1:
                     new_state_dict[key.replace(f"module.", "")] = value
@@ -100,7 +96,7 @@ for checkpoint in checkpoints:
                     truncation=True, \
                     max_length = tokenizer.model_max_length).input_ids[1]
 
-            interpolation_gap = 12
+            interpolation_gap = 36
             values = []
             for idx in range(interpolation_gap):
                 value = idx / interpolation_gap
