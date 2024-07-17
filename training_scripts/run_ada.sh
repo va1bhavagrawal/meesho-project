@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="syoj" 
+export RUN_NAME="save_your_own_jpeg" 
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 
@@ -50,4 +50,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
   --run_name="$RUN_NAME" \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

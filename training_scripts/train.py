@@ -610,7 +610,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--log_every",
         type=int,
-        default=5,
+        default=30,
         help="wandb log every ddp steps",
     )
     parser.add_argument(
