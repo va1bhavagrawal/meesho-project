@@ -23,6 +23,8 @@ import torch.utils.checkpoint
 import numpy as np 
 from io import BytesIO
 
+import pickle 
+
 # from metrics import MetricEvaluator 
 
 
@@ -729,6 +731,12 @@ def parse_args(input_args=None):
         help="For distributed training: local_rank",
     )
     parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help=("whether we are resuming run"),
+    )
+    parser.add_argument(
         "--resume_unet",
         type=str,
         default=None,
@@ -800,6 +808,7 @@ def parse_args(input_args=None):
 
 def main(args, controlnet_prompts):
 
+    # change all the args that you want to 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
     args.max_train_steps = args.stage1_steps + args.stage2_steps 
     accelerator = Accelerator(
@@ -809,7 +818,16 @@ def main(args, controlnet_prompts):
 
     assert accelerator.num_processes * args.train_batch_size == BS 
 
-    if args.wandb and accelerator.is_main_process:
+    if args.wandb and accelerator.is_main_process and args.resume is not None:  
+        # resuming run 
+        with open(args.resume, "rb") as f: 
+            training_state = pickle.load(f) 
+            args.__dict__ = training_state["args"] 
+        wandb_config = vars(args)  
+        wandb.login(key="6ab81b60046f7d7f6a7dca014a2fcaf4538ff14a") 
+        wandb.init(project=args.project, config=wandb_config, id=training_state["wandb_run_id"], resume="allow") 
+
+    elif args.wandb and accelerator.is_main_process:
         wandb_config = vars(args) 
         wandb.login(key="6ab81b60046f7d7f6a7dca014a2fcaf4538ff14a") 
         if args.run_name is None: 
@@ -896,6 +914,7 @@ def main(args, controlnet_prompts):
             text_encoder,
             target_replace_module=["CLIPAttention"],
             r=args.lora_rank,
+            loras=args.resume_text_encoder, 
         )
         # for _up, _down in extract_lora_ups_down(
         #     text_encoder, target_replace_module=["CLIPAttention"]
@@ -1144,6 +1163,10 @@ def main(args, controlnet_prompts):
     )
     global_step = 0
     ddp_step = 0
+
+    if args.resume: 
+        global_step = training_state["global_step"] 
+        ddp_step = training_state["ddp_step"] 
 
     
     if args.train_unet: 
@@ -1644,9 +1667,9 @@ def main(args, controlnet_prompts):
                     )
 
                     # filename_unet = (
-                    #     f"{args.output_dir}/lora_weight_{global_step}.pt"
+                    #     f"{args.output_dir}/lora_unet_{global_step}.pt"
                     # )
-                    # filename_text_encoder = f"{args.output_dir}/lora_weight_{global_step}.text_encoder.pt"
+                    # filename_text_encoder = f"{args.output_dir}/lora_text_encoder_{global_step}.pt"
                     # print(f"save weights {filename_unet}, {filename_text_encoder}")
                     # save_lora_weight(pipeline.unet, filename_unet)
                     
@@ -1661,6 +1684,17 @@ def main(args, controlnet_prompts):
 
                         if args.train_text_encoder:
                             loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+
+                        training_state = {} 
+                        training_state["args"] = vars(args)  
+                        training_state["global_step"] = global_step 
+                        training_state["ddp_step"] = ddp_step  
+                        training_state["wandb_run_id"] = wandb.run.id 
+                        training_state["unet_loras"] = osp.join(args.output_dir, f"lora_weight_{global_step}.safetensors") 
+
+                        with open(f"training_state_{global_step}.pkl", "wb") as f: 
+                            pickle.dump(f, training_state) 
+
 
                         save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
                         
