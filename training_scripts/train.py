@@ -1259,12 +1259,12 @@ def main(args, controlnet_prompts):
 
             for batch_idx, batch_item in enumerate(input_ids): 
                 # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
-                text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)  
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)  
 
                 # performing the replacement on cold embeddings by a hot embedding -- allowed 
-                text_encoder.module.get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp_emb[batch_idx] 
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp_emb[batch_idx] 
                 if args.textual_inv: 
-                    text_encoder.module.get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
+                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
 
 
                 # appending to the encoder states 
@@ -1274,7 +1274,7 @@ def main(args, controlnet_prompts):
             encoder_hidden_states = torch.stack(encoder_hidden_states)  
 
             # replacing the text encoder input embeddings by the original ones, this time setting them to be HOT, this will be useful in case we choose to do textual inversion 
-            text_encoder.module.get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=True)   
+            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=True)   
             encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
             assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
             encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0)
