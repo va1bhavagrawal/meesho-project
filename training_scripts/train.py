@@ -669,7 +669,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=48,
+        default=5000,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
