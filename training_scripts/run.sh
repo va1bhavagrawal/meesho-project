@@ -27,7 +27,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet \
   --train_text_encoder \
   --resolution=512 \
-  --train_batch_size=2 \
+  --train_batch_size=4 \
   --inference_batch_size=4 \
   --gradient_accumulation_steps=1 \
   --learning_rate=4e-4 \
@@ -43,5 +43,4 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
   --run_name="$RUN_NAME" \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

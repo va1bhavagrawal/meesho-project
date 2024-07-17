@@ -32,10 +32,10 @@ pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float
 )
 pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
-file_id = "template_truck/__verify_fixbatchsize"   
+file_id = "template_truck/__first_wandb_run"   
 
 checkpoints = [
-    30000,
+    20000,
 ]
 
 def generate_prompts(subject="bnha pickup truck", use_sks=True, prompts_file="prompts/prompts_new.txt"):
@@ -72,7 +72,7 @@ for checkpoint in checkpoints:
     )
     for subject in subjects:
         prompts = [
-            "a sks photo of a bnha pickup truck in a lust green forest with tall trees."
+            "a sks photo of a bnha pickup truck in a lush green forest with tall trees."
         ]
         for prompt in prompts:
             print(f"doing prompt: {prompt}")

@@ -23,6 +23,8 @@ import torch.utils.checkpoint
 import numpy as np 
 from io import BytesIO
 
+# from metrics import MetricEvaluator 
+
 
 TOKEN2ID = {
     "sks": 48136,
@@ -32,6 +34,7 @@ DEBUG = False
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
+# VLOG_STEPS = [32] 
 
 
 from accelerate import Accelerator
@@ -88,7 +91,7 @@ Dissemination of this information or reproduction of this material is
 strictly forbidden unless prior written permission is obtained from Adobe.
 """
 
-def create_gif(images, filename, duration=1):
+def create_gif(images, save_path, duration=1):
     """
     Convert a sequence of NumPy array images to a GIF.
     
@@ -108,7 +111,7 @@ def create_gif(images, filename, duration=1):
     # bytes_io = BytesIO()
     # frames[0].save(bytes_io, save_all=True, append_images=frames[1:], duration=1000/fps, loop=loop, 
                 #    disposal=2, optimize=True, subrectangles=True)
-    frames[0].save(f"{filename}.gif", save_all=True, append_images=frames[1:], loop=0, duration=int(duration * 1000))
+    frames[0].save(save_path, save_all=True, append_images=frames[1:], loop=0, duration=int(duration * 1000))
     
     # gif_bytes = bytes_io.getvalue()
     # with open("temp.gif", "wb") as f:
@@ -1556,10 +1559,14 @@ def main(args, controlnet_prompts):
 
                     # # Release the video writer
                     # video_writer.release()
-                    filename = "_".join(key.split()) 
-                    create_gif(value, filename, duration=1) 
 
-                    wandb_log_data[key] = wandb.Video(f"{filename}.gif")   
+                    prompt_foldername = "_".join(key.split()) 
+                    save_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername) 
+                    os.makedirs(save_path, exist_ok=True)  
+                    save_path = osp.join(save_path, prompt_foldername + ".gif") 
+                    create_gif(value, save_path, duration=1) 
+                    if args.wandb: 
+                        wandb_log_data[key] = wandb.Video(save_path)    
 
                     force_wandb_log = True 
                 
@@ -1569,9 +1576,9 @@ def main(args, controlnet_prompts):
                 #         wandb_log_data[key] = wandb.Video(value, fps=1)
                 #     force_wandb_log = True 
                 
-                # also saving the video locally! 
-                    os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}"), exist_ok=True)    
+                    # os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}"), exist_ok=True)    
 
+                # also saving the video locally! 
                 for key, value in videos.items(): 
                     prompt_foldername = "_".join(key.split()) 
                     os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername), exist_ok=True) 
@@ -1581,6 +1588,30 @@ def main(args, controlnet_prompts):
                         image = Image.fromarray(image) 
                         image.save(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername, str(image_idx).zfill(3) + ".jpg"), exist_ok=True) 
 
+                # metrics computation 
+                # generated_images = [] 
+                # gt_images = [] 
+                # prompts = [] 
+                # ref_img_names = os.listdir(args.instance_data_dir) 
+                # ref_angles = [float(img_name.split("_.jpg")[0]) for img_name in ref_img_names] 
+                # ref_angles = np.array(ref_angles)   
+                # for key, value in videos.items():  
+                #     n_views = len(value) 
+                #     for image_idx, image in enumerate(value): 
+                #         print(f"{image_idx = }")
+                #         image = np.transpose(image, (1, 2, 0)) 
+                #         image = Image.fromarray(image) 
+                #         generated_images.append(image) 
+                #         prompts.append(key) 
+                #         angle = (image_idx / n_views) * 2 * math.pi 
+                #         print(f"{n_views = }")
+                #         print(f"{angle = }")
+                #         diffs = ref_angles - angle 
+                #         best_match_idx = int(np.argmin(diffs))  
+                #         print(f"{ref_img_names[best_match_idx] = }")
+                #         gt_images.append(Image.open(osp.join(args.instance_data_dir, ref_img_names[best_match_idx]))) 
+                #         sys.exit(0) 
+                
 
         # Checks if the accelerator has performed an optimization step behind the scenes
         if accelerator.sync_gradients:
@@ -1717,11 +1748,11 @@ def main(args, controlnet_prompts):
 
     wandb.finish() 
 
-    if accelerator.is_main_process: 
-        print(f"removing the intermediate GIFs...") 
-        all_filenames = [os.listdir(".")] 
-        all_gifs = [filename for filename in all_filenames if filename.find(f".gif") != -1] 
-        [shutil.rmtree(file) for file in all_gifs] 
+    # if accelerator.is_main_process: 
+        # print(f"removing the intermediate GIFs...") 
+        # all_filenames = [os.listdir(".")] 
+        # all_gifs = [filename for filename in all_filenames if filename.find(f".gif") != -1] 
+        # [shutil.rmtree(file) for file in all_gifs] 
 
     # Create the pipeline using using the trained modules and save it.
     if accelerator.is_main_process:
