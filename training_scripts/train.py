@@ -34,7 +34,7 @@ DEBUG = False
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
-# VLOG_STEPS = [32] 
+# VLOG_STEPS = [32, 64] 
 
 
 from accelerate import Accelerator
@@ -122,6 +122,7 @@ def create_gif(images, save_path, duration=1):
 
 def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, bnha_embed=None):  
     with torch.no_grad(): 
+        vae.to(accelerator.device) 
         # the list of videos 
         # each item in the list is the video of a prompt at different viewpoints, or just random generations if use_sks=False  
         accelerator.print(f"performing inference...") 
@@ -247,6 +248,7 @@ def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, b
             videos[prompt][azimuth] = generated_images[idx].astype(np.uint8)  
 
         accelerator.print(f"done!")  
+        vae = vae.to(torch.device(f"cpu")) 
         return videos 
 
 
@@ -667,7 +669,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=5000,
+        default=48,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
@@ -1154,7 +1156,6 @@ def main(args, controlnet_prompts):
     continuous_word_model.to(accelerator.device, dtype=weight_dtype)
     """End Adobe CONFIDENTIAL"""
     
-    vae.to(accelerator.device, dtype=weight_dtype)
     if not args.train_text_encoder:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
 
@@ -1196,10 +1197,12 @@ def main(args, controlnet_prompts):
             wandb_log_data = {}
         force_wandb_log = False 
         # Convert images to latent space
+        vae.to(accelerator.device, dtype=weight_dtype)
         latents = vae.encode(
             batch["pixel_values"].to(dtype=weight_dtype)
         ).latent_dist.sample()
         latents = latents * 0.18215
+        vae = vae.to(torch.device(f"cpu")) 
 
         # Sample noise that we'll add to the latents
         noise = torch.randn_like(latents)
