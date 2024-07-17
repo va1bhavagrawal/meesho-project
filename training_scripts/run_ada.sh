@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="textualinvONLY"
+export RUN_NAME="textualinv+fullmodel"
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 
@@ -31,6 +31,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
   --textual_inv \
+  --train_unet \
+  --train_text_encoder \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=1 \
