@@ -48,4 +48,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
   --run_name="$RUN_NAME" \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

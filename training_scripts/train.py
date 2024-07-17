@@ -1696,7 +1696,8 @@ def main(args, controlnet_prompts):
                         if args.train_text_encoder:
                             loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
 
-                        save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
+                        if loras != {}: 
+                            save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
                         
                         """
                         ADOBE CONFIDENTIAL
@@ -1820,7 +1821,8 @@ def main(args, controlnet_prompts):
             if args.train_text_encoder:
                 loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
 
-            save_safeloras(loras, args.output_dir + "/lora_weight.safetensors")
+            if loras != {}: 
+                save_safeloras(loras, args.output_dir + "/lora_weight.safetensors")
             """
             ADOBE CONFIDENTIAL
             Copyright 2024 Adobe
