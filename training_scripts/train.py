@@ -9,6 +9,7 @@ import hashlib
 import itertools
 import math
 import os
+import shutil 
 import os.path as osp 
 import inspect
 from pathlib import Path
@@ -87,7 +88,7 @@ Dissemination of this information or reproduction of this material is
 strictly forbidden unless prior written permission is obtained from Adobe.
 """
 
-def create_gif(images, duration=1):
+def create_gif(images, filename, duration=1):
     """
     Convert a sequence of NumPy array images to a GIF.
     
@@ -107,7 +108,7 @@ def create_gif(images, duration=1):
     # bytes_io = BytesIO()
     # frames[0].save(bytes_io, save_all=True, append_images=frames[1:], duration=1000/fps, loop=loop, 
                 #    disposal=2, optimize=True, subrectangles=True)
-    frames[0].save("temp.gif", save_all=True, append_images=frames[1:], loop=0, duration=int(duration * 1000))
+    frames[0].save(f"{filename}.gif", save_all=True, append_images=frames[1:], loop=0, duration=int(duration * 1000))
     
     # gif_bytes = bytes_io.getvalue()
     # with open("temp.gif", "wb") as f:
@@ -1537,46 +1538,48 @@ def main(args, controlnet_prompts):
             # else: 
             videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
 
-            for key, value in videos.items():  
-                # this weird transposing had to be done, because earlier was trying to save raw data, but that gives a lot of BT with wandb.Video 
-                value = np.transpose(value, (0, 2, 3, 1)) 
+            if accelerator.is_main_process: 
+                for key, value in videos.items():  
+                    # this weird transposing had to be done, because earlier was trying to save raw data, but that gives a lot of BT with wandb.Video 
+                    value = np.transpose(value, (0, 2, 3, 1)) 
 
-                # Get the frame size
-                height, width, _ = value[0].shape
+                    # Get the frame size
+                    height, width, _ = value[0].shape
 
-                # # Create the video writer
-                # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                # video_writer = cv2.VideoWriter('temp.gif', fourcc, 1, (width, height))
+                    # # Create the video writer
+                    # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    # video_writer = cv2.VideoWriter('temp.gif', fourcc, 1, (width, height))
 
-                # # Write the frames to the video
-                # for frame in value: 
-                #     video_writer.write(frame)
+                    # # Write the frames to the video
+                    # for frame in value: 
+                    #     video_writer.write(frame)
 
-                # # Release the video writer
-                # video_writer.release()
-                create_gif(value, duration=1) 
+                    # # Release the video writer
+                    # video_writer.release()
+                    filename = "_".join(key.split()) 
+                    create_gif(value, filename, duration=1) 
 
-                wandb_log_data[key] = wandb.Video("temp.gif")  
+                    wandb_log_data[key] = wandb.Video(f"{filename}.gif")   
 
-                force_wandb_log = True 
-            
-            # trying to push raw data to wandb.Video, does not work properly 
-            # if args.wandb: 
-            #     for key, value in videos.items(): 
-            #         wandb_log_data[key] = wandb.Video(value, fps=1)
-            #     force_wandb_log = True 
-            
-            # also saving the video locally! 
-            os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}"), exist_ok=True)    
+                    force_wandb_log = True 
+                
+                # trying to push raw data to wandb.Video, does not work properly 
+                # if args.wandb: 
+                #     for key, value in videos.items(): 
+                #         wandb_log_data[key] = wandb.Video(value, fps=1)
+                #     force_wandb_log = True 
+                
+                # also saving the video locally! 
+                    os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}"), exist_ok=True)    
 
-            for key, value in videos.items(): 
-                prompt_foldername = "_".join(key.split()) 
-                os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername), exist_ok=True) 
-                for image_idx, image in enumerate(value):  
-                    # image would be present in cwh format 
-                    image = np.transpose(image, (1, 2, 0)) 
-                    image = Image.fromarray(image) 
-                    image.save(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername, str(image_idx).zfill(3) + ".jpg"), exist_ok=True) 
+                for key, value in videos.items(): 
+                    prompt_foldername = "_".join(key.split()) 
+                    os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername), exist_ok=True) 
+                    for image_idx, image in enumerate(value):  
+                        # image would be present in cwh format 
+                        image = np.transpose(image, (1, 2, 0)) 
+                        image = Image.fromarray(image) 
+                        image.save(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername, str(image_idx).zfill(3) + ".jpg"), exist_ok=True) 
 
 
         # Checks if the accelerator has performed an optimization step behind the scenes
@@ -1713,6 +1716,12 @@ def main(args, controlnet_prompts):
     accelerator.wait_for_everyone()
 
     wandb.finish() 
+
+    if accelerator.is_main_process: 
+        print(f"removing the intermediate GIFs...") 
+        all_filenames = [os.listdir(".")] 
+        all_gifs = [filename for filename in all_filenames if filename.find(f".gif") != -1] 
+        [shutil.rmtree(file) for file in all_gifs] 
 
     # Create the pipeline using using the trained modules and save it.
     if accelerator.is_main_process:
