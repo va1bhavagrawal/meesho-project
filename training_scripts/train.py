@@ -30,7 +30,7 @@ TOKEN2ID = {
     "sks": 48136,
     "bnha": 49336, 
 }
-DEBUG = False  
+DEBUG = False 
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
@@ -70,7 +70,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp
+from continuous_word_mlp import continuous_word_mlp, HotEmbedding 
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -136,8 +136,8 @@ def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, b
         else: 
             prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=24)  
 
-        # if args.textual_inv: 
-        #     accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)   
+        if args.textual_inv: 
+            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
 
         n_prompts_per_azimuth = len(prompts_dataset.subjects) * len(prompts_dataset.template_prompts) 
         encoder_hidden_states = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 77, 1024)).to(accelerator.device).contiguous()  
@@ -581,6 +581,11 @@ def parse_args(input_args=None):
         help="Whether to train the text encoder",
     )
     parser.add_argument(
+        "--textual_inv",
+        action="store_true",
+        help="Whether to use textual inversion",
+    )
+    parser.add_argument(
         "--online_inference", 
         action="store_true", 
         help="whether to do online inference", 
@@ -643,6 +648,12 @@ def parse_args(input_args=None):
         type=float,
         default=None, 
         help="Initial learning rate for mlp (after the potential warmup period) to use.",
+    )
+    parser.add_argument(
+        "--learning_rate_emb",
+        type=float,
+        default=None, 
+        help="Initial learning rate for embedding (after the potential warmup period) to use.",
     )
     parser.add_argument(
         "--lr_scheduler",
@@ -971,6 +982,19 @@ def main(args, controlnet_prompts):
         )
         optimizers.append(optimizer_text_encoder) 
 
+    if args.textual_inv: 
+        bnha_embed = torch.clone(text_encoder.get_input_embeddings().weight[TOKEN2ID["bnha"]])  
+        bnha_embed = HotEmbedding(bnha_embed).to(accelerator.device) 
+        optimizer_bnha = optimizer_class(
+            bnha_embed.parameters(),  
+            lr=args.learning_rate_emb,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        optimizers.append(optimizer_bnha) 
+
+
     noise_scheduler = DDPMScheduler.from_config(
         args.pretrained_model_name_or_path, subfolder="scheduler"
     )
@@ -1103,6 +1127,8 @@ def main(args, controlnet_prompts):
     for optimizer in optimizers: 
         optimizer = accelerator.prepare(optimizer) 
         optimizers_.append(optimizer) 
+    if args.textual_inv: 
+        bnha_embed = accelerator.prepare(bnha_embed) 
     optimizers = optimizers_  
 
     """End Adobe CONFIDENTIAL"""
@@ -1209,6 +1235,8 @@ def main(args, controlnet_prompts):
             progress_bar.set_description(f"stage 1: ")
             input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)
+            if args.textual_inv: 
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
             encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
         else:
             progress_bar.set_description(f"stage 2: ")
@@ -1250,6 +1278,9 @@ def main(args, controlnet_prompts):
 
                 # performing the replacement on cold embeddings by a hot embedding -- allowed 
                 text_encoder.module.get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp_emb[batch_idx] 
+                if args.textual_inv: 
+                    text_encoder.module.get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
+
 
                 # appending to the encoder states 
                 encoder_hidden_states.append(text_encoder(batch_item.unsqueeze(0))[0].squeeze()) 
@@ -1355,14 +1386,14 @@ def main(args, controlnet_prompts):
                         text_encoder_grad_norm = torch.mean(torch.stack(text_encoder_grad_norm)) 
                     all_grad_norms.append(text_encoder_grad_norm) 
                 
-                # # embedding  
-                # if args.textual_inv: 
-                #     bnha_grad_norm = [torch.linalg.vector_norm(param.grad) for param in bnha_embed.parameters() if param.grad is not None] 
-                #     if len(bnha_grad_norm) == 0: 
-                #         bnha_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-                #     else: 
-                #         bnha_grad_norm = torch.mean(torch.stack(bnha_grad_norm)) 
-                #     all_grad_norms.append(bnha_grad_norm) 
+                # embedding  
+                if args.textual_inv: 
+                    bnha_grad_norm = [torch.linalg.norm(param.grad) for param in bnha_embed.parameters() if param.grad is not None] 
+                    if len(bnha_grad_norm) == 0: 
+                        bnha_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else: 
+                        bnha_grad_norm = torch.mean(torch.stack(bnha_grad_norm)) 
+                    all_grad_norms.append(bnha_grad_norm) 
 
 
                 # grad_norms would be in the order (if available): mlp, unet, text_encoder, embedding  
@@ -1378,8 +1409,8 @@ def main(args, controlnet_prompts):
                     elif args.train_text_encoder and ("text_encoder_grad_norm" not in wandb_log_data.keys()): 
                         wandb_log_data["text_encoder_grad_norm"] = gathered_grad_norms[curr] 
 
-                    # elif args.textual_inv and ("bnha_grad_norm" not in wandb_log_data.keys()): 
-                    #     wandb_log_data["bnha_grad_norm"] = gathered_grad_norms[curr] 
+                    elif args.textual_inv and ("bnha_grad_norm" not in wandb_log_data.keys()): 
+                        wandb_log_data["bnha_grad_norm"] = gathered_grad_norms[curr] 
                     
                     else:
                         assert False 
@@ -1406,6 +1437,8 @@ def main(args, controlnet_prompts):
                     unet_before = copy.deepcopy([p for p in unet.parameters()]) 
                 if args.train_text_encoder: 
                     text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
+                if args.textual_inv: 
+                    bnha_before = copy.deepcopy([p for p in bnha_embed.parameters()]) 
 
         for optimizer in optimizers: 
             optimizer.step() 
@@ -1441,14 +1474,14 @@ def main(args, controlnet_prompts):
                         text_encoder_norm = torch.mean(torch.stack(text_encoder_norm)) 
                     all_norms.append(text_encoder_norm) 
                 
-                # # embedding  
-                # if args.textual_inv: 
-                #     bnha_norm = [torch.linalg.vector_norm(param.grad) for param in bnha_embed.parameters() if param.grad is not None] 
-                #     if len(bnha_norm) == 0: 
-                #         bnha_norm = torch.tensor(0.0).to(accelerator.device) 
-                #     else: 
-                #         bnha_norm = torch.mean(torch.stack(bnha_norm)) 
-                #     all_norms.append(bnha_norm) 
+                # embedding  
+                if args.textual_inv: 
+                    bnha_norm = [torch.linalg.norm(param) for param in bnha_embed.parameters() if param.grad is not None] 
+                    if len(bnha_norm) == 0: 
+                        bnha_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else: 
+                        bnha_norm = torch.mean(torch.stack(bnha_norm)) 
+                    all_norms.append(bnha_norm) 
 
 
                 # grad_norms would be in the order (if available): mlp, unet, text_encoder, embedding  
@@ -1464,8 +1497,8 @@ def main(args, controlnet_prompts):
                     elif args.train_text_encoder and ("text_encoder_norm" not in wandb_log_data.keys()): 
                         wandb_log_data["text_encoder_norm"] = gathered_norms[curr] 
 
-                    # elif args.textual_inv and ("bnha_norm" not in wandb_log_data.keys()): 
-                    #     wandb_log_data["bnha_norm"] = gathered_norms[curr] 
+                    elif args.textual_inv and ("bnha_norm" not in wandb_log_data.keys()): 
+                        wandb_log_data["bnha_norm"] = gathered_norms[curr] 
                     
                     else:
                         assert False 
@@ -1479,6 +1512,8 @@ def main(args, controlnet_prompts):
                     unet_after = copy.deepcopy([p for p in unet.parameters()]) 
                 if args.train_text_encoder: 
                     text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
+                if args.textual_inv: 
+                    bnha_after = copy.deepcopy([p for p in bnha_embed.parameters()]) 
 
                 if global_step > args.stage1_steps: 
                     mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
@@ -1489,6 +1524,9 @@ def main(args, controlnet_prompts):
                 if args.train_text_encoder: 
                     text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
                     del text_encoder_before
+                if args.textual_inv: 
+                    bnha_after = [p1 - p2 for p1, p2 in zip(bnha_before, bnha_after)]   
+                    del bnha_before 
 
                 if global_step > args.stage1_steps: 
                     for p_diff in mlp_after:  
@@ -1513,6 +1551,14 @@ def main(args, controlnet_prompts):
                             break 
                     assert change 
             
+                change = False 
+                if args.textual_inv:  
+                    for p_diff in bnha_after:  
+                        if torch.sum(p_diff): 
+                            change = True 
+                            break 
+                    assert change 
+
 
         progress_bar.update(accelerator.num_processes * args.train_batch_size) 
 
@@ -1536,10 +1582,10 @@ def main(args, controlnet_prompts):
                 use_sks = False 
             else:
                 use_sks = True 
-            # if args.textual_inv: 
-            #     videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks, bnha_embed) 
-            # else: 
-            videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
+            if args.textual_inv: 
+                videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks, bnha_embed) 
+            else: 
+                videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
 
             if accelerator.is_main_process: 
                 for key, value in videos.items():  
