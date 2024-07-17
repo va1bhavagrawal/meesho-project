@@ -36,7 +36,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate_mlp=4e-3 \
   --learning_rate_emb=4e-3 \
   --color_jitter \
-  --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
   --online_inference \
   --with_prior_preservation \

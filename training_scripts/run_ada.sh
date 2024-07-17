@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="textualinv"
+export RUN_NAME="textualinvONLY"
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 
@@ -31,8 +31,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
   --textual_inv \
-  --train_unet \
-  --train_text_encoder \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=2 \
@@ -42,7 +40,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate_mlp=4e-3 \
   --learning_rate_emb=4e-3 \
   --color_jitter \
-  --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
   --online_inference \
   --with_prior_preservation \
@@ -51,5 +48,4 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
   --run_name="$RUN_NAME" \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

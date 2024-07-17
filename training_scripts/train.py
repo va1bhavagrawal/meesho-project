@@ -658,15 +658,6 @@ def parse_args(input_args=None):
         help="Initial learning rate for embedding (after the potential warmup period) to use.",
     )
     parser.add_argument(
-        "--lr_scheduler",
-        type=str,
-        default="constant",
-        help=(
-            'The scheduler type to use. Choose between ["linear", "cosine", "cosine_with_restarts", "polynomial",'
-            ' "constant", "constant_with_warmup"]'
-        ),
-    )
-    parser.add_argument(
         "--stage1_steps",
         type=int,
         default=5000,
@@ -820,7 +811,7 @@ def main(args, controlnet_prompts):
         mixed_precision=args.mixed_precision,
     )
 
-    assert accelerator.num_processes * args.train_batch_size == BS 
+    assert accelerator.num_processes * args.train_batch_size == BS, f"{accelerator.num_processes = }, {args.train_batch_size = }" 
 
     if args.wandb and accelerator.is_main_process:
         wandb_config = vars(args) 
@@ -1077,15 +1068,6 @@ def main(args, controlnet_prompts):
         shuffle=True,
         collate_fn=collate_fn,
         num_workers=accelerator.num_processes * 2,
-    )
-
-    # Scheduler and math around the number of training steps.
-
-    lr_scheduler = get_scheduler(
-        args.lr_scheduler,
-        optimizer=optimizer_unet,
-        num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
-        num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,
     )
 
     """
@@ -1421,11 +1403,14 @@ def main(args, controlnet_prompts):
 
         # gradient clipping 
         if accelerator.sync_gradients:
-            parmas_to_clip = list(itertools.chain(continuous_word_model.parameters()))  
+            params_to_clip = [] 
+            parmas_to_clip = params_to_clip + list(itertools.chain(continuous_word_model.parameters()))  
             if args.train_unet: 
                 params_to_clip = parmas_to_clip + list(itertools.chain(unet.parameters()))  
             if args.train_text_encoder: 
                 params_to_clip = parmas_to_clip + list(itertools.chain(text_encoder.parameters()))  
+            if args.textual_inv: 
+                params_to_clip = params_to_clip + list(itertools.chain(bnha_embed.parameters())) 
             # params_to_clip = (
             #     itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
             #     if args.train_text_encoder
