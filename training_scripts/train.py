@@ -33,8 +33,7 @@ TOKEN2ID = {
 DEBUG = False 
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
-# VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
-VLOG_STEPS = [2000, 5000, 10000, 15000, 20000, 25000, 30000] 
+VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
 
 
 from accelerate import Accelerator
