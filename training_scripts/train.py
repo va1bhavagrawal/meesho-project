@@ -132,7 +132,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         ) 
 
         if not use_sks: 
-            prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=4)  
+            prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=6)  
         else: 
             prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=24)  
 
