@@ -227,6 +227,8 @@ def infer(args, step, accelerator, unet, scheduler, vae, text_encoder, mlp, use_
                 save_path = osp.join(root_save_path, prompt_filename, f"{str(int(azimuth.item())).zfill(3)}.jpg")   
                 image.save(save_path)  
 
+        accelerator.wait_for_everyone() 
+
         videos = {} 
         for prompt_filename in os.listdir(root_save_path): 
             for img_name in os.listdir(osp.join(root_save_path, prompt_filename)): 
