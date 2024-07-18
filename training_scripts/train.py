@@ -33,8 +33,8 @@ TOKEN2ID = {
 DEBUG = False 
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
-VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
-# VLOG_STEPS = [32, 64] 
+# VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
+VLOG_STEPS = [2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 
 
 from accelerate import Accelerator
@@ -133,7 +133,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         ) 
 
         if not use_sks: 
-            prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=6)  
+            prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=4)  
         else: 
             prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=24)  
 
@@ -212,27 +212,29 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             # decode the latents 
             images = vae.decode(latents).sample 
 
-        vae = vae.to(torch.device("cpu")) 
-        # post processing the images and storing them 
-        # os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
-        save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}")  
-        os.makedirs(save_path_global, exist_ok=True) 
-        for idx, image in zip(ids, images):  
-            image = (image / 2 + 0.5).clamp(0, 1).squeeze()
-            image = (image * 255).to(torch.uint8) 
-            generated_images[idx] = image 
-            image = image.cpu().numpy()  
-            image = np.transpose(image, (1, 2, 0)) 
-            azimuth = idx // n_prompts_per_azimuth 
-            prompt_idx = idx % n_prompts_per_azimuth 
-            prompt = prompts_dataset.prompts[prompt_idx] 
-            prompt_ = "_".join(prompt.split()) 
-            save_path_prompt = osp.join(save_path_global, prompt_) 
-            image = Image.fromarray(image) 
-            image.save(osp.join(save_path_prompt, f"{str(int(azimuth.item())).zfill(3)}.jpg"))  
-            # image = Image.fromarray(image) 
-            # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
+            # post processing the images and storing them 
+            # os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
+            save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}")  
+            os.makedirs(save_path_global, exist_ok=True) 
+            for idx, image in zip(ids, images):  
+                image = (image / 2 + 0.5).clamp(0, 1).squeeze()
+                image = (image * 255).to(torch.uint8) 
+                generated_images[idx] = image 
+                image = image.cpu().numpy()  
+                image = np.transpose(image, (1, 2, 0)) 
+                image = np.ascontiguousarray(image) 
+                azimuth = idx // n_prompts_per_azimuth 
+                prompt_idx = idx % n_prompts_per_azimuth 
+                prompt = prompts_dataset.prompts[prompt_idx] 
+                prompt_ = "_".join(prompt.split()) 
+                save_path_prompt = osp.join(save_path_global, prompt_) 
+                os.makedirs(save_path_prompt, exist_ok=True) 
+                image = Image.fromarray(image) 
+                image.save(osp.join(save_path_prompt, f"{str(int(azimuth.item())).zfill(3)}.jpg"))  
+                # image = Image.fromarray(image) 
+                # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
+        vae = vae.to(torch.device("cpu")) 
         accelerator.wait_for_everyone() 
 
         videos = {} 
@@ -241,6 +243,8 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             save_path_prompt = osp.join(save_path_global, prompt_) 
             videos[prompt_] = [] 
             for img_name in os.listdir(save_path_prompt): 
+                if img_name.find(f"jpg") == -1:
+                    continue 
                 img_path = osp.join(save_path_prompt, img_name) 
                 img = Image.open(img_path) 
                 videos[prompt_].append(img) 
@@ -1205,8 +1209,7 @@ def main(args, controlnet_prompts):
         text_encoder.train()
 
     for step, batch in enumerate(train_dataloader):
-        if args.wandb:
-            wandb_log_data = {}
+        wandb_log_data = {}
         force_wandb_log = False 
         # Convert images to latent space
         vae.to(accelerator.device, dtype=weight_dtype)
