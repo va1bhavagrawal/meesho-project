@@ -33,7 +33,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
-  --textual_inv \
   --train_unet \
   --train_text_encoder \
   --resolution=512 \

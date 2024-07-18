@@ -18,7 +18,7 @@ class PromptDataset(Dataset):
         self.num_samples = num_samples 
         self.subjects = [
             "bnha pickup truck",
-            # "motorbike", 
+            "motorbike", 
         ]
 
         self.template_prompts = [
