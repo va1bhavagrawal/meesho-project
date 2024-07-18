@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="textualinv+fullmodel"
+export RUN_NAME="fixada"
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 

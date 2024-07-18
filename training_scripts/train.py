@@ -34,7 +34,6 @@ DEBUG = False
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
-# VLOG_STEPS = [32, 64] 
 
 
 from accelerate import Accelerator
@@ -220,6 +219,7 @@ def infer(args, step, accelerator, unet, scheduler, vae, text_encoder, mlp, use_
                 image = (image / 2 + 0.5).clamp(0, 1).squeeze()
                 image = (image * 255).to(torch.uint8) 
                 image = image.cpu().numpy() 
+                image = np.transpose(image, (1, 2, 0)) 
                 image = Image.fromarray(image) 
                 azimuth = idx // n_prompts_per_azimuth 
                 prompt_idx = idx % n_prompts_per_azimuth 
