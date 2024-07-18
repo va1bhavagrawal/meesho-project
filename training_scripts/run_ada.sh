@@ -17,7 +17,7 @@ export CONTROLNET_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/cont
 export OUTPUT_DIR="/ssd_scratch/cvit/vaibhav/ckpts/$FILE_ID/"
 export CLASS_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prior_imgs_$FILE_ID/"
 export ROOT_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/"
-export CONTROLNET_PROMPTS_FILE="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prompts_blue_truck.txt"
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_nature.txt" 
 export VIS_DIR="/ssd_scratch/cvit/vaibhav/$FILE_ID/"  
 
 # PROMPT="a photo of a $SUBJECT" 
