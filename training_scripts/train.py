@@ -103,7 +103,8 @@ def create_gif(images, save_path, duration=1):
     frames = []
     for img in images:
         # Convert NumPy array to PIL Image
-        img_pil = Image.fromarray(img.astype(np.uint8))
+        # img_pil = Image.fromarray(img.astype(np.uint8))
+        img_pil = img 
         # Append to frames list
         frames.append(img_pil)
     
@@ -120,13 +121,12 @@ def create_gif(images, save_path, duration=1):
     return 
 
 
-def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, bnha_embed=None):  
+def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, bnha_embed=None):  
     with torch.no_grad(): 
         vae.to(accelerator.device) 
         # the list of videos 
         # each item in the list is the video of a prompt at different viewpoints, or just random generations if use_sks=False  
         accelerator.print(f"performing inference...") 
-        videos = {}  
         tokenizer = CLIPTokenizer.from_pretrained(
             args.pretrained_model_name_or_path,
             subfolder="tokenizer", 
@@ -212,44 +212,74 @@ def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, b
             # decode the latents 
             images = vae.decode(latents).sample 
 
-            # post processing the images and storing them 
-            os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
-            for idx, image in zip(ids, images):  
-                image = (image / 2 + 0.5).clamp(0, 1).squeeze()
-                image = (image * 255).to(torch.uint8) 
-                generated_images[idx] = image 
-                # image = image.cpu().numpy()  
-                # image = np.transpose(image, (1, 2, 0)) 
-                # image = Image.fromarray(image) 
-                # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
-
-        # sometimes the same index is passed to multiple gpus, therefore an explicit gathering has to be done to make sure no image has been "generated twice" 
-        accelerator.print(f"collecting outputs across processes...")  
-        generated_images = accelerator.gather(generated_images.unsqueeze(0)) 
-        gathered_generated_images = torch.zeros_like(generated_images[0]) 
-        generated_images = generated_images.permute(1, 0, 2, 3, 4)  
-        assert generated_images.shape[0] == encoder_hidden_states.shape[0] 
-        for idx in range(generated_images.shape[0]): 
-            for gpu_idx in range(generated_images.shape[1]): 
-                if torch.sum(generated_images[idx][gpu_idx]): 
-                    # this is a generated image 
-                    gathered_generated_images[idx] = generated_images[idx][gpu_idx] 
-        for idx in range(gathered_generated_images.shape[0]): 
-            assert torch.sum(gathered_generated_images[idx]) 
-
-        generated_images = gathered_generated_images 
-        generated_images = generated_images.cpu().numpy() 
-        for idx in range(generated_images.shape[0]): 
+        vae = vae.to(torch.device("cpu")) 
+        # post processing the images and storing them 
+        # os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
+        save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}")  
+        os.makedirs(save_path_global, exist_ok=True) 
+        for idx, image in zip(ids, images):  
+            image = (image / 2 + 0.5).clamp(0, 1).squeeze()
+            image = (image * 255).to(torch.uint8) 
+            generated_images[idx] = image 
+            image = image.cpu().numpy()  
+            image = np.transpose(image, (1, 2, 0)) 
             azimuth = idx // n_prompts_per_azimuth 
             prompt_idx = idx % n_prompts_per_azimuth 
             prompt = prompts_dataset.prompts[prompt_idx] 
-            if prompt not in videos.keys(): 
-                videos[prompt] = np.zeros((prompts_dataset.num_samples, 3, 512, 512)).astype(np.uint8)  
-            videos[prompt][azimuth] = generated_images[idx].astype(np.uint8)  
+            prompt_ = "_".join(prompt.split()) 
+            save_path_prompt = osp.join(save_path_global, prompt_) 
+            image = Image.fromarray(image) 
+            image.save(osp.join(save_path_prompt, f"{str(int(azimuth.item())).zfill(3)}.jpg"))  
+            # image = Image.fromarray(image) 
+            # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
-        accelerator.print(f"done!")  
-        vae = vae.to(torch.device(f"cpu")) 
-        return videos 
+        accelerator.wait_for_everyone() 
+
+        videos = {} 
+        for prompt in os.listdir(save_path_global): 
+            prompt_ = "_".join(prompt.split()) 
+            save_path_prompt = osp.join(save_path_global, prompt_) 
+            videos[prompt_] = [] 
+            for img_name in os.listdir(save_path_prompt): 
+                img_path = osp.join(save_path_prompt, img_name) 
+                img = Image.open(img_path) 
+                videos[prompt_].append(img) 
+            video_path = osp.join(save_path_prompt, prompt_ + ".gif") 
+            create_gif(videos[prompt_], video_path, 1)  
+            if accelerator.is_main_process and args.wandb:  
+                wandb_log_data[prompt] = wandb.Video(video_path) 
+
+
+        return wandb_log_data  
+
+
+        # sometimes the same index is passed to multiple gpus, therefore an explicit gathering has to be done to make sure no image has been "generated twice" 
+        # accelerator.print(f"collecting outputs across processes...")  
+        # generated_images = accelerator.gather(generated_images.unsqueeze(0)) 
+        # gathered_generated_images = torch.zeros_like(generated_images[0]) 
+        # generated_images = generated_images.permute(1, 0, 2, 3, 4)  
+        # assert generated_images.shape[0] == encoder_hidden_states.shape[0] 
+        # for idx in range(generated_images.shape[0]): 
+        #     for gpu_idx in range(generated_images.shape[1]): 
+        #         if torch.sum(generated_images[idx][gpu_idx]): 
+        #             # this is a generated image 
+        #             gathered_generated_images[idx] = generated_images[idx][gpu_idx] 
+        # for idx in range(gathered_generated_images.shape[0]): 
+        #     assert torch.sum(gathered_generated_images[idx]) 
+
+        # generated_images = gathered_generated_images 
+        # generated_images = generated_images.cpu().numpy() 
+        # for idx in range(generated_images.shape[0]): 
+        #     azimuth = idx // n_prompts_per_azimuth 
+        #     prompt_idx = idx % n_prompts_per_azimuth 
+        #     prompt = prompts_dataset.prompts[prompt_idx] 
+        #     if prompt not in videos.keys(): 
+        #         videos[prompt] = np.zeros((prompts_dataset.num_samples, 3, 512, 512)).astype(np.uint8)  
+        #     videos[prompt][azimuth] = generated_images[idx].astype(np.uint8)  
+
+        # accelerator.print(f"done!")  
+        # vae = vae.to(torch.device(f"cpu")) 
+        # return videos 
 
 
 class ContinuousWordDataset(Dataset):
@@ -1570,18 +1600,20 @@ def main(args, controlnet_prompts):
                 use_sks = False 
             else:
                 use_sks = True 
-            if args.textual_inv: 
-                videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks, bnha_embed) 
-            else: 
-                videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
+            if args.textual_inv and args.online_inference: 
+                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks, bnha_embed) 
+                force_wandb_log = True 
+            elif args.online_inference: 
+                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
+                force_wandb_log = True 
 
-            if accelerator.is_main_process: 
-                for key, value in videos.items():  
+            # if accelerator.is_main_process: 
+            #     for key, value in videos.items():  
                     # this weird transposing had to be done, because earlier was trying to save raw data, but that gives a lot of BT with wandb.Video 
-                    value = np.transpose(value, (0, 2, 3, 1)) 
+                    # value = np.transpose(value, (0, 2, 3, 1)) 
 
                     # Get the frame size
-                    height, width, _ = value[0].shape
+                    # height, width, _ = value[0].shape
 
                     # # Create the video writer
                     # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -1594,15 +1626,15 @@ def main(args, controlnet_prompts):
                     # # Release the video writer
                     # video_writer.release()
 
-                    prompt_foldername = "_".join(key.split()) 
-                    save_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername) 
-                    os.makedirs(save_path, exist_ok=True)  
-                    save_path = osp.join(save_path, prompt_foldername + ".gif") 
-                    create_gif(value, save_path, duration=1) 
-                    if args.wandb: 
-                        wandb_log_data[key] = wandb.Video(save_path)    
+                    # prompt_foldername = "_".join(key.split()) 
+                    # save_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername) 
+                    # os.makedirs(save_path, exist_ok=True)  
+                    # save_path = osp.join(save_path, prompt_foldername + ".gif") 
+                    # create_gif(value, save_path, duration=1) 
+                    # if args.wandb: 
+                    #     wandb_log_data[key] = wandb.Video(save_path)    
 
-                    force_wandb_log = True 
+                    # force_wandb_log = True 
                 
                 # trying to push raw data to wandb.Video, does not work properly 
                 # if args.wandb: 
@@ -1613,16 +1645,16 @@ def main(args, controlnet_prompts):
                     # os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}"), exist_ok=True)    
 
                 # also saving the video locally! 
-                for key, value in videos.items(): 
-                    prompt_foldername = "_".join(key.split()) 
-                    os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername), exist_ok=True) 
-                    for image_idx, image in enumerate(value):  
-                        # image would be present in cwh format 
-                        image = np.transpose(image, (1, 2, 0)) 
-                        image = Image.fromarray(image) 
-                        image.save(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername, str(image_idx).zfill(3) + ".jpg"), exist_ok=True) 
+                # for key, value in videos.items(): 
+                #     prompt_foldername = "_".join(key.split()) 
+                #     os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername), exist_ok=True) 
+                #     for image_idx, image in enumerate(value):  
+                #         # image would be present in cwh format 
+                #         image = np.transpose(image, (1, 2, 0)) 
+                #         image = Image.fromarray(image) 
+                #         image.save(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername, str(image_idx).zfill(3) + ".jpg"), exist_ok=True) 
 
-                # metrics computation 
+                # TODO metrics computation 
                 # generated_images = [] 
                 # gt_images = [] 
                 # prompts = [] 

@@ -1,8 +1,15 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="lowlr"
+export RUN_NAME="lowlr_syoj"
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
+
+rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav.zip 
+rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav  
+scp -r user@10.4.16.102:/data3/vaibhav/training_data_vaibhav.zip /ssd_scratch/cvit/vaibhav/
+cd /ssd_scratch/cvit/vaibhav/ 
+unzip training_data_vaibhav.zip  
+cd - 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/ref_imgs_$FILE_ID"
@@ -46,5 +53,4 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --subject="$SUBJECT" \
   --class_prompt="a photo of a $SUBJECT" \
   --run_name="$RUN_NAME" \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
