@@ -103,7 +103,8 @@ def create_gif(images, save_path, duration=1):
     frames = []
     for img in images:
         # Convert NumPy array to PIL Image
-        img_pil = Image.fromarray(img.astype(np.uint8))
+        # img_pil = Image.fromarray(img.astype(np.uint8))
+        img_pil = img 
         # Append to frames list
         frames.append(img_pil)
     
@@ -120,7 +121,8 @@ def create_gif(images, save_path, duration=1):
     return 
 
 
-def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, bnha_embed=None):  
+def infer(args, step, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, bnha_embed=None):  
+    root_save_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}") 
     with torch.no_grad(): 
         vae.to(accelerator.device) 
         # the list of videos 
@@ -217,39 +219,57 @@ def infer(args, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, b
             for idx, image in zip(ids, images):  
                 image = (image / 2 + 0.5).clamp(0, 1).squeeze()
                 image = (image * 255).to(torch.uint8) 
-                generated_images[idx] = image 
+                image = image.cpu().numpy() 
+                image = Image.fromarray(image) 
+                azimuth = idx // n_prompts_per_azimuth 
+                prompt_idx = idx % n_prompts_per_azimuth 
+                prompt = prompts_dataset.prompts[prompt_idx] 
+                prompt_filename = "_".join(prompt.split()) 
+                save_path = osp.join(root_save_path, prompt_filename) 
+                os.makedirs(save_path, exist_ok=True) 
+                save_path = osp.join(root_save_path, prompt_filename, f"{str(int(azimuth.item())).zfill(3)}.jpg")   
+                image.save(save_path) 
+            
+        accelerator.wait_for_everyone() 
+        vae = vae.to(torch.device(f"cpu")) 
+
+        videos = {} 
+        for prompt_filename in os.listdir(root_save_path): 
+            for img_name in os.listdir(osp.join(root_save_path, prompt_filename)): 
+                img_path = osp.join(root_save_path, prompt_filename, img_name) 
+                if prompt_filename not in videos.keys(): 
+                    videos[prompt_filename] = [] 
+                videos[prompt_filename].append(Image.open(img_path))   
+
+        return videos
                 # image = image.cpu().numpy()  
                 # image = np.transpose(image, (1, 2, 0)) 
                 # image = Image.fromarray(image) 
                 # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
         # sometimes the same index is passed to multiple gpus, therefore an explicit gathering has to be done to make sure no image has been "generated twice" 
-        accelerator.print(f"collecting outputs across processes...")  
-        generated_images = accelerator.gather(generated_images.unsqueeze(0)) 
-        gathered_generated_images = torch.zeros_like(generated_images[0]) 
-        generated_images = generated_images.permute(1, 0, 2, 3, 4)  
-        assert generated_images.shape[0] == encoder_hidden_states.shape[0] 
-        for idx in range(generated_images.shape[0]): 
-            for gpu_idx in range(generated_images.shape[1]): 
-                if torch.sum(generated_images[idx][gpu_idx]): 
-                    # this is a generated image 
-                    gathered_generated_images[idx] = generated_images[idx][gpu_idx] 
-        for idx in range(gathered_generated_images.shape[0]): 
-            assert torch.sum(gathered_generated_images[idx]) 
+        # accelerator.print(f"collecting outputs across processes...")  
+        # generated_images = accelerator.gather(generated_images.unsqueeze(0)) 
+        # gathered_generated_images = torch.zeros_like(generated_images[0]) 
+        # generated_images = generated_images.permute(1, 0, 2, 3, 4)  
+        # assert generated_images.shape[0] == encoder_hidden_states.shape[0] 
+        # for idx in range(generated_images.shape[0]): 
+        #     for gpu_idx in range(generated_images.shape[1]): 
+        #         if torch.sum(generated_images[idx][gpu_idx]): 
+        #             # this is a generated image 
+        #             gathered_generated_images[idx] = generated_images[idx][gpu_idx] 
+        # for idx in range(gathered_generated_images.shape[0]): 
+        #     assert torch.sum(gathered_generated_images[idx]) 
 
-        generated_images = gathered_generated_images 
-        generated_images = generated_images.cpu().numpy() 
-        for idx in range(generated_images.shape[0]): 
-            azimuth = idx // n_prompts_per_azimuth 
-            prompt_idx = idx % n_prompts_per_azimuth 
-            prompt = prompts_dataset.prompts[prompt_idx] 
-            if prompt not in videos.keys(): 
-                videos[prompt] = np.zeros((prompts_dataset.num_samples, 3, 512, 512)).astype(np.uint8)  
-            videos[prompt][azimuth] = generated_images[idx].astype(np.uint8)  
-
-        accelerator.print(f"done!")  
-        vae = vae.to(torch.device(f"cpu")) 
-        return videos 
+        # generated_images = gathered_generated_images 
+        # generated_images = generated_images.cpu().numpy() 
+        # for idx in range(generated_images.shape[0]): 
+        #     azimuth = idx // n_prompts_per_azimuth 
+        #     prompt_idx = idx % n_prompts_per_azimuth 
+        #     prompt = prompts_dataset.prompts[prompt_idx] 
+        #     if prompt not in videos.keys(): 
+        #         videos[prompt] = np.zeros((prompts_dataset.num_samples, 3, 512, 512)).astype(np.uint8)  
+        #     videos[prompt][azimuth] = generated_images[idx].astype(np.uint8)  
 
 
 class ContinuousWordDataset(Dataset):
@@ -1571,36 +1591,19 @@ def main(args, controlnet_prompts):
             else:
                 use_sks = True 
             if args.textual_inv: 
-                videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks, bnha_embed) 
+                videos = infer(args, step, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks, bnha_embed) 
             else: 
-                videos = infer(args, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
+                videos = infer(args, step, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
 
             if accelerator.is_main_process: 
                 for key, value in videos.items():  
-                    # this weird transposing had to be done, because earlier was trying to save raw data, but that gives a lot of BT with wandb.Video 
-                    value = np.transpose(value, (0, 2, 3, 1)) 
-
-                    # Get the frame size
-                    height, width, _ = value[0].shape
-
-                    # # Create the video writer
-                    # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                    # video_writer = cv2.VideoWriter('temp.gif', fourcc, 1, (width, height))
-
-                    # # Write the frames to the video
-                    # for frame in value: 
-                    #     video_writer.write(frame)
-
-                    # # Release the video writer
-                    # video_writer.release()
-
-                    prompt_foldername = "_".join(key.split()) 
-                    save_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername) 
+                    save_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", key) 
                     os.makedirs(save_path, exist_ok=True)  
-                    save_path = osp.join(save_path, prompt_foldername + ".gif") 
+                    save_path = osp.join(save_path, key + ".gif") 
                     create_gif(value, save_path, duration=1) 
                     if args.wandb: 
-                        wandb_log_data[key] = wandb.Video(save_path)    
+                        prompt = " ".join(key.split("_"))
+                        wandb_log_data[prompt] = wandb.Video(save_path)    
 
                     force_wandb_log = True 
                 
@@ -1613,14 +1616,14 @@ def main(args, controlnet_prompts):
                     # os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}"), exist_ok=True)    
 
                 # also saving the video locally! 
-                for key, value in videos.items(): 
-                    prompt_foldername = "_".join(key.split()) 
-                    os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername), exist_ok=True) 
-                    for image_idx, image in enumerate(value):  
-                        # image would be present in cwh format 
-                        image = np.transpose(image, (1, 2, 0)) 
-                        image = Image.fromarray(image) 
-                        image.save(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername, str(image_idx).zfill(3) + ".jpg"), exist_ok=True) 
+                # for key, value in videos.items(): 
+                #     prompt_foldername = "_".join(key.split()) 
+                #     os.makedirs(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername), exist_ok=True) 
+                #     for image_idx, image in enumerate(value):  
+                #         # image would be present in cwh format 
+                #         image = np.transpose(image, (1, 2, 0)) 
+                #         image = Image.fromarray(image) 
+                #         image.save(osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step}", prompt_foldername, str(image_idx).zfill(3) + ".jpg"), exist_ok=True) 
 
                 # metrics computation 
                 # generated_images = [] 
