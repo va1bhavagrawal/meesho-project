@@ -312,7 +312,11 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             video_path = osp.join(save_path_global, template_prompt_ + ".gif")  
             create_gif(all_concat_imgs, video_path, 1) 
             if accelerator.is_main_process and args.wandb:  
-                wandb_log_data[template_prompt] = wandb.Video(video_path) 
+                if use_sks: 
+                    key = "a sks photo of " + template_prompt  
+                else: 
+                    key = "a photo of " + template_prompt 
+                wandb_log_data[key] = wandb.Video(video_path) 
 
 
         return wandb_log_data  
