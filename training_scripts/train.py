@@ -237,8 +237,8 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         accelerator.wait_for_everyone() 
 
         videos = {} 
-        for prompt in os.listdir(save_path_global): 
-            prompt_ = "_".join(prompt.split()) 
+        for prompt_ in os.listdir(save_path_global): 
+            prompt = " ".join(prompt_.split("_")) 
             save_path_prompt = osp.join(save_path_global, prompt_) 
             videos[prompt_] = [] 
             img_names = os.listdir(save_path_prompt) 
