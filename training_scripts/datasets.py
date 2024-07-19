@@ -18,14 +18,17 @@ class PromptDataset(Dataset):
         self.num_samples = num_samples 
         self.subjects = [
             "bnha pickup truck",
+            "bus", 
+            "sedan car",
             "motorbike", 
         ]
 
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
-            "a SUBJECT parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
+            # "a SUBJECT parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
             "a SUBJECT parked on a bustling city street, surrounded by towering skyscrapers and neon lights",
             "a SUBJECT beside a field of blooming sunflowers." 
+            "a SUBJECT parked by a snowy mountain range." 
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  

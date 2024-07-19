@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="lowlr_syoj"
+export RUN_NAME="concat_infer"
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 
@@ -37,7 +37,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_text_encoder \
   --resolution=512 \
   --train_batch_size=1 \
-  --inference_batch_size=1 \
+  --inference_batch_size=2 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \

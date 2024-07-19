@@ -23,6 +23,8 @@ import torch.utils.checkpoint
 import numpy as np 
 from io import BytesIO
 
+from utils import * 
+
 # from metrics import MetricEvaluator 
 
 
@@ -33,7 +35,8 @@ TOKEN2ID = {
 DEBUG = False 
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
-VLOG_STEPS = copy.deepcopy(SAVE_STEPS)  
+# VLOG_STEPS = [32]
+VLOG_STEPS = [1000, 5000, 6000, 10000, 30000] 
 
 
 from accelerate import Accelerator
@@ -134,7 +137,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         if not use_sks: 
             prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=6)  
         else: 
-            prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=24)  
+            prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=18)  
 
         if args.textual_inv: 
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
@@ -236,22 +239,80 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         vae = vae.to(torch.device("cpu")) 
         accelerator.wait_for_everyone() 
 
-        videos = {} 
-        for prompt_ in os.listdir(save_path_global): 
-            prompt = " ".join(prompt_.split("_")) 
-            save_path_prompt = osp.join(save_path_global, prompt_) 
-            videos[prompt_] = [] 
-            img_names = os.listdir(save_path_prompt) 
-            img_names = [img_name for img_name in img_names if img_name.find(f"jpg") != -1] 
-            img_names = sorted(img_names) 
-            for img_name in img_names: 
-                img_path = osp.join(save_path_prompt, img_name) 
-                img = Image.open(img_path) 
-                videos[prompt_].append(img) 
-            video_path = osp.join(save_path_prompt, prompt_ + ".gif") 
-            create_gif(videos[prompt_], video_path, 1)  
+        # videos = {} 
+        # for prompt_ in os.listdir(save_path_global): 
+        #     prompt = " ".join(prompt_.split("_")) 
+        #     save_path_prompt = osp.join(save_path_global, prompt_) 
+        #     videos[prompt_] = [] 
+        #     img_names = os.listdir(save_path_prompt) 
+        #     img_names = [img_name for img_name in img_names if img_name.find(f"jpg") != -1] 
+        #     img_names = sorted(img_names) 
+        #     for img_name in img_names: 
+        #         img_path = osp.join(save_path_prompt, img_name) 
+        #         img = Image.open(img_path) 
+        #         videos[prompt_].append(img) 
+        #     video_path = osp.join(save_path_prompt, prompt_ + ".gif") 
+        #     create_gif(videos[prompt_], video_path, 1)  
+        #     if accelerator.is_main_process and args.wandb:  
+        #         wandb_log_data[prompt] = wandb.Video(video_path) 
+
+        accelerator.print(f"collecting inferences from storage device and logging...") 
+        for template_prompt in prompts_dataset.template_prompts:  
+            template_prompt_videos = {} 
+            for subject in sorted(prompts_dataset.subjects):  
+                # BUG in before replacement as well!
+                # print(f"before replacement, for {subject = }, {template_prompt = }")
+                subject_prompt = template_prompt.replace("SUBJECT", subject) 
+                if use_sks: 
+                    subject_prompt = "a sks photo of " + subject_prompt 
+                else: 
+                    subject_prompt = "a photo of " + subject_prompt 
+                # print(f"after replacement, for {subject = }, {subject_prompt = }")
+                prompt_ = "_".join(subject_prompt.split()) 
+                # print(f"for {subject = }, i am using {prompt_ = }")
+                prompt_path = osp.join(save_path_global, prompt_) 
+                img_names = os.listdir(prompt_path)   
+                img_names = [img_name for img_name in img_names if img_name.find(f"jpg") != -1] 
+                img_names = sorted(img_names) 
+                template_prompt_videos[subject] = [] 
+                assert len(img_names) == prompts_dataset.num_samples 
+                for img_name in img_names: 
+                    # prompt_path has a BUG 
+                    # print(f"for {subject} i am using {prompt_path = } and {img_name = }") 
+                    img_path = osp.join(prompt_path, img_name) 
+                    got_image = False 
+                    # while not got_image: 
+                    #     try: 
+                    #         img = Image.open(img_path) 
+                    #         got_image = True 
+                    #     except Exception as e: 
+                    #         print(f"could not read the image, will try again, don't worry, just read and chill!") 
+                    #         got_image = False 
+                    #     if got_image: 
+                    #         break 
+                    img = Image.open(img_path) 
+                    # BUG here 
+                    # print(f"for {subject} i am using {img_path}") 
+                    template_prompt_videos[subject].append(img) 
+
+            # BUG here
+            # for subject in prompts_dataset.subjects: 
+            #     for idx, img in enumerate(template_prompt_videos[subject]):   
+            #         img.save(f"{subject}_{idx}.jpg") 
+
+            all_concat_imgs = [] 
+            save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}")  
+            for idx in range(prompts_dataset.num_samples): 
+                images = [] 
+                for subject in sorted(prompts_dataset.subjects): 
+                    images.append(template_prompt_videos[subject][idx]) 
+                concat_img = create_image_with_captions(images, sorted(prompts_dataset.subjects))  
+                all_concat_imgs.append(concat_img) 
+            template_prompt_ = "_".join(template_prompt.split()) 
+            video_path = osp.join(save_path_global, template_prompt_ + ".gif")  
+            create_gif(all_concat_imgs, video_path, 1) 
             if accelerator.is_main_process and args.wandb:  
-                wandb_log_data[prompt] = wandb.Video(video_path) 
+                wandb_log_data[template_prompt] = wandb.Video(video_path) 
 
 
         return wandb_log_data  
