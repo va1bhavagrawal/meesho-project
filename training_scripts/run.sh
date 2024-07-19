@@ -1,16 +1,15 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="lowlr_fed95ca"
+export RUN_NAME="lowlr_fed95ca_149"
 
-export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/ref_imgs_$FILE_ID"
-export CONTROLNET_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/controlnet_imgs_$FILE_ID"
-export OUTPUT_DIR="/ssd_scratch/cvit/vaibhav/ckpts/$FILE_ID/"
-export CLASS_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prior_imgs_$FILE_ID"
+export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$FILE_ID"
+export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_$FILE_ID"
+export OUTPUT_DIR="../ckpts/$FILE_ID/"
+export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_nature.txt" 
-export VIS_DIR="/ssd_scratch/cvit/vaibhav/$FILE_ID/"  
+export VIS_DIR="../$FILE_ID/"  
 
 # export CUDA_VISIBLE_DEVICES=1
 
@@ -29,8 +28,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet \
   --train_text_encoder \
   --resolution=512 \
-  --train_batch_size=1 \
-  --inference_batch_size=1 \
+  --train_batch_size=2 \
+  --inference_batch_size=2 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
