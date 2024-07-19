@@ -241,9 +241,10 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             prompt_ = "_".join(prompt.split()) 
             save_path_prompt = osp.join(save_path_global, prompt_) 
             videos[prompt_] = [] 
-            for img_name in os.listdir(save_path_prompt): 
-                if img_name.find(f"jpg") == -1:
-                    continue 
+            img_names = os.listdir(save_path_prompt) 
+            img_names = [img_name for img_name in img_names if img_name.find(f"jpg") != -1] 
+            img_names = sorted(img_names) 
+            for img_name in img_names: 
                 img_path = osp.join(save_path_prompt, img_name) 
                 img = Image.open(img_path) 
                 videos[prompt_].append(img) 

@@ -1,13 +1,22 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="lowlr"
+export RUN_NAME="lowlr_syoj"
+
+export HF_HOME="/ssd_scratch/cvit/vaibhav/"
+
+rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav.zip 
+rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav  
+scp -r user@10.4.16.102:/data3/vaibhav/training_data_vaibhav.zip /ssd_scratch/cvit/vaibhav/
+cd /ssd_scratch/cvit/vaibhav/ 
+unzip training_data_vaibhav.zip  
+cd - 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/ref_imgs_$FILE_ID"
 export CONTROLNET_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/controlnet_imgs_$FILE_ID"
 export OUTPUT_DIR="/ssd_scratch/cvit/vaibhav/ckpts/$FILE_ID/"
 export CLASS_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prior_imgs_$FILE_ID"
-export CONTROLNET_PROMPTS_FILE="/ssd_scratch/cvit/vaibhav/prompts/prompts_nature.txt" 
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_nature.txt" 
 export VIS_DIR="/ssd_scratch/cvit/vaibhav/$FILE_ID/"  
 
 # export CUDA_VISIBLE_DEVICES=1
@@ -24,7 +33,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
-  --textual_inv \
   --train_unet \
   --train_text_encoder \
   --resolution=512 \
