@@ -1,14 +1,14 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="textualinv"
+export RUN_NAME="disentangle_dropout" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_$FILE_ID"
-export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_$FILE_ID"
-export OUTPUT_DIR="../ckpts/$FILE_ID/"
-export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_$FILE_ID"
+export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
+export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_multiobject"
+export OUTPUT_DIR="../ckpts/multiobject/"
+export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_multiobject"
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_nature.txt" 
-export VIS_DIR="../$FILE_ID/"  
+export VIS_DIR="../multiobject/"  
 
 # export CUDA_VISIBLE_DEVICES=1
 
@@ -24,15 +24,17 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
-  --textual_inv \
+  --train_text_encoder \
+  --train_unet \
   --resolution=512 \
-  --train_batch_size=1 \
-  --inference_batch_size=2 \
+  --train_batch_size=2 \
+  --inference_batch_size=4 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
   --learning_rate_mlp=1e-3 \
-  --learning_rate_emb=4e-3 \
+  --learning_rate_merger=1e-3 \
+  --learning_rate_emb=1e-3 \
   --color_jitter \
   --lr_warmup_steps=0 \
   --online_inference \
@@ -40,7 +42,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
-  --class_prompt="a photo of a $SUBJECT" \
   --run_name="$RUN_NAME" \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

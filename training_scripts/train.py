@@ -29,14 +29,16 @@ from utils import *
 
 
 TOKEN2ID = {
-    "sks": 48136,
     "bnha": 49336, 
+    "pickup truck": 4629, # using the token for "truck" instead  
 }
-DEBUG = False 
+DEBUG = True  
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
-# VLOG_STEPS = [32]
+# VLOG_STEPS = [4] 
 VLOG_STEPS = [1000, 5000, 6000, 10000, 20000, 30000] 
+
+from datasets import DisentangleDataset 
 
 
 from accelerate import Accelerator
@@ -72,7 +74,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp, HotEmbedding 
+from continuous_word_mlp import continuous_word_mlp, HotEmbedding, AppearanceEmbeddings, MergedEmbedding  
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -123,7 +125,7 @@ def create_gif(images, save_path, duration=1):
     return 
 
 
-def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, use_sks, bnha_embed=None):  
+def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, use_sks, bnha_embeds=None):  
     with torch.no_grad(): 
         vae.to(accelerator.device) 
         # the list of videos 
@@ -139,8 +141,6 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         else: 
             prompts_dataset = PromptDataset(use_sks=use_sks, num_samples=18)  
 
-        if args.textual_inv: 
-            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
 
         n_prompts_per_azimuth = len(prompts_dataset.subjects) * len(prompts_dataset.template_prompts) 
         encoder_hidden_states = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 77, 1024)).to(accelerator.device).contiguous()  
@@ -150,16 +150,30 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             if azimuth % accelerator.num_processes == accelerator.process_index: 
                 normalized_azimuth = azimuth / prompts_dataset.num_samples 
                 sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(accelerator.device) 
-                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
-                tokens = tokenizer(
-                    prompts_dataset.prompts, 
-                    padding="max_length", 
-                    max_length=tokenizer.model_max_length,
-                    truncation=True, 
-                    return_tensors="pt"
-                ).input_ids 
-                text_encoder_outputs = text_encoder(tokens.to(accelerator.device))[0]   
-                encoder_hidden_states[azimuth * n_prompts_per_azimuth : (azimuth + 1) * n_prompts_per_azimuth] = text_encoder_outputs  
+                # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
+                mlp_embs = mlp(sincos.unsqueeze(0).repeat(len(prompts_dataset.prompts), 1))   
+                if args.textual_inv: 
+                    bnha_embs = [] 
+                    for idx in range(len(prompts_dataset.prompts)):  
+                        bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), prompts_dataset.prompt_wise_subjects[idx]))   
+                    bnha_embs = torch.stack(bnha_embs)  
+                else: 
+                    bnha_embs = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]].detach().unsqueeze(0).repeat(len(prompts_dataset.prompts), 1)  
+                merged_embs = merger(mlp_embs, bnha_embs)    
+
+                for i, merged_emb in enumerate(merged_embs):  
+                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_embs[i]  
+
+                # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = mlp(sincos.unsqueeze(0)) 
+                    tokens = tokenizer(
+                        prompts_dataset.prompts[i], 
+                        padding="max_length", 
+                        max_length=tokenizer.model_max_length,
+                        truncation=True, 
+                        return_tensors="pt"
+                    ).input_ids 
+                    text_encoder_outputs = text_encoder(tokens.to(accelerator.device))[0].squeeze()   
+                    encoder_hidden_states[azimuth * n_prompts_per_azimuth + i] = text_encoder_outputs  
         encoder_hidden_states = torch.sum(accelerator.gather(encoder_hidden_states.unsqueeze(0)), dim=0)  
 
         encoder_states_dataset = torch.utils.data.TensorDataset(encoder_hidden_states, torch.arange(encoder_hidden_states.shape[0]))  
@@ -263,10 +277,10 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 # BUG in before replacement as well!
                 # print(f"before replacement, for {subject = }, {template_prompt = }")
                 subject_prompt = template_prompt.replace("SUBJECT", subject) 
-                if use_sks: 
-                    subject_prompt = "a sks photo of " + subject_prompt 
-                else: 
-                    subject_prompt = "a photo of " + subject_prompt 
+                # if use_sks: 
+                #     subject_prompt = "a sks photo of " + subject_prompt 
+                # else: 
+                #     subject_prompt = "a photo of " + subject_prompt 
                 # print(f"after replacement, for {subject = }, {subject_prompt = }")
                 prompt_ = "_".join(subject_prompt.split()) 
                 # print(f"for {subject = }, i am using {prompt_ = }")
@@ -312,11 +326,11 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             video_path = osp.join(save_path_global, template_prompt_ + ".gif")  
             create_gif(all_concat_imgs, video_path, 1) 
             if accelerator.is_main_process and args.wandb:  
-                if use_sks: 
-                    key = "a sks photo of " + template_prompt  
-                else: 
-                    key = "a photo of " + template_prompt 
-                wandb_log_data[key] = wandb.Video(video_path) 
+                # if use_sks: 
+                #     key = "a sks photo of " + template_prompt  
+                # else: 
+                #     key = "a photo of " + template_prompt 
+                wandb_log_data[template_prompt] = wandb.Video(video_path) 
 
 
         return wandb_log_data  
@@ -350,166 +364,6 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         # vae = vae.to(torch.device(f"cpu")) 
         # return videos 
 
-
-class ContinuousWordDataset(Dataset):
-    """
-    A dataset to prepare the instance and class images with the prompts for fine-tuning the model.
-    It pre-processes the images and the tokenizes prompts.
-    """
-
-    def __init__(
-        self,
-        args, 
-        controlnet_prompts,
-        instance_data_root,
-        controlnet_data_dir,
-        instance_prompt,
-        tokenizer,
-        class_data_root=None,
-        class_prompt=None,
-        size=512,
-        center_crop=False,
-        color_jitter=False,
-        h_flip=False,
-        resize=False,
-    ):
-        self.args = args 
-        self.size = size
-        self.center_crop = center_crop
-        self.tokenizer = tokenizer
-        self.resize = resize
-        self.controlnet_prompts = controlnet_prompts
-
-        self.instance_images_path = []
-        for cur_root in glob.glob(instance_data_root):
-            self.instance_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
-        
-        self.controlnet_images_path = []
-        for cur_root in glob.glob(controlnet_data_dir):
-            self.controlnet_images_path += [cur_dir for cur_dir in Path(cur_root).iterdir() if '.jpg' in str(cur_dir)]
-            
-        print("Length of images used for training {}".format(len(self.instance_images_path)))
-        
-        self.num_instance_images = len(self.instance_images_path)
-        self.num_controlnet_images = len(self.controlnet_images_path)
-        self.instance_prompt = instance_prompt
-        self._length = self.num_instance_images
-
-        if class_data_root is not None:
-            self.class_data_root = Path(class_data_root)
-            self.class_data_root.mkdir(parents=True, exist_ok=True)
-            self.class_images_path = list(self.class_data_root.iterdir())
-            self.num_class_images = len(self.class_images_path)
-            self._length = max(self.num_class_images, self.num_instance_images)
-            self.class_prompt = class_prompt
-        else:
-            self.class_data_root = None
-
-        img_transforms = []
-
-        if resize:
-            img_transforms.append(
-                transforms.Resize(
-                    size, interpolation=transforms.InterpolationMode.BILINEAR
-                )
-            )
-        if center_crop:
-            img_transforms.append(transforms.CenterCrop(size))
-        if color_jitter:
-            img_transforms.append(transforms.ColorJitter(0.2, 0.1))
-        if h_flip:
-            img_transforms.append(transforms.RandomHorizontalFlip())
-
-        self.image_transforms = transforms.Compose(
-            [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
-        )
-        
-        # rare_token_obj is for the object identity, rare token is continuous mlp placeholder
-        self.rare_token_obj = 'bnha'
-        self.rare_token = 'sks'
-
-    def __len__(self):
-        return args.max_train_steps  
-
-    def __getitem__(self, index):
-        example = {}
-
-        instance_img_path = self.instance_images_path[index % self.num_instance_images]
-        angle = float(str(instance_img_path).split("/")[-1].split("_.jpg")[0]) 
-        example["scaler"] = angle 
-        """Maintain the same sentence for object tokens"""
-        if index % 5 != 0:  
-            obj_caption = f'a bnha {args.subject}'
-            """IMPORTANT: Remove in a white background if it makes the results worse"""
-            caption = f'a sks photo of a bnha {args.subject} in front of a dark background'
-
-            example["obj_prompt_ids"] = self.tokenizer(
-                obj_caption,
-                padding="do_not_pad",
-                truncation=True,
-                max_length=self.tokenizer.model_max_length,
-            ).input_ids
-
-            example["instance_prompt_ids"] = self.tokenizer(
-                caption,
-                padding="do_not_pad",
-                truncation=True,
-                max_length=self.tokenizer.model_max_length,
-            ).input_ids
-
-            # print(f"choosing from standard viewpoint only!, path is: {instance_img_path}")
-            instance_img = Image.open(
-                instance_img_path 
-            )
-
-        else:
-            controlnet_img_paths = list(self.controlnet_images_path)
-            controlnet_img_paths = [str(img_path) for img_path in controlnet_img_paths if str(img_path).find(str(angle)) != -1]
-            controlnet_img_path = random.choice(controlnet_img_paths)
-            assert controlnet_img_path.find(str(example["scaler"])) != -1 
-            prompt_idx = int(controlnet_img_path.split("___prompt")[1].split(".jpg")[0])
-            assert prompt_idx < len(self.controlnet_prompts) 
-            img_desc = self.controlnet_prompts[prompt_idx]
-            obj_caption = img_desc
-            caption = 'a sks photo of ' + img_desc
-
-            example["obj_prompt_ids"] = self.tokenizer(
-                obj_caption,
-                padding="do_not_pad",
-                truncation=True,
-                max_length=self.tokenizer.model_max_length,
-            ).input_ids
-
-            example["instance_prompt_ids"] = self.tokenizer(
-                caption,
-                padding="do_not_pad",
-                truncation=True,
-                max_length=self.tokenizer.model_max_length,
-            ).input_ids
-
-            # print(f"not using standard viewpoint, using controlnet augmentation instead!, path is: {controlnet_img_path}")
-            instance_img = Image.open(controlnet_img_path) 
-
-        if not instance_img.mode == "RGB": 
-            instance_img = instance_img.convert("RGB") 
-        example["instance_images"] = self.image_transforms(instance_img)  
-            
-
-        if self.class_data_root:
-            class_image = Image.open(
-                self.class_images_path[index % self.num_class_images]
-            )
-            if not class_image.mode == "RGB":
-                class_image = class_image.convert("RGB")
-            example["class_images"] = self.image_transforms(class_image)
-            example["class_prompt_ids"] = self.tokenizer(
-                self.class_prompt,
-                padding="do_not_pad",
-                truncation=True,
-                max_length=self.tokenizer.model_max_length,
-            ).input_ids
-
-        return example
 
 """end Adobe CONFIDENTIAL"""
 
@@ -605,12 +459,6 @@ def parse_args(input_args=None):
         help="The prompt with identifier specifying the instance",
     )
     parser.add_argument(
-        "--class_prompt",
-        type=str,
-        default=None,
-        help="The prompt to specify images in the same class as provided instance images.",
-    )
-    parser.add_argument(
         "--with_prior_preservation",
         default=True,
         action="store_true",
@@ -665,6 +513,11 @@ def parse_args(input_args=None):
         "--center_crop",
         action="store_true",
         help="Whether to center crop images before resizing to resolution",
+    )
+    parser.add_argument(
+        "--h_flip",
+        action="store_true",
+        help="Whether to hflip before resizing to resolution",
     )
     parser.add_argument(
         "--color_jitter",
@@ -755,6 +608,12 @@ def parse_args(input_args=None):
         type=float,
         default=None, 
         help="Initial learning rate for embedding (after the potential warmup period) to use.",
+    )
+    parser.add_argument(
+        "--learning_rate_merger",
+        type=float,
+        default=None, 
+        help="Initial learning rate for merger (after the potential warmup period) to use.",
     )
     parser.add_argument(
         "--stage1_steps",
@@ -875,8 +734,6 @@ def parse_args(input_args=None):
     if args.with_prior_preservation:
         if args.class_data_dir is None:
             raise ValueError("You must specify a data directory for class images.")
-        if args.class_prompt is None:
-            raise ValueError("You must specify prompt for class images.")
     else:
         if args.class_data_dir is not None:
             logger.warning(
@@ -901,7 +758,10 @@ def parse_args(input_args=None):
     return args
 
 
-def main(args, controlnet_prompts):
+def main(args): 
+
+    subjects_ = os.listdir(args.instance_data_dir) 
+    args.subjects = [" ".join(subject.split("_")) for subject in subjects_] 
 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
     args.max_train_steps = args.stage1_steps + args.stage2_steps 
@@ -937,13 +797,13 @@ def main(args, controlnet_prompts):
 
     set_seed(args.seed)
 
-    if args.with_prior_preservation:
-        class_images_dir = Path(args.class_data_dir)
-        if not class_images_dir.exists():
-            class_images_dir.mkdir(parents=True)
-        cur_class_images = len(list(class_images_dir.iterdir()))
+    # if args.with_prior_preservation:
+    #     class_images_dir = Path(args.class_data_dir)
+    #     if not class_images_dir.exists():
+    #         class_images_dir.mkdir(parents=True)
+    #     cur_class_images = len(list(class_images_dir.iterdir()))
 
-        assert cur_class_images == args.num_class_images 
+    #     assert cur_class_images == args.num_class_images 
 
     # Handle the repository creation
     if accelerator.is_main_process:
@@ -1075,10 +935,14 @@ def main(args, controlnet_prompts):
         optimizers.append(optimizer_text_encoder) 
 
     if args.textual_inv: 
-        bnha_embed = torch.clone(text_encoder.get_input_embeddings().weight[TOKEN2ID["bnha"]])  
-        bnha_embed = HotEmbedding(bnha_embed).to(accelerator.device) 
+        bnha_embeds = {} 
+        for subject in args.subjects:  
+            bnha_embeds[subject] = torch.clone(text_encoder.get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
+
+        bnha_embeds = AppearanceEmbeddings(bnha_embeds).to(accelerator.device) 
+
         optimizer_bnha = optimizer_class(
-            bnha_embed.parameters(),  
+            bnha_embeds.parameters(),  
             lr=args.learning_rate_emb,
             betas=(args.adam_beta1, args.adam_beta2),
             weight_decay=args.adam_weight_decay,
@@ -1087,23 +951,19 @@ def main(args, controlnet_prompts):
         optimizers.append(optimizer_bnha) 
 
 
+    # the merged token formulation 
+    merger = MergedEmbedding()  
+    optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
+    optimizers.append(optimizer_merger) 
+
+
     noise_scheduler = DDPMScheduler.from_config(
         args.pretrained_model_name_or_path, subfolder="scheduler"
     )
 
-    train_dataset = ContinuousWordDataset(
+    train_dataset = DisentangleDataset(
         args=args,
-        controlnet_prompts=controlnet_prompts,
-        instance_data_root=args.instance_data_dir,
-        controlnet_data_dir = args.controlnet_data_dir,
-        instance_prompt=args.instance_prompt,
-        class_data_root=args.class_data_dir if args.with_prior_preservation else None,
-        class_prompt=args.class_prompt,
-        tokenizer=tokenizer,
-        size=args.resolution,
-        center_crop=args.center_crop,
-        color_jitter=args.color_jitter,
-        resize=args.resize,
+        tokenizer=tokenizer, 
     )
 
     """
@@ -1119,46 +979,37 @@ def main(args, controlnet_prompts):
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
     def collate_fn(examples):
-        input_ids = [example["instance_prompt_ids"] for example in examples]
-        obj_ids = [example["obj_prompt_ids"] for example in examples]
+        prompt_ids = [example["prompt_ids"] for example in examples] 
+        subjects = [example["subject"] for example in examples] 
         pixel_values = []
         for example in examples:
-            pixel_values.append(example["instance_images"])
+            pixel_values.append(example["img"])
 
-        
         """Adding the scaler of the embedding into the batch"""
         scalers = torch.Tensor([example["scaler"] for example in examples])
 
-        
         if args.with_prior_preservation:
-            input_ids += [example["class_prompt_ids"] for example in examples]
-            pixel_values += [example["class_images"] for example in examples]
-            obj_ids += [example["class_prompt_ids"] for example in examples]
+            prompt_ids += [example["class_prompt_ids"] for example in examples]
+            pixel_values += [example["class_img"] for example in examples]
 
         pixel_values = torch.stack(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-        input_ids = tokenizer.pad(
-            {"input_ids": input_ids},
+        prompt_ids = tokenizer.pad(
+            {"input_ids": prompt_ids},
             padding="max_length",
             max_length=tokenizer.model_max_length,
             return_tensors="pt",
         ).input_ids
         
-        obj_ids = tokenizer.pad(
-            {"input_ids": obj_ids},
-            padding="max_length",
-            max_length=tokenizer.model_max_length,
-            return_tensors="pt",
-        ).input_ids
-
         batch = {
-            "input_ids": input_ids,
-            "obj_ids": obj_ids,
+            "prompt_ids": prompt_ids, 
             "pixel_values": pixel_values,
             "scalers": scalers,
+            "subjects": subjects, 
         }
-        return batch
+
+        return batch 
     """end Adobe CONFIDENTIAL"""
 
     train_dataloader = torch.utils.data.DataLoader(
@@ -1188,30 +1039,13 @@ def main(args, controlnet_prompts):
     print("The current continuous MLP: {}".format(continuous_word_model))
     
     
-    # if args.train_text_encoder:
-    #     (
-    #         unet,
-    #         text_encoder,
-    #         optimizer_unet,
-    #         optimizer_text_encoder,
-    #         train_dataloader,
-    #         lr_scheduler,
-    #         continuous_word_model,
-    #         continuous_word_optimizer
-    #     ) = accelerator.prepare(
-    #         unet, text_encoder, optimizer_unet, optimizer_text_encoder, train_dataloader, lr_scheduler, continuous_word_model, continuous_word_optimizer
-    #     )
-    # else:
-    #     unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-    #         unet, optimizer, train_dataloader, lr_scheduler
-    #     )
-    unet, text_encoder, continuous_word_model, train_dataloader = accelerator.prepare(unet, text_encoder, continuous_word_model, train_dataloader)  
+    unet, text_encoder, merger, continuous_word_model, train_dataloader = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader)  
     optimizers_ = [] 
     for optimizer in optimizers: 
         optimizer = accelerator.prepare(optimizer) 
         optimizers_.append(optimizer) 
     if args.textual_inv: 
-        bnha_embed = accelerator.prepare(bnha_embed) 
+        bnha_embeds = accelerator.prepare(bnha_embeds) 
     optimizers = optimizers_  
 
     """End Adobe CONFIDENTIAL"""
@@ -1274,6 +1108,7 @@ def main(args, controlnet_prompts):
         text_encoder.train()
 
     for step, batch in enumerate(train_dataloader):
+        B = len(batch["scalers"])   
         wandb_log_data = {}
         force_wandb_log = False 
         # Convert images to latent space
@@ -1313,30 +1148,10 @@ def main(args, controlnet_prompts):
         strictly forbidden unless prior written permission is obtained from Adobe.
         """
 
-        # Get the text embedding for conditioning
-        if global_step <= args.stage1_steps: 
-            progress_bar.set_description(f"stage 1: ")
-            input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
-            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)
-            if args.textual_inv: 
-                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
-            encoder_hidden_states = text_encoder(batch["obj_ids"])[0]
-        else:
+        input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
+        # if we are in stage 2 of training, only then do we need to compute the pose embedding, otherwise it is zero 
+        if global_step > args.stage1_steps: 
             progress_bar.set_description(f"stage 2: ")
-            input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
-            # print("Stage 2 training: Learning Continuous Word MLP")
-            # # normalization of the scalers
-            # p = torch.Tensor((batch["scalers"])/(2 * math.pi))
-            
-            # # Positional Encoding
-            # x = torch.Tensor(
-            #     [torch.sin(2 * torch.pi * p), torch.cos(2 * torch.pi * p)]).cuda()
-
-            # mlp_emb = continuous_word_model(torch.unsqueeze(x, dim=0)).squeeze(0)
-            # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)
-            
-            # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[batch["input_ids"][0][2]] = mlp_emb
-            # encoder_hidden_states = text_encoder(batch["input_ids"])[0]
             p = torch.Tensor(batch["scalers"] / (2 * math.pi)) 
             p = p.unsqueeze(-1)
             p = p.repeat(1, 2)
@@ -1346,36 +1161,43 @@ def main(args, controlnet_prompts):
             # getting the embeddings from the mlp
             mlp_emb = continuous_word_model(p) 
 
-            # checking what token is actually used for pose conditioning 
-            assert batch["input_ids"][0][2] == TOKEN2ID["sks"]  
+        else: 
+            progress_bar.set_description(f"stage 1: ")
+            mlp_emb = torch.zeros(B, 1024) 
 
-            # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
-            # must run a for loop here, first changing the input embeddings of the text encoder for each 
-            encoder_hidden_states = []
-            input_ids, input_ids_prior = torch.chunk(batch["input_ids"], 2, dim=0) 
+        # appearance embeddings
+        # textual inversion is used, then the embeddings are initialized with their classes  
+        # else it is initialized with the default value for bnha, there is no optimizer defined over them 
+        if args.textual_inv: 
+            bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]]).to(accelerator.device)  
+        else: 
+            bnha_emb = input_embeddings.detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1).to(accelerator.device)    
 
+        # merging the appearance and pose embeddings 
+        merged_emb = merger(mlp_emb, bnha_emb)  
 
-            for batch_idx, batch_item in enumerate(input_ids): 
-                # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
-                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)  
+        # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
+        # must run a for loop here, first changing the input embeddings of the text encoder for each 
+        encoder_hidden_states = []
+        input_ids, input_ids_prior = torch.chunk(batch["prompt_ids"], 2, dim=0) 
 
-                # performing the replacement on cold embeddings by a hot embedding -- allowed 
-                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp_emb[batch_idx] 
-                if args.textual_inv: 
-                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = bnha_embed(0)  
+        for batch_idx, batch_item in enumerate(input_ids): 
+            # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
+            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)  
 
+            # performing the replacement on cold embeddings by a hot embedding -- allowed 
+            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_emb[batch_idx] 
 
-                # appending to the encoder states 
-                encoder_hidden_states.append(text_encoder(batch_item.unsqueeze(0))[0].squeeze()) 
+            # appending to the encoder states 
+            encoder_hidden_states.append(text_encoder(batch_item.unsqueeze(0))[0].squeeze()) 
 
+        encoder_hidden_states = torch.stack(encoder_hidden_states)  
 
-            encoder_hidden_states = torch.stack(encoder_hidden_states)  
-
-            # replacing the text encoder input embeddings by the original ones, this time setting them to be HOT, this will be useful in case we choose to do textual inversion 
-            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=True)   
-            encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
-            assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
-            encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0)
+        # replacing the text encoder input embeddings by the original ones, this time setting them to be HOT, this will be useful in case we choose to do textual inversion 
+        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=True)   
+        encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
+        assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
+        encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0)
 
         """End Adobe CONFIDENTIAL"""
 
@@ -1451,6 +1273,16 @@ def main(args, controlnet_prompts):
                     mlp_grad_norm = torch.mean(torch.stack(mlp_grad_norm)) 
                 all_grad_norms.append(mlp_grad_norm) 
 
+
+                # merger  
+                merger_grad_norm = [torch.linalg.norm(param.grad) for param in merger.parameters() if param.grad is not None]
+                if len(mlp_grad_norm) == 0:
+                    merger_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                else:
+                    merger_grad_norm = torch.mean(torch.stack(merger_grad_norm)) 
+                all_grad_norms.append(merger_grad_norm)  
+
+
                 # unet 
                 if args.train_unet: 
                     unet_grad_norm = [torch.linalg.norm(param.grad) for param in unet.parameters() if param.grad is not None]
@@ -1471,7 +1303,7 @@ def main(args, controlnet_prompts):
                 
                 # embedding  
                 if args.textual_inv: 
-                    bnha_grad_norm = [torch.linalg.norm(param.grad) for param in bnha_embed.parameters() if param.grad is not None] 
+                    bnha_grad_norm = [torch.linalg.norm(param.grad) for param in bnha_embeds.parameters() if param.grad is not None] 
                     if len(bnha_grad_norm) == 0: 
                         bnha_grad_norm = torch.tensor(0.0).to(accelerator.device) 
                     else: 
@@ -1484,7 +1316,8 @@ def main(args, controlnet_prompts):
                 all_grad_norms = torch.stack(all_grad_norms).unsqueeze(0)  
                 gathered_grad_norms = torch.mean(accelerator.gather(all_grad_norms), dim=0)  
                 wandb_log_data["mlp_grad_norm"] = gathered_grad_norms[0] 
-                curr = 1 
+                wandb_log_data["merger_grad_norm"] = gathered_grad_norms[1]  
+                curr = 2  
                 while curr < len(gathered_grad_norms):  
                     if args.train_unet and ("unet_grad_norm" not in wandb_log_data.keys()): 
                         wandb_log_data["unet_grad_norm"] = gathered_grad_norms[curr]  
@@ -1502,13 +1335,13 @@ def main(args, controlnet_prompts):
         # gradient clipping 
         if accelerator.sync_gradients:
             params_to_clip = [] 
-            parmas_to_clip = params_to_clip + list(itertools.chain(continuous_word_model.parameters()))  
+            parmas_to_clip = params_to_clip + list(itertools.chain(continuous_word_model.parameters())) + list(itertools.chain(merger.parameters()))  
             if args.train_unet: 
                 params_to_clip = parmas_to_clip + list(itertools.chain(unet.parameters()))  
             if args.train_text_encoder: 
                 params_to_clip = parmas_to_clip + list(itertools.chain(text_encoder.parameters()))  
             if args.textual_inv: 
-                params_to_clip = params_to_clip + list(itertools.chain(bnha_embed.parameters())) 
+                params_to_clip = params_to_clip + list(itertools.chain(bnha_embeds.parameters())) 
             # params_to_clip = (
             #     itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
             #     if args.train_text_encoder
@@ -1517,6 +1350,7 @@ def main(args, controlnet_prompts):
             accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
         if DEBUG: 
             with torch.no_grad(): 
+                merger_before = copy.deepcopy([p for p in merger.parameters()]) 
                 if global_step > args.stage1_steps: 
                     mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
                 if args.train_unet: 
@@ -1524,7 +1358,7 @@ def main(args, controlnet_prompts):
                 if args.train_text_encoder: 
                     text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
                 if args.textual_inv: 
-                    bnha_before = copy.deepcopy([p for p in bnha_embed.parameters()]) 
+                    bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
         for optimizer in optimizers: 
             optimizer.step() 
@@ -1541,6 +1375,15 @@ def main(args, controlnet_prompts):
                 else:
                     mlp_norm = torch.mean(torch.stack(mlp_norm)) 
                 all_norms.append(mlp_norm) 
+
+
+                # merger  
+                merger_norm = [torch.linalg.norm(param) for param in merger.parameters() if param.grad is not None]
+                if len(merger_norm) == 0:
+                    merger_norm = torch.tensor(0.0).to(accelerator.device) 
+                else:
+                    merger_norm = torch.mean(torch.stack(merger_norm)) 
+                all_norms.append(merger_norm) 
 
                 # unet 
                 if args.train_unet: 
@@ -1562,7 +1405,7 @@ def main(args, controlnet_prompts):
                 
                 # embedding  
                 if args.textual_inv: 
-                    bnha_norm = [torch.linalg.norm(param) for param in bnha_embed.parameters() if param.grad is not None] 
+                    bnha_norm = [torch.linalg.norm(param) for param in bnha_embeds.parameters() if param.grad is not None] 
                     if len(bnha_norm) == 0: 
                         bnha_norm = torch.tensor(0.0).to(accelerator.device) 
                     else: 
@@ -1575,7 +1418,8 @@ def main(args, controlnet_prompts):
                 all_norms = torch.stack(all_norms).unsqueeze(0)  
                 gathered_norms = torch.mean(accelerator.gather(all_norms), dim=0)  
                 wandb_log_data["mlp_norm"] = gathered_norms[0] 
-                curr = 1 
+                wandb_log_data["merger_norm"] = gathered_norms[1]  
+                curr = 2  
                 while curr < len(gathered_norms):  
                     if args.train_unet and ("unet_norm" not in wandb_log_data.keys()): 
                         wandb_log_data["unet_norm"] = gathered_norms[curr]  
@@ -1592,6 +1436,7 @@ def main(args, controlnet_prompts):
 
         if DEBUG: 
             with torch.no_grad(): 
+                merger_after = copy.deepcopy([p for p in merger.parameters()]) 
                 if global_step > args.stage1_steps: 
                     mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
                 if args.train_unet: 
@@ -1599,8 +1444,10 @@ def main(args, controlnet_prompts):
                 if args.train_text_encoder: 
                     text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
                 if args.textual_inv: 
-                    bnha_after = copy.deepcopy([p for p in bnha_embed.parameters()]) 
+                    bnha_after = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
+                merger_after = [p1 - p2 for p1, p2 in zip(merger_before, merger_after)] 
+                del merger_before 
                 if global_step > args.stage1_steps: 
                     mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
                     del mlp_before 
@@ -1613,6 +1460,13 @@ def main(args, controlnet_prompts):
                 if args.textual_inv: 
                     bnha_after = [p1 - p2 for p1, p2 in zip(bnha_before, bnha_after)]   
                     del bnha_before 
+
+                change = False 
+                for p_diff in merger_after: 
+                    if torch.sum(p_diff): 
+                        change = True 
+                        break 
+                    assert change  
 
                 if global_step > args.stage1_steps: 
                     for p_diff in mlp_after:  
@@ -1659,7 +1513,7 @@ def main(args, controlnet_prompts):
         # since we have stepped, time to log weight norms!
 
         global_step += accelerator.num_processes * args.train_batch_size  
-        ddp_step += 1
+        ddp_step += 1 
 
         if args.online_inference and len(VLOG_STEPS) > 0 and global_step >= VLOG_STEPS[0]:  
             step = VLOG_STEPS[0] 
@@ -1669,10 +1523,10 @@ def main(args, controlnet_prompts):
             else:
                 use_sks = True 
             if args.textual_inv and args.online_inference: 
-                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks, bnha_embed) 
+                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, use_sks, bnha_embeds) 
                 force_wandb_log = True 
             elif args.online_inference: 
-                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, use_sks) 
+                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, use_sks) 
                 force_wandb_log = True 
 
             # if accelerator.is_main_process: 
@@ -1958,4 +1812,5 @@ if __name__ == "__main__":
         prompt = str(line)
         prompt = "a" + prompt[1:]
         controlnet_prompts.append(prompt)
-    main(args, controlnet_prompts)
+    args.controlnet_prompts = controlnet_prompts 
+    main(args)
