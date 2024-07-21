@@ -32,7 +32,7 @@ TOKEN2ID = {
     "bnha": 49336, 
     "pickup truck": 4629, # using the token for "truck" instead  
 }
-DEBUG = True  
+DEBUG = False  
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4] 
