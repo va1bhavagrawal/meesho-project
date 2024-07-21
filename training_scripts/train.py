@@ -35,7 +35,7 @@ TOKEN2ID = {
 DEBUG = False  
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
-# VLOG_STEPS = [4] 
+# VLOG_STEPS = [50, 100, 200, 500, 1000]   
 VLOG_STEPS = [1000, 5000, 6000, 10000, 20000, 30000] 
 
 from datasets import DisentangleDataset 
@@ -760,18 +760,26 @@ def parse_args(input_args=None):
 
 def main(args): 
 
+    # subjects_ are the folders in the instance directory 
     subjects_ = os.listdir(args.instance_data_dir) 
     args.subjects = [" ".join(subject.split("_")) for subject in subjects_] 
 
+    # defining the output directory to store checkpoints 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
+
+    # max train steps 
     args.max_train_steps = args.stage1_steps + args.stage2_steps 
+
+    # accelerator 
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
     )
 
+    # effective batch size should remain constant 
     assert accelerator.num_processes * args.train_batch_size == BS, f"{accelerator.num_processes = }, {args.train_batch_size = }" 
 
+    # init wandb 
     if args.wandb and accelerator.is_main_process:
         wandb_config = vars(args) 
         wandb.login(key="6ab81b60046f7d7f6a7dca014a2fcaf4538ff14a") 
@@ -795,7 +803,8 @@ def main(args):
             "Please set gradient_accumulation_steps to 1. This feature will be supported in the future."
         )
 
-    set_seed(args.seed)
+    # setting a different seed for each process to increase diversity in minibatch 
+    set_seed(args.seed + accelerator.process_index) 
 
     # if args.with_prior_preservation:
     #     class_images_dir = Path(args.class_data_dir)
@@ -806,6 +815,7 @@ def main(args):
     #     assert cur_class_images == args.num_class_images 
 
     # Handle the repository creation
+    # handle the creation of output directory 
     if accelerator.is_main_process:
 
         if args.output_dir is not None:
@@ -854,6 +864,7 @@ def main(args):
     vae.requires_grad_(False)
     text_encoder.requires_grad_(False)
 
+    # injecting trainable lora in text encoder 
     if args.train_text_encoder:
         text_encoder_lora_params, _ = inject_trainable_lora(
             text_encoder,
@@ -935,12 +946,16 @@ def main(args):
         optimizers.append(optimizer_text_encoder) 
 
     if args.textual_inv: 
+        # the appearance embeddings 
         bnha_embeds = {} 
         for subject in args.subjects:  
+            # initializing using the subject's embedding in the pretrained CLIP text encoder 
             bnha_embeds[subject] = torch.clone(text_encoder.get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
 
+        # initializing the AppearanceEmbeddings module using the embeddings 
         bnha_embeds = AppearanceEmbeddings(bnha_embeds).to(accelerator.device) 
 
+        # an optimizer for the appearance embeddings 
         optimizer_bnha = optimizer_class(
             bnha_embeds.parameters(),  
             lr=args.learning_rate_emb,
@@ -961,6 +976,7 @@ def main(args):
         args.pretrained_model_name_or_path, subfolder="scheduler"
     )
 
+    # defining the dataset 
     train_dataset = DisentangleDataset(
         args=args,
         tokenizer=tokenizer, 
@@ -1032,6 +1048,7 @@ def main(args):
     Dissemination of this information or reproduction of this material is 
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
+    # the mlp controlling the pose 
     pos_size = 2
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
     continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=args.learning_rate_mlp) 
@@ -1167,11 +1184,11 @@ def main(args):
 
         # appearance embeddings
         # textual inversion is used, then the embeddings are initialized with their classes  
-        # else it is initialized with the default value for bnha, there is no optimizer defined over them 
+        # else it is initialized with the default value for bnha 
         if args.textual_inv: 
-            bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]]).to(accelerator.device)  
+            bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
         else: 
-            bnha_emb = input_embeddings.detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1).to(accelerator.device)    
+            bnha_emb = input_embeddings.detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
@@ -1241,10 +1258,9 @@ def main(args):
         # everytime the continuous word mlp must receive gradients 
         if DEBUG: 
             with torch.no_grad(): 
-                if global_step > args.stage1_steps:  
-                    check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None] 
-                    assert len(check_mlp_params) == 0 
-                    del check_mlp_params 
+                check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None] 
+                assert not ((len(check_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
+                del check_mlp_params 
         """
         ADOBE CONFIDENTIAL
         Copyright 2024 Adobe
@@ -1276,7 +1292,7 @@ def main(args):
 
                 # merger  
                 merger_grad_norm = [torch.linalg.norm(param.grad) for param in merger.parameters() if param.grad is not None]
-                if len(mlp_grad_norm) == 0:
+                if len(merger_grad_norm) == 0:
                     merger_grad_norm = torch.tensor(0.0).to(accelerator.device) 
                 else:
                     merger_grad_norm = torch.mean(torch.stack(merger_grad_norm)) 
@@ -1351,12 +1367,9 @@ def main(args):
         if DEBUG: 
             with torch.no_grad(): 
                 merger_before = copy.deepcopy([p for p in merger.parameters()]) 
-                if global_step > args.stage1_steps: 
-                    mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
-                if args.train_unet: 
-                    unet_before = copy.deepcopy([p for p in unet.parameters()]) 
-                if args.train_text_encoder: 
-                    text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
+                mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+                unet_before = copy.deepcopy([p for p in unet.parameters()]) 
+                text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
                 if args.textual_inv: 
                     bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
@@ -1435,28 +1448,32 @@ def main(args):
                     curr += 1
 
         if DEBUG: 
+            # checking that no parameter should be NaN 
+            for p in merger.parameters(): 
+                assert not torch.any(torch.isnan(p)) 
+            for p in continuous_word_model.parameters(): 
+                assert not torch.any(torch.isnan(p)) 
+            for p in unet.parameters(): 
+                assert not torch.any(torch.isnan(p)) 
+            for p in text_encoder.parameters(): 
+                assert not torch.any(torch.isnan(p)) 
+
             with torch.no_grad(): 
                 merger_after = copy.deepcopy([p for p in merger.parameters()]) 
-                if global_step > args.stage1_steps: 
-                    mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
-                if args.train_unet: 
-                    unet_after = copy.deepcopy([p for p in unet.parameters()]) 
-                if args.train_text_encoder: 
-                    text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
+                mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+                unet_after = copy.deepcopy([p for p in unet.parameters()]) 
+                text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
                 if args.textual_inv: 
                     bnha_after = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
                 merger_after = [p1 - p2 for p1, p2 in zip(merger_before, merger_after)] 
                 del merger_before 
-                if global_step > args.stage1_steps: 
-                    mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
-                    del mlp_before 
-                if args.train_unet: 
-                    unet_after = [p1 - p2 for p1, p2 in zip(unet_before, unet_after)]  
-                    del unet_before 
-                if args.train_text_encoder: 
-                    text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
-                    del text_encoder_before
+                mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
+                del mlp_before 
+                unet_after = [p1 - p2 for p1, p2 in zip(unet_before, unet_after)]  
+                del unet_before 
+                text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
+                del text_encoder_before
                 if args.textual_inv: 
                     bnha_after = [p1 - p2 for p1, p2 in zip(bnha_before, bnha_after)]   
                     del bnha_before 
@@ -1466,38 +1483,36 @@ def main(args):
                     if torch.sum(p_diff): 
                         change = True 
                         break 
-                    assert change  
-
-                if global_step > args.stage1_steps: 
-                    for p_diff in mlp_after:  
-                        if torch.sum(p_diff): 
-                            change = True 
-                            break 
-                    assert change 
+                assert change 
 
                 change = False 
-                if args.train_unet: 
-                    for p_diff in unet_after:  
-                        if torch.sum(p_diff): 
-                            change = True 
-                            break 
-                    assert change 
+                for p_diff in mlp_after:  
+                    if torch.sum(p_diff): 
+                        change = True 
+                        break 
+                assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
 
                 change = False 
-                if args.train_text_encoder: 
-                    for p_diff in text_encoder_after:  
-                        if torch.sum(p_diff): 
-                            change = True 
-                            break 
-                    assert change 
+                for p_diff in unet_after:  
+                    if torch.sum(p_diff): 
+                        change = True 
+                        break 
+                assert not (change ^ args.train_unet)  
+
+                change = False 
+                for p_diff in text_encoder_after:  
+                    if torch.sum(p_diff): 
+                        change = True 
+                        break 
+                assert not (change ^ args.train_text_encoder)   
             
-                change = False 
-                if args.textual_inv:  
+                if args.textual_inv: 
+                    change = False 
                     for p_diff in bnha_after:  
                         if torch.sum(p_diff): 
                             change = True 
                             break 
-                    assert change 
+                    assert not (change ^ args.textual_inv)   
 
 
         progress_bar.update(accelerator.num_processes * args.train_batch_size) 
