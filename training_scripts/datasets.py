@@ -19,21 +19,22 @@ class PromptDataset(Dataset):
     def __init__(self, num_samples=24, use_sks=True):
         self.num_samples = num_samples 
         self.subjects = [
+            "bnha pickup truck",
             "pickup truck",
-            # "pickup truck",
-            # "bus", 
-            # "motorbike",  
+            "bus", 
+            "motorbike",  
         ] 
 
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
-            "a SUBJECT parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-            "a bnha SUBJECT parked on a bustling city street, surrounded by towering skyscrapers and neon lights",
-            "a bnha SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance." 
+            # "a SUBJECT parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
+            "a SUBJECT parked on a bustling city street, surrounded by towering skyscrapers and neon lights",
+            "a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance." 
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  
         self.prompt_wise_subjects, self.prompts = self.generate_prompts(use_sks)
+        assert len(self.prompt_wise_subjects) == len(self.prompts) 
 
 
     def generate_prompts(self, use_sks=True):
@@ -114,6 +115,7 @@ class DisentangleDataset(Dataset):
 
         # choosing from the instance images, not the augmentation 
         if index % 5 != 0: 
+            example["controlnet"] = False 
             prompt = f"a bnha {subject} in front of a dark background"  
 
             example["prompt_ids"] = self.tokenizer(
@@ -127,7 +129,9 @@ class DisentangleDataset(Dataset):
             assert osp.exists(img_path) 
             img = Image.open(img_path)  
 
+        # choosing from the controlnet augmentation 
         else: 
+            example["controlnet"] = True  
             subject_angle_controlnet_dir = osp.join(self.args.controlnet_data_dir, subject_, str(angle))  
             avlble_imgs = os.listdir(subject_angle_controlnet_dir) 
             chosen_img = random.choice(avlble_imgs) 

@@ -29,13 +29,21 @@ from utils import *
 
 
 TOKEN2ID = {
-    "bnha": 49336, 
+    "bnha": 49336,  
     "pickup truck": 4629, # using the token for "truck" instead  
+    "bus": 2840, 
+    "cat": 2368, 
+    "giraffe": 22826, 
+    "horse": 4558,
+    "lion": 5567,  
+    "elephant": 10299,   
+    "jeep": 11286,  
+    "motorbike": 33341,  
 }
 DEBUG = False  
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
-# VLOG_STEPS = [50, 100, 200, 500, 1000]   
+# VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 VLOG_STEPS = [1000, 5000, 6000, 10000, 20000, 30000] 
 
 from datasets import DisentangleDataset 
@@ -74,7 +82,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp, HotEmbedding, AppearanceEmbeddings, MergedEmbedding  
+from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding  
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -154,12 +162,28 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 mlp_embs = mlp(sincos.unsqueeze(0).repeat(len(prompts_dataset.prompts), 1))   
                 if args.textual_inv: 
                     bnha_embs = [] 
-                    for idx in range(len(prompts_dataset.prompts)):  
-                        bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), prompts_dataset.prompt_wise_subjects[idx]))   
+                    for i in range(len(prompts_dataset.prompt_wise_subjects)):   
+                        subject = prompts_dataset.prompt_wise_subjects[i]  
+                        if "bnha" not in subject: 
+                            # if this is not a bnha subject, then it is not seen during training, and just put the class embedding for the appearance  
+                            bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
+                            continue 
+
+                        subject = subject.replace("bnha", "").strip() 
+
+                        if hasattr(bnha_embs, subject): 
+                            # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
+                            bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
+                        else: 
+                            # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
+                            # bnha_embs.append(torch.zeros(1024)) 
+                            bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
+
                     bnha_embs = torch.stack(bnha_embs)  
                 else: 
                     bnha_embs = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]].detach().unsqueeze(0).repeat(len(prompts_dataset.prompts), 1)  
-                merged_embs = merger(mlp_embs, bnha_embs)    
+
+                merged_embs = merger(mlp_embs, bnha_embs)  
 
                 for i, merged_emb in enumerate(merged_embs):  
                     accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_embs[i]  
@@ -274,16 +298,8 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         for template_prompt in prompts_dataset.template_prompts:  
             template_prompt_videos = {} 
             for subject in sorted(prompts_dataset.subjects):  
-                # BUG in before replacement as well!
-                # print(f"before replacement, for {subject = }, {template_prompt = }")
                 subject_prompt = template_prompt.replace("SUBJECT", subject) 
-                # if use_sks: 
-                #     subject_prompt = "a sks photo of " + subject_prompt 
-                # else: 
-                #     subject_prompt = "a photo of " + subject_prompt 
-                # print(f"after replacement, for {subject = }, {subject_prompt = }")
                 prompt_ = "_".join(subject_prompt.split()) 
-                # print(f"for {subject = }, i am using {prompt_ = }")
                 prompt_path = osp.join(save_path_global, prompt_) 
                 img_names = os.listdir(prompt_path)   
                 img_names = [img_name for img_name in img_names if img_name.find(f"jpg") != -1] 
@@ -305,14 +321,8 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     #     if got_image: 
                     #         break 
                     img = Image.open(img_path) 
-                    # BUG here 
-                    # print(f"for {subject} i am using {img_path}") 
                     template_prompt_videos[subject].append(img) 
 
-            # BUG here
-            # for subject in prompts_dataset.subjects: 
-            #     for idx, img in enumerate(template_prompt_videos[subject]):   
-            #         img.save(f"{subject}_{idx}.jpg") 
 
             all_concat_imgs = [] 
             save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}")  
@@ -326,10 +336,6 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             video_path = osp.join(save_path_global, template_prompt_ + ".gif")  
             create_gif(all_concat_imgs, video_path, 1) 
             if accelerator.is_main_process and args.wandb:  
-                # if use_sks: 
-                #     key = "a sks photo of " + template_prompt  
-                # else: 
-                #     key = "a photo of " + template_prompt 
                 wandb_log_data[template_prompt] = wandb.Video(video_path) 
 
 
@@ -995,6 +1001,7 @@ def main(args):
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
     def collate_fn(examples):
+        is_controlnet = [example["controlnet"] for example in examples] 
         prompt_ids = [example["prompt_ids"] for example in examples] 
         subjects = [example["subject"] for example in examples] 
         pixel_values = []
@@ -1023,6 +1030,7 @@ def main(args):
             "pixel_values": pixel_values,
             "scalers": scalers,
             "subjects": subjects, 
+            "controlnet": is_controlnet, 
         }
 
         return batch 
@@ -1187,8 +1195,13 @@ def main(args):
         # else it is initialized with the default value for bnha 
         if args.textual_inv: 
             bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
+            for idx in range(B): 
+                if batch["controlnet"][idx]: 
+                    # if controlnet image, then replace the appearance embedding by the class embedding
+                    bnha_emb[idx] = torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]]   
+
         else: 
-            bnha_emb = input_embeddings.detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
+            bnha_emb = torch.clone(input_embeddings).detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
@@ -1200,7 +1213,7 @@ def main(args):
 
         for batch_idx, batch_item in enumerate(input_ids): 
             # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
-            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=False)  
+            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_emb[batch_idx] 
@@ -1211,6 +1224,7 @@ def main(args):
         encoder_hidden_states = torch.stack(encoder_hidden_states)  
 
         # replacing the text encoder input embeddings by the original ones, this time setting them to be HOT, this will be useful in case we choose to do textual inversion 
+        # here we are not cloning because these won't be stepped upon anyways, and this way we can save some memory also!  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=True)   
         encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
         assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
