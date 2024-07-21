@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="disentangle_dropout_noti" 
+export RUN_NAME="unet+text+ti"  
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
@@ -26,8 +26,9 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_prompt="Continuous MLP Training" \
   --train_text_encoder \
   --train_unet \
+  --textual_inv \
   --resolution=512 \
-  --train_batch_size=1 \
+  --train_batch_size=2 \
   --inference_batch_size=4 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
