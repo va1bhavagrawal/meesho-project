@@ -83,7 +83,7 @@ class DisentangleDataset(Dataset):
                 )
             )
         if args.center_crop:
-            img_transforms.append(transforms.CenterCrop(size))
+            img_transforms.append(transforms.CenterCrop(args.resolution)) 
         if args.color_jitter:
             img_transforms.append(transforms.ColorJitter(0.2, 0.1))
         if args.h_flip:
