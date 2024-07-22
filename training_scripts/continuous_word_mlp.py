@@ -62,7 +62,7 @@ class MergedEmbedding(nn.Module):
 
     def forward(self, pose_embed, appearance_embed): 
         org_embeds = torch.cat([pose_embed, appearance_embed], dim=-1) 
-        x = self.linear1(x) 
+        x = self.linear1(org_embeds)  
         x = F.relu(x + org_embeds)  
         x = self.linear2(x) 
         x = F.relu(x + org_embeds)   
