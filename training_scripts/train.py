@@ -622,6 +622,18 @@ def parse_args(input_args=None):
         help="Initial learning rate for merger (after the potential warmup period) to use.",
     )
     parser.add_argument(
+        "--lambda_r",
+        type=float,
+        default=None, 
+        help="the regularization coefficient for the merged embedding (replaces the bnha embedding in the text encoder's input space)", 
+    )
+    parser.add_argument(
+        "--s",
+        type=float,
+        default=None, 
+        help="merged_embedding = class_embedding + s * appearance_embedding (if regularizing the final bnha embedding)", 
+    )
+    parser.add_argument(
         "--stage1_steps",
         type=int,
         default=5000,
@@ -732,6 +744,9 @@ def parse_args(input_args=None):
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
+
+    if args.lambda_r and args.s is None: 
+        raise ValueError(f"If lambda_r is provided, then you are regularizing the merged embedding, and you also must provide a scaling factor 's'") 
 
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
@@ -1205,6 +1220,7 @@ def main(args):
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
+        merged_emb_norm = torch.linalg.norm(merged_emb) 
 
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
@@ -1216,7 +1232,11 @@ def main(args):
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
-            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_emb[batch_idx] 
+            if args.lambda_r: 
+                # regularizing, so do original_bnha + s * merged_emb
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = torch.clone(input_embeddings).detach()[TOKEN2ID[batch["subjects"][batch_idx]]] + args.s * merged_emb[batch_idx]   
+            else: 
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_emb[batch_idx] 
 
             # appending to the encoder states 
             encoder_hidden_states.append(text_encoder(batch_item.unsqueeze(0))[0].squeeze()) 
@@ -1246,6 +1266,7 @@ def main(args):
                 f"Unknown prediction type {noise_scheduler.config.prediction_type}"
             )
 
+        losses = [] 
         if args.with_prior_preservation:
             # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
             model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
@@ -1257,6 +1278,7 @@ def main(args):
                 .mean([1, 2, 3])
                 .mean()
             )
+            losses.append(loss.detach())  
 
             # Compute prior loss
             prior_loss = F.mse_loss(
@@ -1265,8 +1287,22 @@ def main(args):
 
             # Add the prior loss to the instance loss.
             loss = loss + args.prior_loss_weight * prior_loss
+            losses.append(prior_loss.detach())  
         else:
             loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+            losses.append(loss.detach())  
+            # append 0 for the prior preservation loss  
+            losses.append(torch.tensor(0.0).to(accelerator.device))  
+
+        if args.lambda_r: 
+            # regularization is enabled on the merged embedding
+            reg_loss = torch.linalg.norm(merged_emb_norm)  
+            loss = loss + args.lambda_r * reg_loss  
+            losses.append(reg_loss.detach())  
+        else: 
+            losses.append(torch.tensor(0.0).to(accelerator.device))  
+
+        losses = torch.stack(losses).to(accelerator.device) 
 
         accelerator.backward(loss)
         # everytime the continuous word mlp must receive gradients 
@@ -1412,6 +1448,9 @@ def main(args):
                     merger_norm = torch.mean(torch.stack(merger_norm)) 
                 all_norms.append(merger_norm) 
 
+                # merged embedding 
+                all_norms.append(merged_emb_norm)  
+
                 # unet 
                 if args.train_unet: 
                     unet_norm = [torch.linalg.norm(param) for param in unet.parameters() if param.grad is not None]
@@ -1446,7 +1485,8 @@ def main(args):
                 gathered_norms = torch.mean(accelerator.gather(all_norms), dim=0)  
                 wandb_log_data["mlp_norm"] = gathered_norms[0] 
                 wandb_log_data["merger_norm"] = gathered_norms[1]  
-                curr = 2  
+                wandb_log_data["merged_emb_norm"] = gathered_norms[2] 
+                curr = 3  
                 while curr < len(gathered_norms):  
                     if args.train_unet and ("unet_norm" not in wandb_log_data.keys()): 
                         wandb_log_data["unet_norm"] = gathered_norms[curr]  
@@ -1735,8 +1775,12 @@ def main(args):
 
         loss = loss.detach()
         gathered_loss = torch.mean(accelerator.gather(loss), 0)
+        gathered_losses = accelerator.gather(losses) 
         if args.wandb and ddp_step % args.log_every == 0:
-            wandb_log_data["loss"] = gathered_loss
+            # in that order: mse loss, prior loss, reg_loss
+            wandb_log_data["mse_loss"] = gathered_losses[0] 
+            wandb_log_data["prior_loss"] = gathered_losses[1] 
+            wandb_log_data["reg_loss"] = gathered_losses[2]  
 
         if args.wandb: 
             # finally logging!
