@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="concat_infer"
+export RUN_NAME="better_optimizers_unet6"  
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 
@@ -34,15 +34,17 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
   --train_unet \
-  --train_text_encoder \
+  --textual_inv \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=2 \
+  --lora_rank=6 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
   --learning_rate_mlp=1e-3 \
-  --learning_rate_emb=4e-3 \
+  --learning_rate_merger=1e-4 \
+  --learning_rate_emb=1e-3 \
   --color_jitter \
   --lr_warmup_steps=0 \
   --online_inference \
@@ -50,7 +52,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
-  --class_prompt="a photo of a $SUBJECT" \
   --run_name="$RUN_NAME" \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
