@@ -972,9 +972,28 @@ def main(args):
         optimizers.append(optimizer_bnha) 
 
 
+    pos_size = 2
+    continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
+    optimizer_mlp = optimizer_class(
+        continuous_word_model.parameters(),  
+        lr=args.learning_rate_mlp,
+        betas=(args.adam_beta1, args.adam_beta2),
+        weight_decay=args.adam_weight_decay,
+        eps=args.adam_epsilon,
+    )
+    optimizers.append(optimizer_mlp)  
+
+
     # the merged token formulation 
     merger = MergedEmbedding()  
-    optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
+    # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
+    optimizer_merger = optimizer_class(
+        merger.parameters(),  
+        lr=args.learning_rate_merger,
+        betas=(args.adam_beta1, args.adam_beta2),
+        weight_decay=args.adam_weight_decay,
+        eps=args.adam_epsilon,
+    )
     optimizers.append(optimizer_merger) 
 
 
@@ -1057,11 +1076,11 @@ def main(args):
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
     # the mlp controlling the pose 
-    pos_size = 2
-    continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
-    continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=args.learning_rate_mlp) 
-    optimizers.append(continuous_word_optimizer) 
-    print("The current continuous MLP: {}".format(continuous_word_model))
+    # pos_size = 2
+    # continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
+    # continuous_word_optimizer = torch.optim.Adam(continuous_word_model.parameters(), lr=args.learning_rate_mlp) 
+    # optimizers.append(continuous_word_optimizer) 
+    # print("The current continuous MLP: {}".format(continuous_word_model))
     
     
     unet, text_encoder, merger, continuous_word_model, train_dataloader = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader)  
