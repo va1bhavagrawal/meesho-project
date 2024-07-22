@@ -379,6 +379,11 @@ logger = get_logger(__name__)
 def parse_args(input_args=None):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
+        "--ada",
+        action="store_true",
+        help="whether training on ada, this would enable certain optimizations to reduce the memory usage", 
+    )
+    parser.add_argument(
         "--wandb",
         action="store_true",
         help="whether to use wandb or not ",
@@ -1161,7 +1166,8 @@ def main(args):
             batch["pixel_values"].to(dtype=weight_dtype)
         ).latent_dist.sample()
         latents = latents * 0.18215
-        vae = vae.to(torch.device(f"cpu")) 
+        if args.ada: 
+            vae = vae.to(torch.device(f"cpu")) 
 
         # Sample noise that we'll add to the latents
         noise = torch.randn_like(latents)
@@ -1224,6 +1230,7 @@ def main(args):
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
+        merged_emb_norm = torch.linalg.norm(merged_emb)  
 
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
@@ -1253,6 +1260,8 @@ def main(args):
 
 
         # Predict the noise residual
+        if args.ada: 
+            torch.cuda.empty_cache() 
         model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
         # Get the target for loss depending on the prediction type
@@ -1265,6 +1274,7 @@ def main(args):
                 f"Unknown prediction type {noise_scheduler.config.prediction_type}"
             )
 
+        losses = [] 
         if args.with_prior_preservation:
             # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
             model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
@@ -1276,17 +1286,25 @@ def main(args):
                 .mean([1, 2, 3])
                 .mean()
             )
+            losses.append(loss.detach()) 
 
             # Compute prior loss
             prior_loss = F.mse_loss(
                 model_pred_prior.float(), target_prior.float(), reduction="mean"
             )
+            losses.append(prior_loss.detach()) 
 
             # Add the prior loss to the instance loss.
             loss = loss + args.prior_loss_weight * prior_loss
         else:
             loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+            losses.append(loss.detach()) 
+            losses.append(torch.tensor(0.0).to(accelerator.device)) 
 
+        losses = torch.stack(losses).to(accelerator.device) 
+
+        if args.ada: 
+            torch.cuda.empty_cache() 
         accelerator.backward(loss)
         # everytime the continuous word mlp must receive gradients 
         if DEBUG: 
@@ -1431,6 +1449,9 @@ def main(args):
                     merger_norm = torch.mean(torch.stack(merger_norm)) 
                 all_norms.append(merger_norm) 
 
+                # merged_embedding norm 
+                all_norms.append(merged_emb_norm)  
+
                 # unet 
                 if args.train_unet: 
                     unet_norm = [torch.linalg.norm(param) for param in unet.parameters() if param.grad is not None]
@@ -1465,7 +1486,8 @@ def main(args):
                 gathered_norms = torch.mean(accelerator.gather(all_norms), dim=0)  
                 wandb_log_data["mlp_norm"] = gathered_norms[0] 
                 wandb_log_data["merger_norm"] = gathered_norms[1]  
-                curr = 2  
+                wandb_log_data["merged_emb_norm"] = gathered_norms[2] 
+                curr = 3  
                 while curr < len(gathered_norms):  
                     if args.train_unet and ("unet_norm" not in wandb_log_data.keys()): 
                         wandb_log_data["unet_norm"] = gathered_norms[curr]  
@@ -1754,8 +1776,14 @@ def main(args):
 
         loss = loss.detach()
         gathered_loss = torch.mean(accelerator.gather(loss), 0)
+        # on gathering the list of losses, the shape will be (G, 2) if there are 2 losses 
+        # mean along the last dimension would give the actual losses 
+        losses = losses.unsqueeze(0) 
+        gathered_losses = torch.mean(accelerator.gather(losses), dim=-1) 
         if args.wandb and ddp_step % args.log_every == 0:
-            wandb_log_data["loss"] = gathered_loss
+            # wandb_log_data["loss"] = gathered_loss
+            wandb_log_data["mse_loss"] = gathered_losses[0]   
+            wandb_log_data["prior_loss"] = gathered_losses[1] 
 
         if args.wandb: 
             # finally logging!

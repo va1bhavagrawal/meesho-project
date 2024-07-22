@@ -1,14 +1,14 @@
 export SUBJECT="pickup truck"
-export FILE_ID="template_truck"
-export RUN_NAME="better_optimizers_unet6"  
+export FILE_ID="multiobject"
+export RUN_NAME="better_optimizers_notext"   
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 
-rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav.zip 
+rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav*.zip 
 rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav  
-scp -r user@10.4.16.102:/data3/vaibhav/training_data_vaibhav.zip /ssd_scratch/cvit/vaibhav/
+scp -r user@10.4.16.102:/data3/vaibhav/training_data_vaibhav_singleobject.zip /ssd_scratch/cvit/vaibhav/
 cd /ssd_scratch/cvit/vaibhav/ 
-unzip training_data_vaibhav.zip  
+unzip training_data_vaibhav_singleobject.zip  
 cd - 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -38,7 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=2 \
-  --lora_rank=6 \
+  --ada \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
