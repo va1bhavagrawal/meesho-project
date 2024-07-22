@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="better_optimizers_unet6"  
+export RUN_NAME="notext_1e-3all"   
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
@@ -27,14 +27,13 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet \
   --textual_inv \
   --resolution=512 \
-  --train_batch_size=2 \
-  --inference_batch_size=4 \
-  --lora_rank=6 \
+  --train_batch_size=1 \
+  --inference_batch_size=2 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
   --learning_rate_mlp=1e-3 \
-  --learning_rate_merger=1e-4 \
+  --learning_rate_merger=1e-3 \
   --learning_rate_emb=1e-3 \
   --color_jitter \
   --lr_warmup_steps=0 \
