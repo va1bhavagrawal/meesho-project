@@ -1809,9 +1809,9 @@ def main(args):
         gathered_losses = torch.mean(accelerator.gather(losses), dim=0) 
         if args.wandb and ddp_step % args.log_every == 0:
             # wandb_log_data["loss"] = gathered_loss
-            wandb_log_data["mse_loss"] = gathered_losses[0]   
-            wandb_log_data["prior_loss"] = gathered_losses[1] 
-            wandb_log_data["reg_loss"] = gathered_losses[2]  
+            wandb_log_data["mse_loss_corrected"] = gathered_losses[0]   
+            wandb_log_data["prior_loss_corrected"] = gathered_losses[1] 
+            wandb_log_data["reg_loss_corrected"] = gathered_losses[2]  
 
         if args.wandb: 
             # finally logging!
