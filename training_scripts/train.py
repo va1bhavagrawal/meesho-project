@@ -743,13 +743,14 @@ def parse_args(input_args=None):
         help="the object name",
     )
     
-    if args.lambda_r and args.s is None: 
-        raise ValueError(f"If lambda_r is provided, then you are regularizing the merged embedding, and you also must provide a scaling factor 's'")  
-
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
+
+    if args.lambda_r and args.s is None: 
+        raise ValueError(f"If lambda_r is provided, then you are regularizing the merged embedding, and you also must provide a scaling factor 's'")  
+
 
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
@@ -1329,8 +1330,6 @@ def main(args):
 
         losses = torch.stack(losses).to(accelerator.device) 
 
-        losses = torch.stack(losses).to(accelerator.device) 
-
         if args.ada: 
             torch.cuda.empty_cache() 
         accelerator.backward(loss)
@@ -1805,9 +1804,9 @@ def main(args):
         loss = loss.detach()
         gathered_loss = torch.mean(accelerator.gather(loss), 0)
         # on gathering the list of losses, the shape will be (G, 2) if there are 2 losses 
-        # mean along the last dimension would give the actual losses 
+        # mean along the zeroth dimension would give the actual losses 
         losses = losses.unsqueeze(0) 
-        gathered_losses = torch.mean(accelerator.gather(losses), dim=-1) 
+        gathered_losses = torch.mean(accelerator.gather(losses), dim=0) 
         if args.wandb and ddp_step % args.log_every == 0:
             # wandb_log_data["loss"] = gathered_loss
             wandb_log_data["mse_loss"] = gathered_losses[0]   
