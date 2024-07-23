@@ -627,6 +627,18 @@ def parse_args(input_args=None):
         help="Initial learning rate for merger (after the potential warmup period) to use.",
     )
     parser.add_argument(
+        "--lambda_r",
+        type=float,
+        default=None, 
+        help="the regularization coefficient for the merged embedding (replaces the bnha embedding in the text encoder's input space)", 
+    )
+    parser.add_argument(
+        "--s",
+        type=float,
+        default=None, 
+        help="merged_embedding = class_embedding + s * appearance_embedding (if regularizing the final bnha embedding)", 
+    )
+    parser.add_argument(
         "--stage1_steps",
         type=int,
         default=5000,
@@ -731,7 +743,8 @@ def parse_args(input_args=None):
         help="the object name",
     )
     
-    
+    if args.lambda_r and args.s is None: 
+        raise ValueError(f"If lambda_r is provided, then you are regularizing the merged embedding, and you also must provide a scaling factor 's'")  
 
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -1242,7 +1255,12 @@ def main(args):
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
-            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_emb[batch_idx] 
+            if args.lambda_r: 
+                # regularizing, so do original_bnha + s * merged_emb
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = torch.clone(input_embeddings).detach()[TOKEN2ID[batch["subjects"][batch_idx]]] + args.s * merged_emb[batch_idx]   
+            else: 
+                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_emb[batch_idx]
+            # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_emb[batch_idx] 
 
             # appending to the encoder states 
             encoder_hidden_states.append(text_encoder(batch_item.unsqueeze(0))[0].squeeze()) 
@@ -1300,6 +1318,16 @@ def main(args):
             loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
             losses.append(loss.detach()) 
             losses.append(torch.tensor(0.0).to(accelerator.device)) 
+
+        if args.lambda_r: 
+            # regularization is enabled on the merged embedding
+            reg_loss = torch.linalg.norm(merged_emb_norm)  
+            loss = loss + args.lambda_r * reg_loss  
+            losses.append(reg_loss.detach())  
+        else: 
+            losses.append(torch.tensor(0.0).to(accelerator.device))  
+
+        losses = torch.stack(losses).to(accelerator.device) 
 
         losses = torch.stack(losses).to(accelerator.device) 
 
@@ -1784,6 +1812,7 @@ def main(args):
             # wandb_log_data["loss"] = gathered_loss
             wandb_log_data["mse_loss"] = gathered_losses[0]   
             wandb_log_data["prior_loss"] = gathered_losses[1] 
+            wandb_log_data["reg_loss"] = gathered_losses[2]  
 
         if args.wandb: 
             # finally logging!
