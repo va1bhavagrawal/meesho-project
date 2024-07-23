@@ -110,7 +110,7 @@ class DisentangleDataset(Dataset):
 
         # selecting the random view for the chosen subject 
         random_ref_img = random.choice(os.listdir(subject_ref_dir))  
-        angle = float(random_ref_img.split(f"_.jpg")[0])  
+        angle = float(random_ref_img.split(f".jpg")[0])  
         example["scaler"] = angle 
 
         # choosing from the instance images, not the augmentation 
