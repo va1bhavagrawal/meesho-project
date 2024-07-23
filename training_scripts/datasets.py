@@ -110,7 +110,7 @@ class DisentangleDataset(Dataset):
 
         # selecting the random view for the chosen subject 
         random_ref_img = random.choice(os.listdir(subject_ref_dir))  
-        angle = float(random_ref_img.split(f".jpg")[0])  
+        angle = float(random_ref_img.split(f"_.jpg")[0])  
         example["scaler"] = angle 
 
         # choosing from the instance images, not the augmentation 
@@ -164,7 +164,7 @@ class DisentangleDataset(Dataset):
             assert osp.exists(class_img_path), f"{class_img_path = }"
             class_img = Image.open(class_img_path) 
             example["class_img"] = self.image_transforms(class_img) 
-            class_prompt = f"a photo of {subject}"
+            class_prompt = f"a photo of a {subject}"
             example["class_prompt_ids"] = self.tokenizer(
                 class_prompt, 
                 padding="do_not_pad", 

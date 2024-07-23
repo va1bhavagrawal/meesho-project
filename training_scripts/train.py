@@ -1777,13 +1777,13 @@ def main(args):
         loss = loss.detach()
         gathered_loss = torch.mean(accelerator.gather(loss), 0)
         # on gathering the list of losses, the shape will be (G, 2) if there are 2 losses 
-        # mean along the last dimension would give the actual losses 
+        # mean along the zeroth dimension would give the actual losses 
         losses = losses.unsqueeze(0) 
-        gathered_losses = torch.mean(accelerator.gather(losses), dim=-1) 
+        gathered_losses = torch.mean(accelerator.gather(losses), dim=0) 
         if args.wandb and ddp_step % args.log_every == 0:
             # wandb_log_data["loss"] = gathered_loss
-            wandb_log_data["mse_loss"] = gathered_losses[0]   
-            wandb_log_data["prior_loss"] = gathered_losses[1] 
+            wandb_log_data["corrected_mse_loss"] = gathered_losses[0]   
+            wandb_log_data["corrected_prior_loss"] = gathered_losses[1] 
 
         if args.wandb: 
             # finally logging!
