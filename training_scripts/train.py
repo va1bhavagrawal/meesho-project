@@ -160,28 +160,28 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(accelerator.device) 
                 # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
                 mlp_embs = mlp(sincos.unsqueeze(0).repeat(len(prompts_dataset.prompts), 1))   
-                if args.textual_inv: 
-                    bnha_embs = [] 
-                    for i in range(len(prompts_dataset.prompt_wise_subjects)):   
-                        subject = prompts_dataset.prompt_wise_subjects[i]  
-                        if "bnha" not in subject: 
-                            # if this is not a bnha subject, then it is not seen during training, and just put the class embedding for the appearance  
-                            bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
-                            continue 
+                # if args.textual_inv: 
+                bnha_embs = [] 
+                for i in range(len(prompts_dataset.prompt_wise_subjects)):   
+                    subject = prompts_dataset.prompt_wise_subjects[i]  
+                    if "bnha" not in subject or not args.textual_inv:  
+                        # if this is not a bnha subject, then it is not seen during training, and just put the class embedding for the appearance  
+                        bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
+                        continue 
 
-                        subject = subject.replace("bnha", "").strip() 
+                    subject = subject.replace("bnha", "").strip() 
 
-                        if hasattr(bnha_embs, subject): 
-                            # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
-                            bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
-                        else: 
-                            # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
-                            # bnha_embs.append(torch.zeros(1024)) 
-                            bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
+                    assert hasattr(bnha_embs, subject)  
+                    # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
+                    bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))  
+                    # else: 
+                    #     # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
+                    #     # bnha_embs.append(torch.zeros(1024)) 
+                    #     bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
 
-                    bnha_embs = torch.stack(bnha_embs)  
-                else: 
-                    bnha_embs = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]].detach().unsqueeze(0).repeat(len(prompts_dataset.prompts), 1)  
+                bnha_embs = torch.stack(bnha_embs)  
+                # else: 
+                #     bnha_embs = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]].detach().unsqueeze(0).repeat(len(prompts_dataset.prompts), 1)  
 
                 merged_embs = merger(mlp_embs, bnha_embs)  
 
@@ -1226,7 +1226,13 @@ def main(args):
                     bnha_emb[idx] = torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]]   
 
         else: 
-            bnha_emb = torch.clone(input_embeddings).detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
+            # bnha_emb = torch.clone(input_embeddings).detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
+            bnha_emb = [] 
+            for idx in range(B): 
+                assert batch["controlnet"][idx] 
+                bnha_emb.append(torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]])  
+            bnha_emb = torch.stack(bnha_emb) 
+
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  

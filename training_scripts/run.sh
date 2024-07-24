@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="newtruck_1e-4_all_1e-5unet"  
+export RUN_NAME="poseonly"  
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
@@ -25,7 +25,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
   --train_unet \
-  --textual_inv \
   --resolution=512 \
   --train_batch_size=2 \
   --inference_batch_size=2 \
@@ -36,6 +35,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-4 \
   --color_jitter \
+  --stage1_steps=-1 \
+  --stage2_steps=60001 \
   --lr_warmup_steps=0 \
   --online_inference \
   --with_prior_preservation \
