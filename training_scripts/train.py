@@ -164,6 +164,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 bnha_embs = [] 
                 for i in range(len(prompts_dataset.prompt_wise_subjects)):   
                     subject = prompts_dataset.prompt_wise_subjects[i]  
+                    # FIXME the logic is not exactly correct, but works for this experiment!
                     if "bnha" not in subject or not args.textual_inv:  
                         # if this is not a bnha subject, then it is not seen during training, and just put the class embedding for the appearance  
                         bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   

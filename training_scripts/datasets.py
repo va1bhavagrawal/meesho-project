@@ -19,7 +19,6 @@ class PromptDataset(Dataset):
     def __init__(self, num_samples=24, use_sks=True):
         self.num_samples = num_samples 
         self.subjects = [
-            "bnha pickup truck",
             "pickup truck",
             "bus", 
             "motorbike",  
