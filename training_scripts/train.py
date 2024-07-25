@@ -778,6 +778,26 @@ def main(args):
     # defining the output directory to store checkpoints 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
 
+    # storing the number of reference images per subject 
+    args.n_ref_imgs = len(os.listdir(osp.join(args.instance_data_dir, subjects_[0]))) 
+
+    # sanity check: for every subject there should be the same angles  
+    # print(f"{subjects_ = }")
+    for subject_ in subjects_[:1]: 
+        subject_path = osp.join(args.instance_data_dir, subject_) 
+        files = os.listdir(subject_path) 
+        angles = [float(file.replace(f"_.jpg", "")) for file in files] 
+        angles = sorted(np.array(angles)) 
+
+    angles_ref = angles.copy()  
+    for subject_ in subjects_[1:]: 
+        subject_path = osp.join(args.instance_data_dir, subject_) 
+        files = os.listdir(subject_path) 
+        angles = [float(file.replace(f"_.jpg", "")) for file in files] 
+        angles = sorted(np.array(angles)) 
+        assert np.allclose(angles, angles_ref) 
+
+
     # max train steps 
     args.max_train_steps = args.stage1_steps + args.stage2_steps 
 

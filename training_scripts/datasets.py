@@ -138,7 +138,7 @@ class DisentangleDataset(Dataset):
 
             prompt_idx = int(chosen_img.split("___prompt")[-1].split(".jpg")[0])  
             prompt = self.args.controlnet_prompts[prompt_idx] 
-            prompt = prompt.replace("SUBJECT", f"bnha {subject}")  
+            prompt = prompt.replace("SUBJECT", f"{subject}")  
             example["prompt_ids"] = self.tokenizer(
                 prompt, 
                 padding="do_not_pad", 
@@ -164,7 +164,7 @@ class DisentangleDataset(Dataset):
             assert osp.exists(class_img_path), f"{class_img_path = }"
             class_img = Image.open(class_img_path) 
             example["class_img"] = self.image_transforms(class_img) 
-            class_prompt = f"a photo of {subject}"
+            class_prompt = f"a photo of a {subject}"
             example["class_prompt_ids"] = self.tokenizer(
                 class_prompt, 
                 padding="do_not_pad", 
@@ -172,5 +172,6 @@ class DisentangleDataset(Dataset):
                 max_length=self.tokenizer.model_max_length 
             ).input_ids 
             print(f"{class_prompt = }") 
+            print(f"{class_img_path = }")
 
         return example 
