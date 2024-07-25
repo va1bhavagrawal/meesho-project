@@ -138,7 +138,7 @@ class DisentangleDataset(Dataset):
 
             prompt_idx = int(chosen_img.split("___prompt")[-1].split(".jpg")[0])  
             prompt = self.args.controlnet_prompts[prompt_idx] 
-            # prompt = prompt.replace("SUBJECT", f"bnha {subject}")  
+            prompt = prompt.replace("SUBJECT", f"{subject}")  
             example["prompt_ids"] = self.tokenizer(
                 prompt, 
                 padding="do_not_pad", 
