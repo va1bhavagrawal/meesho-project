@@ -25,6 +25,8 @@ from io import BytesIO
 
 from utils import * 
 
+import matplotlib.pyplot as plt 
+
 # from metrics import MetricEvaluator 
 
 
@@ -778,6 +780,25 @@ def main(args):
     # defining the output directory to store checkpoints 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
 
+    # storing the number of reference images per subject 
+    args.n_ref_imgs = len(os.listdir(osp.join(args.instance_data_dir, subjects_[0]))) 
+
+    # sanity check: for every subject there should be the same angles  
+    # print(f"{subjects_ = }")
+    for subject_ in subjects_[:1]: 
+        subject_path = osp.join(args.instance_data_dir, subject_) 
+        files = os.listdir(subject_path) 
+        angles = [float(file.replace(f"_.jpg", "")) for file in files] 
+        angles = sorted(np.array(angles)) 
+
+    angles_ref = angles.copy()  
+    for subject_ in subjects_[1:]: 
+        subject_path = osp.join(args.instance_data_dir, subject_) 
+        files = os.listdir(subject_path) 
+        angles = [float(file.replace(f"_.jpg", "")) for file in files] 
+        angles = sorted(np.array(angles)) 
+        assert np.allclose(angles, angles_ref) 
+
     # max train steps 
     args.max_train_steps = args.stage1_steps + args.stage2_steps 
 
@@ -1156,7 +1177,15 @@ def main(args):
     if args.train_text_encoder:
         text_encoder.train()
 
+    # steps_per_angle = {} 
+
     for step, batch in enumerate(train_dataloader):
+        # for batch_idx, angle in enumerate(batch["anagles"]): 
+        #     if angle in steps_per_angle.keys(): 
+        #         steps_per_angle[angle] += 1 
+        #     else:
+        #         steps_per_angle[angle] = 1 
+
         B = len(batch["scalers"])   
         wandb_log_data = {}
         force_wandb_log = False 
@@ -1777,13 +1806,13 @@ def main(args):
         loss = loss.detach()
         gathered_loss = torch.mean(accelerator.gather(loss), 0)
         # on gathering the list of losses, the shape will be (G, 2) if there are 2 losses 
-        # mean along the last dimension would give the actual losses 
+        # mean along the zeroth dimension would give the actual losses 
         losses = losses.unsqueeze(0) 
-        gathered_losses = torch.mean(accelerator.gather(losses), dim=-1) 
+        gathered_losses = torch.mean(accelerator.gather(losses), dim=0) 
         if args.wandb and ddp_step % args.log_every == 0:
             # wandb_log_data["loss"] = gathered_loss
-            wandb_log_data["mse_loss"] = gathered_losses[0]   
-            wandb_log_data["prior_loss"] = gathered_losses[1] 
+            wandb_log_data["corrected_mse_loss"] = gathered_losses[0]   
+            wandb_log_data["corrected_prior_loss"] = gathered_losses[1] 
 
         if args.wandb: 
             # finally logging!
@@ -1811,6 +1840,12 @@ def main(args):
             break
 
     accelerator.wait_for_everyone()
+
+    # TODO do this taking care of the multi gpu thing 
+    # print(f"{steps_per_angle = }")
+    # steps_per_angle = list(steps_per_angle.values())  
+    # steps_per_angle = np.array(steps_per_angle).astype(np.int32) 
+    # plt.bar(range(len(steps_per_angle)), steps_per_angle, color="green") 
 
     wandb.finish() 
 
