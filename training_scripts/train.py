@@ -1249,6 +1249,7 @@ def main(args):
         # else it is initialized with the default value for bnha 
         if args.textual_inv: 
             bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
+            assert len(batch["controlnet"]) == B 
             for idx in range(B): 
                 if batch["controlnet"][idx]: 
                     # if controlnet image, then replace the appearance embedding by the class embedding
@@ -1260,6 +1261,7 @@ def main(args):
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
         merged_emb_norm = torch.linalg.norm(merged_emb)  
+        assert merged_emb.shape[0] == B 
 
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
