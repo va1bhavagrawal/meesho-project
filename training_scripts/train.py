@@ -1357,7 +1357,7 @@ def main(args):
         # everytime the continuous word mlp must receive gradients 
         if DEBUG: 
             with torch.no_grad(): 
-                check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None or torch.allclose(p.grad, 0)]  
+                check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
                 assert not ((len(check_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
                 del check_mlp_params 
 
