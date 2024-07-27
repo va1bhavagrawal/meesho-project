@@ -25,7 +25,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
   --train_unet \
-  --train_text_encoder \
   --textual_inv \
   --resolution=512 \
   --train_batch_size=1 \
