@@ -22,7 +22,7 @@ class PromptDataset(Dataset):
             "bnha pickup truck",
             "bnha motorbike",  
             "bus",  
-            "bicycle",
+            "bnha bicycle",
         ] 
 
         self.template_prompts = [
