@@ -52,6 +52,7 @@ from datasets import DisentangleDataset
 
 
 from accelerate import Accelerator
+from accelerate import DistributedDataParallelKwargs 
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
 from diffusers import (
@@ -173,14 +174,15 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                         subject = subject.replace("bnha", "").strip() 
 
-                        if hasattr(bnha_embs, subject): 
+                        # if hasattr(bnha_embs, subject): 
+                        assert hasattr(bnha_embs, subject)  
                             # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
-                            # bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
-                            bnha_embs.append(bnha_embeds(subject))      
-                        else: 
-                            # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
-                            # bnha_embs.append(torch.zeros(1024)) 
-                            bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
+                        bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
+                            # bnha_embs.append(bnha_embeds(subject))      
+                        # else: 
+                        #     # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
+                        #     # bnha_embs.append(torch.zeros(1024)) 
+                        #     bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
 
                     bnha_embs = torch.stack(bnha_embs)  
                 else: 
@@ -632,13 +634,13 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=5000,
+        default=10000,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=25000,
+        default=60000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -805,6 +807,8 @@ def main(args):
 
     # accelerator 
     accelerator = Accelerator(
+        kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)],  
+        # find_unused_parameters=True, 
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
     )
@@ -917,10 +921,10 @@ def main(args):
         set_use_memory_efficient_attention_xformers(unet, True)
         set_use_memory_efficient_attention_xformers(vae, True)
 
-    if args.gradient_checkpointing:
-        unet.enable_gradient_checkpointing()
-        if args.train_text_encoder:
-            text_encoder.gradient_checkpointing_enable()
+    # if args.gradient_checkpointing:
+    #     unet.enable_gradient_checkpointing()
+    #     if args.train_text_encoder:
+    #         text_encoder.gradient_checkpointing_enable()
 
 
     # Use 8-bit Adam for lower memory usage or to fine-tune the model in 16GB GPUs
@@ -1250,12 +1254,17 @@ def main(args):
         # else it is initialized with the default value for bnha 
         if args.textual_inv: 
             # bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
-            bnha_emb = torch.stack([bnha_embeds(subject) for subject in batch["subjects"]])  
+            # bnha_emb = torch.stack([bnha_embeds(subject) for subject in batch["subjects"]])  
+            bnha_emb = [] 
             assert len(batch["controlnet"]) == B 
             for idx in range(B): 
                 if batch["controlnet"][idx]: 
                     # if controlnet image, then replace the appearance embedding by the class embedding
-                    bnha_emb[idx] = torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]]   
+                    bnha_emb.append(torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]])  
+                else: 
+                    # bnha_emb.append(bnha_embeds(batch["subjects"][idx])) 
+                    bnha_emb.append(getattr(accelerator.unwrap_model(bnha_embeds), batch["subjects"][idx]))  
+            bnha_emb = torch.stack(bnha_emb) 
 
         else: 
             # bnha_emb = torch.clone(input_embeddings).detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
