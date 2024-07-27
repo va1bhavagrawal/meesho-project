@@ -46,7 +46,7 @@ DEBUG = False
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
+VLOG_STEPS = [16, 1000, 5000, 6000, 10000, 20000, 30000] 
 
 from datasets import DisentangleDataset 
 
@@ -175,7 +175,9 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                         subject = subject.replace("bnha", "").strip() 
 
                         # if hasattr(bnha_embs, subject): 
-                        assert hasattr(accelerator.unwrap_model(bnha_embeds), subject)  
+                        bnha_embeds_params = [n for n, p in bnha_embeds.named_parameters()] 
+                        assert hasattr(accelerator.unwrap_model(bnha_embeds), subject), f"{subject = }, {args.subjects = }, {bnha_embeds_params = }"  
+                        assert hasattr(accelerator.unwrap_model(bnha_embeds), "pickup truck"), f"{subject = }, {args.subjects = }, {bnha_embeds_params = }"  
                             # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
                         bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
                             # bnha_embs.append(bnha_embeds(subject))      
@@ -779,6 +781,8 @@ def main(args):
     # subjects_ are the folders in the instance directory 
     subjects_ = os.listdir(args.instance_data_dir) 
     args.subjects = [" ".join(subject.split("_")) for subject in subjects_] 
+    for subject in args.subjects: 
+        assert subject in list(TOKEN2ID.keys()) 
 
     # defining the output directory to store checkpoints 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
@@ -985,12 +989,20 @@ def main(args):
     if args.textual_inv: 
         # the appearance embeddings 
         bnha_embeds = {} 
+        print(f"{args.subjects = }")
         for subject in args.subjects:  
             # initializing using the subject's embedding in the pretrained CLIP text encoder 
             bnha_embeds[subject] = torch.clone(text_encoder.get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
 
         # initializing the AppearanceEmbeddings module using the embeddings 
         bnha_embeds = AppearanceEmbeddings(bnha_embeds).to(accelerator.device) 
+
+        for subject in args.subjects: 
+            if hasattr(bnha_embeds, subject): 
+                print(f"{subject} was found!") 
+            else:
+                print(f"{subject} was not found!") 
+        assert hasattr(bnha_embeds, "pickup truck") 
 
         # an optimizer for the appearance embeddings 
         optimizer_bnha = optimizer_class(
