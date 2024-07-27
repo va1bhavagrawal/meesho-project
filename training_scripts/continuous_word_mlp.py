@@ -47,9 +47,11 @@ class AppearanceEmbeddings(nn.Module):
         for key, value in init_embeddings.items(): 
             # self.embeds[key] = torch.nn.Parameter(value.detach())    
             self.register_parameter(key, torch.nn.Parameter(value.detach())) 
+        assert False 
     
     def forward(self, name): 
         # raise NotImplementedError(f"there is no forward method for this class") 
+        assert False 
         return getattr(self, name) 
 
 

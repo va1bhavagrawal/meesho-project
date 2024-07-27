@@ -46,7 +46,7 @@ DEBUG = False
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 5000, 6000, 10000, 20000, 30000] 
+VLOG_STEPS = [1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000]  
 
 from datasets import DisentangleDataset 
 
@@ -632,13 +632,13 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=5000,
+        default=-1,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=25000,
+        default=60000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -801,7 +801,8 @@ def main(args):
         assert np.allclose(angles, angles_ref) 
 
     # max train steps 
-    args.max_train_steps = args.stage1_steps + args.stage2_steps 
+    # + 1 is added because stage1_steps is set to -1 
+    args.max_train_steps = args.stage1_steps + args.stage2_steps + 1  
 
     # accelerator 
     accelerator = Accelerator(
@@ -1242,6 +1243,7 @@ def main(args):
             mlp_emb = continuous_word_model(p) 
 
         else: 
+            assert False 
             progress_bar.set_description(f"stage 1: ")
             mlp_emb = torch.zeros(B, 1024) 
 
@@ -1348,9 +1350,14 @@ def main(args):
         # everytime the continuous word mlp must receive gradients 
         if DEBUG: 
             with torch.no_grad(): 
-                check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None or torch.allclose(p.grad, 0)]  
-                assert not ((len(check_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
+                check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0))]  
+                # assert not ((len(check_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
+                assert len(check_mlp_params) == 0 
                 del check_mlp_params 
+
+                check_merger_params = [p for p in merger.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0))]
+                assert len(check_merger_params) == 0 
+                del check_merger_params 
 
                 # while debugging, go all controlnet, and then this assertion must pass 
                 # check_bnha_params = [p for p in bnha_embeds.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0))] 
@@ -1780,6 +1787,7 @@ def main(args):
                         strictly forbidden unless prior written permission is obtained from Adobe.
                         """
                         torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp_{global_step}.pt")
+                        torch.save(merger.state_dict(), f"{args.output_dir}/merger_{global_step}.pt")
                         """End Adobe CONFIDENTIAL"""
                     
                     
@@ -1917,6 +1925,7 @@ def main(args):
             strictly forbidden unless prior written permission is obtained from Adobe.
             """
             torch.save(continuous_word_model.state_dict(), args.output_dir + "/continuous_word_mlp.pt")
+            torch.save(merger.state_dict(), args.output_dir + "/merger.pt")
             """end Adobe CONFIDENTIAL"""
 
         if args.push_to_hub:

@@ -113,7 +113,9 @@ class DisentangleDataset(Dataset):
         example["scaler"] = angle 
 
         # choosing from the instance images, not the augmentation 
-        if index % 5 != 0: 
+        # if index % 5 != 0: 
+        # only choosing the controlnet images in this one 
+        if False:  
             example["controlnet"] = False 
             prompt = f"a photo of a bnha {subject} in front of a dark background"  
 
@@ -159,6 +161,8 @@ class DisentangleDataset(Dataset):
         # in either case, the subject name in the prompt would be necessary too 
         assert prompt.find("bnha") != -1 
         assert prompt.find(subject) != -1 
+        # we do not want dark backgrounds in this one! 
+        assert prompt.find(f"dark background") == -1 
 
         if not img.mode == "RGB":  
             img = img.convert("RGB") 
