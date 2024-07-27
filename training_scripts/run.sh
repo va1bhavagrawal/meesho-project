@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="mergedtoken_notext"   
+export RUN_NAME="mergedtoken_text"   
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
@@ -25,6 +25,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
   --train_unet \
+  --train_text_encoder \
   --textual_inv \
   --resolution=512 \
   --train_batch_size=2 \
@@ -43,4 +44,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --run_name="$RUN_NAME" \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
