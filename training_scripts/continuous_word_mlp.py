@@ -49,7 +49,8 @@ class AppearanceEmbeddings(nn.Module):
             self.register_parameter(key, torch.nn.Parameter(value.detach())) 
     
     def forward(self, name): 
-        raise NotImplementedError(f"there is no forward method for this class") 
+        # raise NotImplementedError(f"there is no forward method for this class") 
+        return getattr(self, name) 
 
 
 class MergedEmbedding(nn.Module): 

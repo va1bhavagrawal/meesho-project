@@ -27,9 +27,11 @@ class PromptDataset(Dataset):
 
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
-            # "a SUBJECT parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
+            "a SUBJECT parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
             "a SUBJECT parked on a bustling city street, surrounded by towering skyscrapers and neon lights",
-            "a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance." 
+            "a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
+            "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
+            "a SUBJECT in a colorful tulip field, with windmills in the background", 
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  
@@ -70,10 +72,6 @@ class DisentangleDataset(Dataset):
         # controlnet prompts are provided as a list, not as a filepath.
         self.tokenizer = tokenizer 
 
-        per_instance_files = osp.join(self.args.instance_data_dir, self.args.subjects[0]) 
-        img_files = [file for file in per_instance_files if file.find(f"jpg") != -1] 
-        self.n_views = len(img_files) 
-        
         img_transforms = []
 
         if args.resize:
@@ -83,7 +81,7 @@ class DisentangleDataset(Dataset):
                 )
             )
         if args.center_crop:
-            img_transforms.append(transforms.CenterCrop(size))
+            img_transforms.append(transforms.CenterCrop(args.resolution)) 
         if args.color_jitter:
             img_transforms.append(transforms.ColorJitter(0.2, 0.1))
         if args.h_flip:
@@ -105,6 +103,7 @@ class DisentangleDataset(Dataset):
         subject = self.args.subjects[index % len(self.args.subjects)] 
         subject_ = "_".join(subject.split()) 
         subject_ref_dir = osp.join(self.args.instance_data_dir, subject_)
+        assert osp.exists(subject_ref_dir) 
 
         example["subject"] = subject 
 
@@ -116,7 +115,7 @@ class DisentangleDataset(Dataset):
         # choosing from the instance images, not the augmentation 
         if index % 5 != 0: 
             example["controlnet"] = False 
-            prompt = f"a bnha {subject} in front of a dark background"  
+            prompt = f"a photo of a bnha {subject} in front of a dark background"  
 
             example["prompt_ids"] = self.tokenizer(
                 prompt, 
@@ -138,7 +137,11 @@ class DisentangleDataset(Dataset):
 
             prompt_idx = int(chosen_img.split("___prompt")[-1].split(".jpg")[0])  
             prompt = self.args.controlnet_prompts[prompt_idx] 
+            # there must be the keyword SUBJECT in the prompt, that can be replaced for the relevant subject 
+            assert prompt.find("SUBJECT") != -1 
             prompt = prompt.replace("SUBJECT", f"bnha {subject}")  
+            assert prompt.find("bnha") != -1 
+            assert prompt.find(subject) != -1 
             example["prompt_ids"] = self.tokenizer(
                 prompt, 
                 padding="do_not_pad", 
@@ -152,6 +155,10 @@ class DisentangleDataset(Dataset):
 
         print(f"{prompt = }")
         print(f"{img_path = }")
+        # in either case, the poseappearance embedding would be necessary 
+        # in either case, the subject name in the prompt would be necessary too 
+        assert prompt.find("bnha") != -1 
+        assert prompt.find(subject) != -1 
 
         if not img.mode == "RGB":  
             img = img.convert("RGB") 
@@ -159,12 +166,13 @@ class DisentangleDataset(Dataset):
 
         if self.args.with_prior_preservation: 
             subject_class_imgs_path = osp.join(self.args.class_data_dir, subject_)  
+            assert len(os.listdir(subject_class_imgs_path)) == self.args.num_class_images 
             class_img_name = str(index % self.args.num_class_images).zfill(3) + ".jpg"  
             class_img_path = osp.join(subject_class_imgs_path, class_img_name) 
             assert osp.exists(class_img_path), f"{class_img_path = }"
             class_img = Image.open(class_img_path) 
             example["class_img"] = self.image_transforms(class_img) 
-            class_prompt = f"a photo of {subject}"
+            class_prompt = f"a photo of a {subject}"
             example["class_prompt_ids"] = self.tokenizer(
                 class_prompt, 
                 padding="do_not_pad", 

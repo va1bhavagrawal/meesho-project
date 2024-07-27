@@ -175,7 +175,8 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                         if hasattr(bnha_embs, subject): 
                             # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
-                            bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
+                            # bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
+                            bnha_embs.append(bnha_embeds(subject))      
                         else: 
                             # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
                             # bnha_embs.append(torch.zeros(1024)) 
@@ -1227,7 +1228,7 @@ def main(args):
         strictly forbidden unless prior written permission is obtained from Adobe.
         """
 
-        input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight)  
+        input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight).detach()  
         # if we are in stage 2 of training, only then do we need to compute the pose embedding, otherwise it is zero 
         if global_step > args.stage1_steps: 
             progress_bar.set_description(f"stage 2: ")
@@ -1248,7 +1249,8 @@ def main(args):
         # textual inversion is used, then the embeddings are initialized with their classes  
         # else it is initialized with the default value for bnha 
         if args.textual_inv: 
-            bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
+            # bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
+            bnha_emb = torch.stack([bnha_embeds(subject) for subject in batch["subjects"]])  
             assert len(batch["controlnet"]) == B 
             for idx in range(B): 
                 if batch["controlnet"][idx]: 
@@ -1256,7 +1258,13 @@ def main(args):
                     bnha_emb[idx] = torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]]   
 
         else: 
-            bnha_emb = torch.clone(input_embeddings).detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
+            # bnha_emb = torch.clone(input_embeddings).detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
+            bnha_emb = [] 
+            # bnha_emb = torch.clone(input_embeddings)[TOKEN2ID[]] 
+            for idx in range(B): 
+                bnha_emb.append(torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]]) 
+
+            bnha_emb = torch.stack(bnha_emb) 
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
@@ -1340,9 +1348,13 @@ def main(args):
         # everytime the continuous word mlp must receive gradients 
         if DEBUG: 
             with torch.no_grad(): 
-                check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None] 
+                check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None or torch.allclose(p.grad, 0)]  
                 assert not ((len(check_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
                 del check_mlp_params 
+
+                # while debugging, go all controlnet, and then this assertion must pass 
+                # check_bnha_params = [p for p in bnha_embeds.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0))] 
+                # assert len(check_bnha_params) == len(list(bnha_embeds.parameters())) 
         """
         ADOBE CONFIDENTIAL
         Copyright 2024 Adobe
@@ -1923,7 +1935,7 @@ if __name__ == "__main__":
     prompts_file = open(args.controlnet_prompts_file)
     for line in prompts_file.readlines():
         prompt = str(line)
-        prompt = "a" + prompt[1:]
+        prompt = "a photo of " + prompt 
         controlnet_prompts.append(prompt)
     args.controlnet_prompts = controlnet_prompts 
     main(args)
