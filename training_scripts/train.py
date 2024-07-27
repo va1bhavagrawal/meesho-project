@@ -42,7 +42,7 @@ TOKEN2ID = {
     "jeep": 11286,  
     "motorbike": 33341,  
 }
-DEBUG = False  
+DEBUG = True  
 BS = 4 
 SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
@@ -1361,6 +1361,25 @@ def main(args):
                 assert not ((len(check_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
                 del check_mlp_params 
 
+                controlnet_subjects = [] 
+                ref_subjects = [] 
+                for idx in range(B): 
+                    if batch["controlnet"][idx]: 
+                        controlnet_subjects.append(batch["subjects"][idx]) 
+                    else: 
+                        ref_subjects.append(batch["subjects"][idx]) 
+                for subject in args.subjects: 
+                    if subject in ref_subjects: 
+                        # the appearance must receive some gradient 
+                        app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
+                        assert app_emb.grad is not None  
+                        assert not torch.allclose(app_emb.grad, torch.zeros(1024).to(accelerator.device))  
+                    else: 
+                        # the appearance must NOT have received any gradient 
+                        app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
+                        assert app_emb.grad is None or torch.allclose(app_emb.grad, torch.zeros(1024))  
+                    
+
                 # while debugging, go all controlnet, and then this assertion must pass 
                 # check_bnha_params = [p for p in bnha_embeds.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0))] 
                 # assert len(check_bnha_params) == len(list(bnha_embeds.parameters())) 
@@ -1594,32 +1613,32 @@ def main(args):
 
                 change = False 
                 for p_diff in mlp_after:  
-                    if torch.sum(p_diff): 
+                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
                         change = True 
                         break 
                 assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
 
                 change = False 
                 for p_diff in unet_after:  
-                    if torch.sum(p_diff): 
+                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
                         change = True 
                         break 
                 assert not (change ^ args.train_unet)  
 
                 change = False 
                 for p_diff in text_encoder_after:  
-                    if torch.sum(p_diff): 
+                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
                         change = True 
                         break 
                 assert not (change ^ args.train_text_encoder)   
             
-                if args.textual_inv: 
+                if args.textual_inv and torch.sum(torch.tensor(batch["controlnet"])).item() < B:  
                     change = False 
                     for p_diff in bnha_after:  
-                        if torch.sum(p_diff): 
+                        if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
                             change = True 
                             break 
-                    assert not (change ^ args.textual_inv)   
+                    assert not (change ^ args.textual_inv), f"{batch['controlnet'] = }" 
 
 
         progress_bar.update(accelerator.num_processes * args.train_batch_size) 
