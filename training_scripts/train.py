@@ -789,14 +789,14 @@ def main(args):
     for subject_ in subjects_[:1]: 
         subject_path = osp.join(args.instance_data_dir, subject_) 
         files = os.listdir(subject_path) 
-        angles = [float(file.replace(f"_.jpg", "")) for file in files] 
+        angles = [float(file.replace(f".jpg", "")) for file in files] 
         angles = sorted(np.array(angles)) 
 
     angles_ref = angles.copy()  
     for subject_ in subjects_[1:]: 
         subject_path = osp.join(args.instance_data_dir, subject_) 
         files = os.listdir(subject_path) 
-        angles = [float(file.replace(f"_.jpg", "")) for file in files] 
+        angles = [float(file.replace(f".jpg", "")) for file in files] 
         angles = sorted(np.array(angles)) 
         assert np.allclose(angles, angles_ref) 
 
