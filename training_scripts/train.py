@@ -961,7 +961,7 @@ def main(args):
     #     weight_decay=args.adam_weight_decay,
     #     eps=args.adam_epsilon,
     # )
-    optimizers = [] 
+    optimizers = {}  
     if args.train_unet: 
         optimizer_unet = optimizer_class(
             itertools.chain(*unet_lora_params), 
@@ -970,7 +970,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        optimizers.append(optimizer_unet) 
+        # optimizers.append(optimizer_unet) 
+        optimizers["unet"] = optimizer_unet  
 
     if args.train_text_encoder: 
         optimizer_text_encoder = optimizer_class(
@@ -980,7 +981,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        optimizers.append(optimizer_text_encoder) 
+        # optimizers.append(optimizer_text_encoder) 
+        optimizers["text_encoder"] = optimizer_text_encoder 
 
     if args.textual_inv: 
         # the appearance embeddings 
@@ -1000,7 +1002,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        optimizers.append(optimizer_bnha) 
+        # optimizers.append(optimizer_bnha) 
+        optimizers["appearance"] = optimizer_bnha 
 
 
     pos_size = 2
@@ -1012,7 +1015,8 @@ def main(args):
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
     )
-    optimizers.append(optimizer_mlp)  
+    # optimizers.append(optimizer_mlp)  
+    optimizers["contword"] = optimizer_mlp 
 
 
     # the merged token formulation 
@@ -1025,7 +1029,8 @@ def main(args):
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
     )
-    optimizers.append(optimizer_merger) 
+    # optimizers.append(optimizer_merger) 
+    optimizers["merger"] = optimizer_merger 
 
 
     noise_scheduler = DDPMScheduler.from_config(
@@ -1115,10 +1120,11 @@ def main(args):
     
     
     unet, text_encoder, merger, continuous_word_model, train_dataloader = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader)  
-    optimizers_ = [] 
-    for optimizer in optimizers: 
+    optimizers_ = {}  
+    for name, optimizer in optimizers.items(): 
         optimizer = accelerator.prepare(optimizer) 
-        optimizers_.append(optimizer) 
+        # optimizers_.append(optimizer) 
+        optimizers_[name] = optimizer  
     if args.textual_inv: 
         bnha_embeds = accelerator.prepare(bnha_embeds) 
     optimizers = optimizers_  
@@ -1377,7 +1383,7 @@ def main(args):
                     else: 
                         # the appearance must NOT have received any gradient 
                         app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
-                        assert app_emb.grad is None or torch.allclose(app_emb.grad, torch.zeros(1024))  
+                        assert app_emb.grad is None or torch.allclose(app_emb.grad, torch.zeros(1024).to(accelerator.device))   
                     
 
                 # while debugging, go all controlnet, and then this assertion must pass 
@@ -1495,7 +1501,9 @@ def main(args):
                 if args.textual_inv: 
                     bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
-        for optimizer in optimizers: 
+        for name, optimizer in optimizers.items(): 
+            if name == "appearance" and global_step > args.stage1_steps: 
+                continue 
             optimizer.step() 
 
         # calculating weight norms 
@@ -1638,7 +1646,7 @@ def main(args):
                         if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
                             change = True 
                             break 
-                    assert not (change ^ args.textual_inv), f"{batch['controlnet'] = }" 
+                    assert not (change ^ (args.textual_inv and global_step <= args.stage1_steps)), f"{batch['controlnet'] = }" 
 
 
         progress_bar.update(accelerator.num_processes * args.train_batch_size) 
@@ -1646,7 +1654,7 @@ def main(args):
         # optimizer_unet.zero_grad()
         # optimizer_text_encoder.zero_grad()
         # continuous_word_optimizer.zero_grad()
-        for optimizer in optimizers: 
+        for name, optimizer in optimizers.items(): 
             optimizer.zero_grad() 
 
         """end Adobe CONFIDENTIAL"""

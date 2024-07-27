@@ -1,12 +1,12 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="2obj_poseapp_text"   
+export RUN_NAME="2obj_freeze_notext"   
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
-export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_multiobject"
+export INSTANCE_DIR="../training_data_vaibhav2/ref_imgs_multiobject" 
+export CONTROLNET_DATA_DIR="../training_data_vaibhav2/controlnet_imgs_multiobject"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_multiobject"
+export CLASS_DATA_DIR="../training_data_vaibhav2/prior_imgs_multiobject"
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_2007.txt" 
 export VIS_DIR="../multiobject/"  
 
@@ -25,7 +25,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
   --train_unet \
-  --train_text_encoder \
   --textual_inv \
   --resolution=512 \
   --train_batch_size=2 \
