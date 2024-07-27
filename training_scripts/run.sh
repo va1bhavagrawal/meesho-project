@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="multiobject_poseonly_notext"   
+export RUN_NAME="poseonly_notext_u5e-5"   
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
@@ -26,10 +26,10 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_prompt="Continuous MLP Training" \
   --train_unet \
   --resolution=512 \
-  --train_batch_size=4 \
+  --train_batch_size=2 \
   --inference_batch_size=4 \
   --gradient_accumulation_steps=1 \
-  --learning_rate=1e-4 \
+  --learning_rate=5e-5 \
   --learning_rate_text=5e-5 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
