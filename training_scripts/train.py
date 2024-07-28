@@ -51,10 +51,10 @@ DEBUG = False
 BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
+VLOG_STEPS = [100, 500, 1000, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
 SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 NUM_SAMPLES = 18  
-NUM_COLS = 4   
+NUM_COLS = 4    
 
 from datasets import DisentangleDataset 
 
@@ -694,7 +694,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                 save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "type1")    
 
-                subject_prompt = template_prompt.replace("SUBJECT", subject) 
+                subject_prompt = template_prompt.replace("SUBJECT", "bnha")  
                 prompt_ = "_".join(subject_prompt.split()) 
                 prompt_path = osp.join(save_path_global, prompt_) 
                 img_names = os.listdir(prompt_path)   
@@ -731,7 +731,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                 save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "type2")    
 
-                subject_prompt = template_prompt.replace("SUBJECT", subject) 
+                subject_prompt = template_prompt.replace("SUBJECT", "bnha")  
                 prompt_ = "_".join(subject_prompt.split()) 
                 prompt_path = osp.join(save_path_global, prompt_) 
                 img_names = os.listdir(prompt_path)   
@@ -768,7 +768,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                 save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "type3")    
 
-                subject_prompt = template_prompt.replace("SUBJECT", subject) 
+                subject_prompt = template_prompt.replace("SUBJECT", "bnha")  
                 prompt_ = "_".join(subject_prompt.split()) 
                 prompt_path = osp.join(save_path_global, prompt_) 
                 img_names = os.listdir(prompt_path)   

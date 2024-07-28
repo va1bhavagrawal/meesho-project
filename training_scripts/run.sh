@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="poseapp_notext"   
+export RUN_NAME="nosubjectinprompt_notext"   
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
