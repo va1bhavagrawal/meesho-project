@@ -177,7 +177,7 @@ class DisentangleDataset(Dataset):
         assert prompt.find("bnha") != -1 
         # assert prompt.find(subject) != -1 
         # we DO NOT want the subject to be present in the prompt text 
-        assert prompt.find(subject) == -1 
+        assert prompt.find(f" {subject} ") == -1, f"{prompt = }, {subject = }"  
 
         if not img.mode == "RGB":  
             img = img.convert("RGB") 
