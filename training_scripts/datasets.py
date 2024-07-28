@@ -16,30 +16,39 @@ import os.path as osp
 class PromptDataset(Dataset):
     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
-    def __init__(self, num_samples=24, use_sks=True):
+    def __init__(self, num_samples=24, subjects=None):
         self.num_samples = num_samples 
-        self.subjects = [
-            "bnha pickup truck",
-            "bnha motorbike",  
-            "pickup truck",
-            "motorbike",
-        ] 
+        self.subjects = subjects 
+        assert self.subjects is not None 
+        # if self.subjects is None: 
+        #     self.subjects = [
+        #         "bnha pickup truck",
+        #         "bnha motorbike",  
+        #         "bnha horse", 
+        #         "bnha lion", 
+        #     ] 
+        # self.subjects2 = [
+        #     "bicycle", 
+        #     "tractor", 
+        #     "sports car", 
+        #     "brad pitt", 
+        # ]
 
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
-            "a SUBJECT parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-            "a SUBJECT parked on a bustling city street, surrounded by towering skyscrapers and neon lights",
+            "a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
+            "a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
             "a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
             "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
             "a SUBJECT in a colorful tulip field, with windmills in the background", 
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  
-        self.prompt_wise_subjects, self.prompts = self.generate_prompts(use_sks)
+        self.prompt_wise_subjects, self.prompts = self.generate_prompts()
         assert len(self.prompt_wise_subjects) == len(self.prompts) 
 
 
-    def generate_prompts(self, use_sks=True):
+    def generate_prompts(self):  
         prompts = []
         prompt_wise_subjects = [] 
         for subject in self.subjects: 
@@ -49,6 +58,7 @@ class PromptDataset(Dataset):
                 # else: 
                 #     prompt = "a photo of " + prompt 
                 prompt_ = prompt.replace(f"SUBJECT", subject)
+                assert prompt_.find(subject) != -1 
                 prompts.append(prompt_)  
                 prompt_wise_subjects.append(subject) 
         return prompt_wise_subjects, prompts  

@@ -1,5 +1,8 @@
 training_data/
 training_data_vaibhav/
-ckps/
+ckpts/
 training_scripts/wandb/
 training_scripts/*gif 
+*.zip 
+multiobject/ 
+template_truck/
