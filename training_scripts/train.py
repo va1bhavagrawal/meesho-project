@@ -47,7 +47,7 @@ TOKEN2ID = {
     "zebra": 22548,  
     "sedan": 24237, 
 }
-DEBUG = True  
+DEBUG = False  
 BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
