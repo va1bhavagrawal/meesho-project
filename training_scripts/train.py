@@ -51,9 +51,9 @@ DEBUG = True
 BS = 1  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [100, 500, 1000, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
+VLOG_STEPS = [16, 48, 100, 500, 1000, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
 SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
-NUM_SAMPLES = 18  
+NUM_SAMPLES = 2  
 NUM_COLS = 4    
 
 from datasets import DisentangleDataset 
@@ -145,6 +145,8 @@ def create_gif(images, save_path, duration=1):
 
 
 def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, bnha_embeds=None):  
+    if DEBUG: 
+        input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight) 
     common_seed = get_common_seed() 
     set_seed(common_seed)  
     text_encoder = copy.deepcopy(text_encoder) 
@@ -312,6 +314,14 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 azimuth = idx // n_prompts_per_azimuth 
                 prompt_idx = idx % n_prompts_per_azimuth 
                 prompt = prompts_dataset.prompts[prompt_idx] 
+
+                # add an additional check here to make sure that the subject IS present in the prompt, otherwise there will be a mixup 
+                subject = prompts_dataset.prompt_wise_subjects[prompt_idx]
+                if subject not in prompt:  
+                    # we must insert the subject information in the prompt, so that there is no mixup!
+                    prompt = prompt.replace("bnha", prompts_dataset.prompt_wise_subjects[prompt_idx])    
+                assert prompt.find(subject) != -1 
+
                 prompt_ = "_".join(prompt.split()) 
                 save_path_prompt = osp.join(save_path_global, prompt_) 
                 os.makedirs(save_path_prompt, exist_ok=True) 
@@ -358,6 +368,10 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         #     prompts_dataset = PromptDataset(num_samples=6, subjects=)  
         # else: 
         #     prompts_dataset = PromptDataset(num_samples=18)  
+
+        common_seed = get_common_seed() 
+        set_seed(common_seed)  
+
         prompts_dataset2 = PromptDataset(num_samples=NUM_SAMPLES, subjects=subjects) 
         prompts_dataset = prompts_dataset2 
         # assert len(prompts_dataset) == 12  
@@ -395,6 +409,14 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                         # bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha))     
                         # we use the class embeddings instead of learnt embedding in the type2 inference... 
                         bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]]) 
+
+                        if DEBUG: 
+                            # to check that the token embedding for the subject did not change, and is same as that for original CLIPTextEncoder 
+                            assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]], input_embeddings[TOKEN2ID[subject_without_bnha]])  
+                            # to check that the appearance embedding did receive some update!
+                            assert not torch.allclose(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha), accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]]) 
+
+
                             # bnha_embs.append(bnha_embeds(subject))      
                         # else: 
                         #     # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
@@ -489,6 +511,14 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 azimuth = idx // n_prompts_per_azimuth 
                 prompt_idx = idx % n_prompts_per_azimuth 
                 prompt = prompts_dataset.prompts[prompt_idx] 
+
+                # add an additional check here to make sure that the subject IS present in the prompt, otherwise there will be a mixup 
+                subject = prompts_dataset.prompt_wise_subjects[prompt_idx]
+                if subject not in prompt:  
+                    # we must insert the subject information in the prompt, so that there is no mixup!
+                    prompt = prompt.replace("bnha", prompts_dataset.prompt_wise_subjects[prompt_idx])    
+                assert prompt.find(subject) != -1 
+
                 prompt_ = "_".join(prompt.split()) 
                 save_path_prompt = osp.join(save_path_global, prompt_) 
                 os.makedirs(save_path_prompt, exist_ok=True) 
@@ -509,6 +539,11 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         #     "bnha horse", 
         #     "bnha lion", 
         # ] 
+
+
+        common_seed = get_common_seed() 
+        set_seed(common_seed)  
+
         subjects = [
             "bnha bicycle", 
             "bnha tractor", 
@@ -654,6 +689,14 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 azimuth = idx // n_prompts_per_azimuth 
                 prompt_idx = idx % n_prompts_per_azimuth 
                 prompt = prompts_dataset.prompts[prompt_idx] 
+
+                # add an additional check here to make sure that the subject IS present in the prompt, otherwise there will be a mixup 
+                subject = prompts_dataset.prompt_wise_subjects[prompt_idx]
+                if subject not in prompt:  
+                    # we must insert the subject information in the prompt, so that there is no mixup!
+                    prompt = prompt.replace("bnha", prompts_dataset.prompt_wise_subjects[prompt_idx])    
+                assert prompt.find(subject) != -1 
+
                 prompt_ = "_".join(prompt.split()) 
                 save_path_prompt = osp.join(save_path_global, prompt_) 
                 os.makedirs(save_path_prompt, exist_ok=True) 
@@ -694,7 +737,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                 save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "type1")    
 
-                subject_prompt = template_prompt.replace("SUBJECT", "bnha")  
+                subject_prompt = template_prompt.replace("SUBJECT", subject)   
                 prompt_ = "_".join(subject_prompt.split()) 
                 prompt_path = osp.join(save_path_global, prompt_) 
                 img_names = os.listdir(prompt_path)   
@@ -731,7 +774,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                 save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "type2")    
 
-                subject_prompt = template_prompt.replace("SUBJECT", "bnha")  
+                subject_prompt = template_prompt.replace("SUBJECT", subject)   
                 prompt_ = "_".join(subject_prompt.split()) 
                 prompt_path = osp.join(save_path_global, prompt_) 
                 img_names = os.listdir(prompt_path)   
@@ -768,7 +811,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                 save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "type3")    
 
-                subject_prompt = template_prompt.replace("SUBJECT", "bnha")  
+                subject_prompt = template_prompt.replace("SUBJECT", subject)   
                 prompt_ = "_".join(subject_prompt.split()) 
                 prompt_path = osp.join(save_path_global, prompt_) 
                 img_names = os.listdir(prompt_path)   
