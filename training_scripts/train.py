@@ -31,6 +31,7 @@ import matplotlib.pyplot as plt
 
 
 TOKEN2ID = {
+    "sks": 48136, 
     "bnha": 49336,  
     "pickup truck": 4629, # using the token for "truck" instead  
     "bus": 2840, 
@@ -48,10 +49,10 @@ TOKEN2ID = {
     "sedan": 24237, 
 }
 DEBUG = True  
-BS = 1  
+BS = 4   
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [16, 48, 100, 500, 1000, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
+VLOG_STEPS = [96, 104, 100, 500, 1000, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
 SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 NUM_SAMPLES = 2  
 NUM_COLS = 4    
@@ -369,6 +370,8 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         # else: 
         #     prompts_dataset = PromptDataset(num_samples=18)  
 
+        torch.cuda.empty_cache() 
+
         common_seed = get_common_seed() 
         set_seed(common_seed)  
 
@@ -413,8 +416,12 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                         if DEBUG: 
                             # to check that the token embedding for the subject did not change, and is same as that for original CLIPTextEncoder 
                             assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]], input_embeddings[TOKEN2ID[subject_without_bnha]])  
+
                             # to check that the appearance embedding did receive some update!
                             assert not torch.allclose(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha), accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]]) 
+
+                            # to check that the text encoder's bnha embedding and the class embedding are the same 
+                            assert torch.allclose(bnha_embs[-1], input_embeddings[TOKEN2ID[subject_without_bnha]]) 
 
 
                             # bnha_embs.append(bnha_embeds(subject))      
@@ -539,6 +546,8 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         #     "bnha horse", 
         #     "bnha lion", 
         # ] 
+
+        torch.cuda.empty_cache() 
 
 
         common_seed = get_common_seed() 
@@ -1163,7 +1172,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=8,
+        default=100,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
