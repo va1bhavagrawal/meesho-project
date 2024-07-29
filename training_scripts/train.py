@@ -1865,12 +1865,16 @@ def main(args):
                 # for (n, p) in merger.named_parameters():  
                     # if (n, p) not in bad_merger_params:  
                         # print(f"{n, p = } in merger is NOT bad!")
-                assert len(bad_merger_params) < len(list(merger.parameters()))  
+                if global_step < args.stage1_steps: 
+                    assert len(bad_merger_params) < len(list(merger.parameters()))  
+                elif global_step > args.stage1_steps: 
+                    assert len(bad_merger_params) == 0  
 
                 # checking that mlp receives gradients in stage 2 
                 # print(f"merger does receive gradients!")
                 bad_mlp_params = [(n, p) for (n, p) in continuous_word_model.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
-                assert not ((len(bad_mlp_params) < len(list(continuous_word_model.parameters()))) ^ (global_step > args.stage1_steps))  
+                # assert not ((len(bad_mlp_params) < len(list(continuous_word_model.parameters()))) ^ (global_step > args.stage1_steps))  
+                assert not ((len(bad_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
                 if global_step > args.stage1_steps: 
                     # print(f"{len(bad_mlp_params) = }, {len(list(continuous_word_model.parameters())) = }")  
                     assert len(bad_mlp_params) < len(list(continuous_word_model.parameters()))  
@@ -1896,21 +1900,37 @@ def main(args):
                         app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
                         assert app_emb.grad is None or torch.allclose(app_emb.grad, torch.zeros(1024).to(accelerator.device))   
                     
-                # checking whether the unet will receive gradients 
-                if args.train_unet: 
-                    some_grad_is_good = False 
-                    for p in unet_lora_params: 
-                        if p.grad is not None or not torch.allclose(p.grad, torch.allclose(p.grad, torch.zeros_like(p.grad))):  
-                            some_grad_is_good = True 
-                    assert some_grad_is_good 
 
                 # checking whether the text encoder will receive gradients 
-                if args.train_text_encoderj: 
-                    some_grad_is_good = False  
-                    for p in text_encoder_lora_params:  
-                        if p.grad is not None or not torch.allclose(p.grad, torch.allclose(p.grad, torch.zeros_like(p.grad))):  
+                if args.train_text_encoder: 
+                    # some_grad_is_good = False  
+                    # for p in list(text_encoder.parameters()):   
+                    for p in list(itertools.chain(*text_encoder_lora_params)):    
+                        if p.grad is None: 
+                            continue 
+                        # if not torch.allclose(p.grad, torch.zeros_like(p.grad)):   
+                        #     some_grad_is_good = True 
+                        assert not torch.allclose(p.grad, torch.zeros_like(p.grad))  
+                    # assert some_grad_is_good 
+
+                # checking whether the unet will receive gradients 
+                if args.train_unet: 
+                    # some_grad_is_good = False 
+                    # for p in list(itertools.chain(*unet_lora_params)):    
+                    for n, p in list(unet.named_parameters()):    
+                        if p.grad is None: 
+                            continue 
+                        # print(f"{torch.zeros_like(p.grad) = }, {p.grad = }")
+                        # print(f"something is not none also!")
+                        if not torch.allclose(p.grad, torch.zeros_like(p.grad)):  
+                            # print(f"{n = } has a gradient!")
                             some_grad_is_good = True 
+                        else: 
+                            # assert not torch.allclose(p.grad, torch.zeros_like(p.grad)) 
+                            # print(f"{n = } DOES NOT HAVE GRADIENT...")
+                            pass 
                     assert some_grad_is_good 
+
 
                 # while debugging, go all controlnet, and then this assertion must pass 
                 # check_bnha_params = [p for p in bnha_embeds.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0))] 
@@ -2027,8 +2047,13 @@ def main(args):
                 # if args.textual_inv: 
                 #     bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
+        # lora_before = [torch.clone(p) for p in list(itertools.chain(*unet_lora_params))] 
         for name, optimizer in optimizers.items(): 
             optimizer.step() 
+        # lora_after = [torch.clone(p) for p in list(itertools.chain(*unet_lora_params))] 
+        # for p1, p2 in zip(lora_before, lora_after): 
+        #     assert not torch.allclose(p1, p2) 
+        #     print(f"unet_lora_params is changing!") 
 
         # calculating weight norms 
         if args.wandb and ((ddp_step + 1) % args.log_every == 0): 
