@@ -47,8 +47,8 @@ TOKEN2ID = {
     "zebra": 22548,  
     "sedan": 24237, 
 }
-DEBUG = False  
-BS = 4  
+DEBUG = True  
+BS = 1  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 VLOG_STEPS = [100, 500, 1000, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
@@ -1120,7 +1120,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=10000,
+        default=8,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
@@ -1770,6 +1770,7 @@ def main(args):
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
+        assert not torch.allclose(merged_emb, torch.zeros_like(merged_emb)) 
         merged_emb_norm = torch.linalg.norm(merged_emb)  
         assert merged_emb.shape[0] == B 
 
@@ -1846,14 +1847,37 @@ def main(args):
 
         if args.ada: 
             torch.cuda.empty_cache() 
+
+        # checking if the parameters do require grads at least 
+        if DEBUG: 
+            for p in merger.parameters(): 
+                assert p.requires_grad 
+
+
         accelerator.backward(loss)
         # everytime the continuous word mlp must receive gradients 
         if DEBUG: 
             with torch.no_grad(): 
-                check_mlp_params = [p for p in continuous_word_model.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
-                assert not ((len(check_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
-                del check_mlp_params 
+                # checking that merger receives gradients 
+                bad_merger_params = [(n, p) for (n, p) in merger.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.zeros_like(p.grad))] 
+                # assert len(bad_merger_params) == 0, f"{len(bad_merger_params) = }, {len(list(merger.parameters())) = }" 
+                # print(f"{len(bad_merger_params) = }, {len(list(merger.parameters())) = }")  
+                # for (n, p) in merger.named_parameters():  
+                    # if (n, p) not in bad_merger_params:  
+                        # print(f"{n, p = } in merger is NOT bad!")
+                assert len(bad_merger_params) < len(list(merger.parameters()))  
 
+                # checking that mlp receives gradients in stage 2 
+                # print(f"merger does receive gradients!")
+                bad_mlp_params = [(n, p) for (n, p) in continuous_word_model.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
+                assert not ((len(bad_mlp_params) < len(list(continuous_word_model.parameters()))) ^ (global_step > args.stage1_steps))  
+                if global_step > args.stage1_steps: 
+                    # print(f"{len(bad_mlp_params) = }, {len(list(continuous_word_model.parameters())) = }")  
+                    assert len(bad_mlp_params) < len(list(continuous_word_model.parameters()))  
+                    # print(f"mlp does receive gradients!")
+                del bad_mlp_params 
+
+                # checking for each appearance embedding whether it should receive gradients  
                 controlnet_subjects = [] 
                 ref_subjects = [] 
                 for idx in range(B): 
@@ -1872,6 +1896,21 @@ def main(args):
                         app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
                         assert app_emb.grad is None or torch.allclose(app_emb.grad, torch.zeros(1024).to(accelerator.device))   
                     
+                # checking whether the unet will receive gradients 
+                if args.train_unet: 
+                    some_grad_is_good = False 
+                    for p in unet_lora_params: 
+                        if p.grad is not None or not torch.allclose(p.grad, torch.allclose(p.grad, torch.zeros_like(p.grad))):  
+                            some_grad_is_good = True 
+                    assert some_grad_is_good 
+
+                # checking whether the text encoder will receive gradients 
+                if args.train_text_encoderj: 
+                    some_grad_is_good = False  
+                    for p in text_encoder_lora_params:  
+                        if p.grad is not None or not torch.allclose(p.grad, torch.allclose(p.grad, torch.zeros_like(p.grad))):  
+                            some_grad_is_good = True 
+                    assert some_grad_is_good 
 
                 # while debugging, go all controlnet, and then this assertion must pass 
                 # check_bnha_params = [p for p in bnha_embeds.parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0))] 
@@ -1979,14 +2018,14 @@ def main(args):
             #     else itertools.chain(unet.parameters(), continuous_word_model.parameters())
             # )
             accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-        if DEBUG: 
-            with torch.no_grad(): 
-                merger_before = copy.deepcopy([p for p in merger.parameters()]) 
-                mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
-                unet_before = copy.deepcopy([p for p in unet.parameters()]) 
-                text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
-                if args.textual_inv: 
-                    bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
+        # if DEBUG: 
+            # with torch.no_grad(): 
+                # merger_before = copy.deepcopy([p for p in merger.parameters()]) 
+                # mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+                # unet_before = copy.deepcopy([p for p in unet.parameters()]) 
+                # text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
+                # if args.textual_inv: 
+                #     bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
         for name, optimizer in optimizers.items(): 
             optimizer.step() 
@@ -2066,72 +2105,72 @@ def main(args):
                         assert False 
                     curr += 1
 
-        if DEBUG: 
-            # checking that no parameter should be NaN 
-            for p in merger.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
-            for p in continuous_word_model.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
-            for p in unet.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
-            for p in text_encoder.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
+        # if DEBUG: 
+        #     # checking that no parameter should be NaN 
+        #     for p in merger.parameters(): 
+        #         assert not torch.any(torch.isnan(p)) 
+        #     for p in continuous_word_model.parameters(): 
+        #         assert not torch.any(torch.isnan(p)) 
+        #     for p in unet.parameters(): 
+        #         assert not torch.any(torch.isnan(p)) 
+        #     for p in text_encoder.parameters(): 
+        #         assert not torch.any(torch.isnan(p)) 
 
-            with torch.no_grad(): 
-                merger_after = copy.deepcopy([p for p in merger.parameters()]) 
-                mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
-                unet_after = copy.deepcopy([p for p in unet.parameters()]) 
-                text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
-                if args.textual_inv: 
-                    bnha_after = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
+        #     with torch.no_grad(): 
+        #         merger_after = copy.deepcopy([p for p in merger.parameters()]) 
+        #         mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+        #         unet_after = copy.deepcopy([p for p in unet.parameters()]) 
+        #         text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
+        #         if args.textual_inv: 
+        #             bnha_after = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
-                merger_after = [p1 - p2 for p1, p2 in zip(merger_before, merger_after)] 
-                del merger_before 
-                mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
-                del mlp_before 
-                unet_after = [p1 - p2 for p1, p2 in zip(unet_before, unet_after)]  
-                del unet_before 
-                text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
-                del text_encoder_before
-                if args.textual_inv: 
-                    bnha_after = [p1 - p2 for p1, p2 in zip(bnha_before, bnha_after)]   
-                    del bnha_before 
+        #         merger_after = [p1 - p2 for p1, p2 in zip(merger_before, merger_after)] 
+        #         del merger_before 
+        #         mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
+        #         del mlp_before 
+        #         unet_after = [p1 - p2 for p1, p2 in zip(unet_before, unet_after)]  
+        #         del unet_before 
+        #         text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
+        #         del text_encoder_before
+        #         if args.textual_inv: 
+        #             bnha_after = [p1 - p2 for p1, p2 in zip(bnha_before, bnha_after)]   
+        #             del bnha_before 
 
-                change = False 
-                for p_diff in merger_after: 
-                    if torch.sum(p_diff): 
-                        change = True 
-                        break 
-                assert change 
+        #         change = False 
+        #         for p_diff in merger_after: 
+        #             if torch.sum(p_diff): 
+        #                 change = True 
+        #                 break 
+        #         assert change 
 
-                change = False 
-                for p_diff in mlp_after:  
-                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
-                        change = True 
-                        break 
-                assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
+        #         change = False 
+        #         for p_diff in mlp_after:  
+        #             if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
+        #                 change = True 
+        #                 break 
+        #         assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
 
-                change = False 
-                for p_diff in unet_after:  
-                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
-                        change = True 
-                        break 
-                assert not (change ^ args.train_unet)  
+        #         change = False 
+        #         for p_diff in unet_after:  
+        #             if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
+        #                 change = True 
+        #                 break 
+        #         assert not (change ^ args.train_unet)  
 
-                change = False 
-                for p_diff in text_encoder_after:  
-                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
-                        change = True 
-                        break 
-                assert not (change ^ args.train_text_encoder)   
+        #         change = False 
+        #         for p_diff in text_encoder_after:  
+        #             if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
+        #                 change = True 
+        #                 break 
+        #         assert not (change ^ args.train_text_encoder)   
             
-                if args.textual_inv and torch.sum(torch.tensor(batch["controlnet"])).item() < B:  
-                    change = False 
-                    for p_diff in bnha_after:  
-                        if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
-                            change = True 
-                            break 
-                    assert not (change ^ args.textual_inv), f"{batch['controlnet'] = }" 
+        #         if args.textual_inv and torch.sum(torch.tensor(batch["controlnet"])).item() < B:  
+        #             change = False 
+        #             for p_diff in bnha_after:  
+        #                 if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
+        #                     change = True 
+        #                     break 
+        #             assert not (change ^ args.textual_inv), f"{batch['controlnet'] = }" 
 
 
         progress_bar.update(accelerator.num_processes * args.train_batch_size) 

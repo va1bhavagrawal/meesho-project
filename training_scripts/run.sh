@@ -43,5 +43,4 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --run_name="$RUN_NAME" \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
