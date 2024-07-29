@@ -48,14 +48,14 @@ TOKEN2ID = {
     "zebra": 22548,  
     "sedan": 24237, 
 }
-DEBUG = True  
+DEBUG = False  
 BS = 4   
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [96, 104, 100, 500, 1000, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
+VLOG_STEPS = [0, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
 SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
-NUM_SAMPLES = 2  
-NUM_COLS = 4    
+NUM_SAMPLES = 18  
+NUM_COLS = 4  
 
 from datasets import DisentangleDataset 
 
@@ -1172,7 +1172,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=100,
+        default=10000,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
