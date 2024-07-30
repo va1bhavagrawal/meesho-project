@@ -7,3 +7,4 @@ training_scripts/*gif
 *.zip 
 multiobject/ 
 template_truck/
+training_scripts/__pycache__
