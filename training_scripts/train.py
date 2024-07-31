@@ -44,9 +44,11 @@ TOKEN2ID = {
 }
 DEBUG = False  
 BS = 4 
-SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
+# SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000]  
+# VLOG_STEPS = [1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000]  
+VLOG_STEPS = [5000, 20000, 60000, 70000, 80000]
+SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 
 from datasets import DisentangleDataset 
 
@@ -136,6 +138,7 @@ def create_gif(images, save_path, duration=1):
 
 
 def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, use_sks, bnha_embeds=None):  
+    text_encoder = copy.deepcopy(text_encoder) 
     with torch.no_grad(): 
         vae.to(accelerator.device) 
         # the list of videos 
