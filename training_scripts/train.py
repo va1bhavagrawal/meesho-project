@@ -52,7 +52,7 @@ DEBUG = False
 BS = 4   
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [5000, 10000, 50000, 70000, 80000, 90000] 
+VLOG_STEPS = [5000, 10000, 50000, 70000, 80000, 90000, 100000] 
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 SAVE_STEPS = [1000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
 NUM_SAMPLES = 18  
@@ -1179,7 +1179,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=60000,
+        default=90000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
