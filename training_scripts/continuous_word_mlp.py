@@ -79,5 +79,5 @@ class MergedEmbedding(nn.Module):
         x = F.relu(x)  
         x = self.linear3(x) 
         x = F.relu(x) 
-        x = self.linear4(x) + appearance_embed  
+        x = self.linear4(x) + appearance_embed * 0.5      
         return x 

@@ -52,8 +52,9 @@ DEBUG = False
 BS = 4   
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [0, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
-SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
+VLOG_STEPS = [5000, 10000, 50000, 70000, 80000, 90000] 
+# SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
+SAVE_STEPS = [1000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
 NUM_SAMPLES = 18  
 NUM_COLS = 4  
 
@@ -115,34 +116,34 @@ Dissemination of this information or reproduction of this material is
 strictly forbidden unless prior written permission is obtained from Adobe.
 """
 
-def create_gif(images, save_path, duration=1):
-    """
-    Convert a sequence of NumPy array images to a GIF.
+# def create_gif(images, save_path, duration=1):
+#     """
+#     Convert a sequence of NumPy array images to a GIF.
     
-    Args:
-        images (list): A list of NumPy array images.
-        fps (int): The frames per second of the GIF (default is 1).
-        loop (int): The number of times the animation should loop (0 means loop indefinitely) (default is 0).
-    """
-    frames = []
-    for img in images:
-        # Convert NumPy array to PIL Image
-        # img_pil = Image.fromarray(img.astype(np.uint8))
-        img_pil = img 
-        # Append to frames list
-        frames.append(img_pil)
+#     Args:
+#         images (list): A list of NumPy array images.
+#         fps (int): The frames per second of the GIF (default is 1).
+#         loop (int): The number of times the animation should loop (0 means loop indefinitely) (default is 0).
+#     """
+#     frames = []
+#     for img in images:
+#         # Convert NumPy array to PIL Image
+#         # img_pil = Image.fromarray(img.astype(np.uint8))
+#         img_pil = img 
+#         # Append to frames list
+#         frames.append(img_pil)
     
-    # Save frames to a BytesIO object
-    # bytes_io = BytesIO()
-    # frames[0].save(bytes_io, save_all=True, append_images=frames[1:], duration=1000/fps, loop=loop, 
-                #    disposal=2, optimize=True, subrectangles=True)
-    frames[0].save(save_path, save_all=True, append_images=frames[1:], loop=0, duration=int(duration * 1000))
+#     # Save frames to a BytesIO object
+#     # bytes_io = BytesIO()
+#     # frames[0].save(bytes_io, save_all=True, append_images=frames[1:], duration=1000/fps, loop=loop, 
+#                 #    disposal=2, optimize=True, subrectangles=True)
+#     frames[0].save(save_path, save_all=True, append_images=frames[1:], loop=0, duration=int(duration * 1000))
     
-    # gif_bytes = bytes_io.getvalue()
-    # with open("temp.gif", "wb") as f:
-    #     f.write(gif_bytes)
-    # return gif_bytes 
-    return 
+#     # gif_bytes = bytes_io.getvalue()
+#     # with open("temp.gif", "wb") as f:
+#     #     f.write(gif_bytes)
+#     # return gif_bytes 
+#     return 
 
 
 def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, bnha_embeds=None):  
