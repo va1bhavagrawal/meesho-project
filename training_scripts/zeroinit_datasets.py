@@ -37,9 +37,9 @@ class PromptDataset(Dataset):
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
             "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-            # "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
-            # "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
-            # "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
+            "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
+            "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
+            "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
             "a SUBJECT in a colorful tulip field, with windmills in the background", 
         ]
         # this is just an indicator of azimuth, not the exact value 
@@ -127,11 +127,10 @@ class DisentangleDataset(Dataset):
         example["scaler"] = angle 
 
         # choosing from the instance images, not the augmentation 
-        # if index % 5 != 0: 
-        # only choosing the controlnet images in this one 
-        if False:  
+        if index % 5 != 0: 
             example["controlnet"] = False 
-            prompt = f"a photo of a bnha {subject} in front of a dark background"  
+            # prompt = f"a photo of a bnha {subject} in front of a dark background"  
+            prompt = f"a photo of a bnha in front of a dark background"  
 
             example["prompt_ids"] = self.tokenizer(
                 prompt, 

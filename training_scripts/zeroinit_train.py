@@ -47,19 +47,16 @@ TOKEN2ID = {
     "truck": 4629,  
     "zebra": 22548,  
     "sedan": 24237, 
-    "hen": 8047, 
-    "shoe": 7342, 
-    "dog": 1929, 
 }
-DEBUG = True  
-BS = 4     
+DEBUG = False  
+BS = 4   
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 5000, 10000, 50000, 70000, 80000, 90000, 100000] 
+VLOG_STEPS = [5000, 10000, 50000, 70000, 80000, 90000, 100000] 
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
-SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
-NUM_SAMPLES = 18   
-NUM_COLS = 4   
+SAVE_STEPS = [1000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
+NUM_SAMPLES = 18  
+NUM_COLS = 4  
 
 from datasets import DisentangleDataset 
 
@@ -164,176 +161,174 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         vae.to(accelerator.device) 
         # the list of videos 
         # each item in the list is the video of a prompt at different viewpoints, or just random generations if use_sks=False  
-        # accelerator.print(f"performing type 1 inference...") 
+        accelerator.print(f"performing type 1 inference...") 
         tokenizer = CLIPTokenizer.from_pretrained(
             args.pretrained_model_name_or_path,
             subfolder="tokenizer", 
         ) 
 
-        # subjects = [
-        #     "bnha pickup truck",
-        #     "bnha motorbike",  
-        #     "bnha horse", 
-        #     "bnha lion", 
-        #     "bnha cat", 
-        #     "bnha elephant", 
-        #     "bnha bus", 
-        #     "bnha giraffe", 
-        #     "bnha jeep", 
-        # ] 
+        subjects = [
+            "bnha pickup truck",
+            "bnha motorbike",  
+            "bnha horse", 
+            "bnha lion", 
+            "bnha cat", 
+            "bnha elephant", 
+            "bnha bus", 
+            "bnha giraffe", 
+            "bnha jeep", 
+        ] 
 
 
-        # subjects = random.sample(subjects, NUM_COLS) 
+        subjects = random.sample(subjects, NUM_COLS) 
 
-        # # if not use_sks: 
-        # #     prompts_dataset = PromptDataset(num_samples=6, subjects=)  
-        # # else: 
-        # #     prompts_dataset = PromptDataset(num_samples=18)  
-        # print(f"subjects used for type1 inference are: {subjects}") 
-        # prompts_dataset1 = PromptDataset(num_samples=NUM_SAMPLES, subjects=subjects) 
-        # prompts_dataset = prompts_dataset1
-        # # assert len(prompts_dataset) == 12  
-        # # assert len(prompts_dataset.subjects) == 3 
+        # if not use_sks: 
+        #     prompts_dataset = PromptDataset(num_samples=6, subjects=)  
+        # else: 
+        #     prompts_dataset = PromptDataset(num_samples=18)  
+        print(f"subjects used for type1 inference are: {subjects}") 
+        prompts_dataset1 = PromptDataset(num_samples=NUM_SAMPLES, subjects=subjects) 
+        prompts_dataset = prompts_dataset1
+        # assert len(prompts_dataset) == 12  
+        # assert len(prompts_dataset.subjects) == 3 
 
-        # n_prompts_per_azimuth = len(prompts_dataset.subjects) * len(prompts_dataset.template_prompts) 
-        # # assert n_prompts_per_azimuth == 6 
-        # encoder_hidden_states = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 77, 1024)).to(accelerator.device).contiguous()  
+        n_prompts_per_azimuth = len(prompts_dataset.subjects) * len(prompts_dataset.template_prompts) 
+        # assert n_prompts_per_azimuth == 6 
+        encoder_hidden_states = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 77, 1024)).to(accelerator.device).contiguous()  
 
-        # # this is the inference where we use the learnt embeddings 
-        # accelerator.print(f"collecting the encoder hidden states for type 1 inference...") 
-        # for azimuth in range(prompts_dataset.num_samples): 
-        #     if azimuth % accelerator.num_processes == accelerator.process_index: 
-        #         normalized_azimuth = azimuth / prompts_dataset.num_samples 
-        #         sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(accelerator.device) 
-        #         # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
-        #         mlp_embs = mlp(sincos.unsqueeze(0).repeat(len(prompts_dataset.prompts), 1))   
-        #         if True:   
-        #             bnha_embs = [] 
-        #             for i in range(len(prompts_dataset.prompt_wise_subjects)):   
-        #                 subject = prompts_dataset.prompt_wise_subjects[i]  
-        #                 # if "bnha" not in subject: 
-        #                 #     # if this is not a bnha subject, then it is not seen during training, and just put the class embedding for the appearance  
-        #                 #     bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
-        #                 #     continue 
-        #                 assert "bnha" in subject 
-        #                 subject_without_bnha = subject.replace("bnha", "").strip()  
-        #                 assert subject_without_bnha in args.subjects 
+        # this is the inference where we use the learnt embeddings 
+        accelerator.print(f"collecting the encoder hidden states for type 1 inference...") 
+        for azimuth in range(prompts_dataset.num_samples): 
+            if azimuth % accelerator.num_processes == accelerator.process_index: 
+                normalized_azimuth = azimuth / prompts_dataset.num_samples 
+                sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(accelerator.device) 
+                # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
+                mlp_embs = mlp(sincos.unsqueeze(0).repeat(len(prompts_dataset.prompts), 1))   
+                if args.textual_inv: 
+                    bnha_embs = [] 
+                    for i in range(len(prompts_dataset.prompt_wise_subjects)):   
+                        subject = prompts_dataset.prompt_wise_subjects[i]  
+                        # if "bnha" not in subject: 
+                        #     # if this is not a bnha subject, then it is not seen during training, and just put the class embedding for the appearance  
+                        #     bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
+                        #     continue 
+                        assert "bnha" in subject 
+                        subject_without_bnha = subject.replace("bnha", "").strip()  
+                        assert subject_without_bnha in args.subjects 
 
-        #                 # subject = subject.replace("bnha", "").strip() 
+                        # subject = subject.replace("bnha", "").strip() 
 
-        #                 # if hasattr(bnha_embs, subject): 
-        #                 # assert hasattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha)  
-        #                     # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
-        #                 # bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha))     
-        #                 # bnha_embs.append()
-        #                     # bnha_embs.append(bnha_embeds(subject))      
-        #                 # else: 
-        #                 #     # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
-        #                 #     # bnha_embs.append(torch.zeros(1024)) 
-        #                 #     bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
+                        # if hasattr(bnha_embs, subject): 
+                        assert hasattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha)  
+                            # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
+                        bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha))     
+                            # bnha_embs.append(bnha_embeds(subject))      
+                        # else: 
+                        #     # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
+                        #     # bnha_embs.append(torch.zeros(1024)) 
+                        #     bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]])   
 
-        #             bnha_embs = torch.stack(bnha_embs)  
-        #         # else: 
-        #         # bnha_embs = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]].detach().unsqueeze(0).repeat(len(prompts_dataset.prompts), 1)  
-        #         # raise NotImplementedError("not implemented the inference case without textual inversion...")  
+                    bnha_embs = torch.stack(bnha_embs)  
+                else: 
+                    # bnha_embs = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]].detach().unsqueeze(0).repeat(len(prompts_dataset.prompts), 1)  
+                    raise NotImplementedError("not implemented the inference case without textual inversion...")  
 
+                merged_embs = merger(mlp_embs, bnha_embs)  
 
-        #         merged_embs = merger(mlp_embs, bnha_embs)  
+                for i, merged_emb in enumerate(merged_embs):  
+                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_embs[i]  
 
-        #         for i, merged_emb in enumerate(merged_embs):  
-        #             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_embs[i]  
+                # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = mlp(sincos.unsqueeze(0)) 
+                    tokens = tokenizer(
+                        prompts_dataset.prompts[i], 
+                        padding="max_length", 
+                        max_length=tokenizer.model_max_length,
+                        truncation=True, 
+                        return_tensors="pt"
+                    ).input_ids 
+                    text_encoder_outputs = text_encoder(tokens.to(accelerator.device))[0].squeeze()   
+                    encoder_hidden_states[azimuth * n_prompts_per_azimuth + i] = text_encoder_outputs  
+        encoder_hidden_states = torch.sum(accelerator.gather(encoder_hidden_states.unsqueeze(0)), dim=0)  
 
-        #         # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = mlp(sincos.unsqueeze(0)) 
-        #             tokens = tokenizer(
-        #                 prompts_dataset.prompts[i], 
-        #                 padding="max_length", 
-        #                 max_length=tokenizer.model_max_length,
-        #                 truncation=True, 
-        #                 return_tensors="pt"
-        #             ).input_ids 
-        #             text_encoder_outputs = text_encoder(tokens.to(accelerator.device))[0].squeeze()   
-        #             encoder_hidden_states[azimuth * n_prompts_per_azimuth + i] = text_encoder_outputs  
-        # encoder_hidden_states = torch.sum(accelerator.gather(encoder_hidden_states.unsqueeze(0)), dim=0)  
+        encoder_states_dataset = torch.utils.data.TensorDataset(encoder_hidden_states, torch.arange(encoder_hidden_states.shape[0]))  
 
-        # encoder_states_dataset = torch.utils.data.TensorDataset(encoder_hidden_states, torch.arange(encoder_hidden_states.shape[0]))  
+        generated_images = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 3, 512, 512)).to(accelerator.device)  
+        encoder_states_dataloader = torch.utils.data.DataLoader(
+            encoder_states_dataset, 
+            batch_size=args.inference_batch_size,  
+            shuffle=False, 
+        ) 
 
-        # generated_images = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 3, 512, 512)).to(accelerator.device)  
-        # encoder_states_dataloader = torch.utils.data.DataLoader(
-        #     encoder_states_dataset, 
-        #     batch_size=args.inference_batch_size,  
-        #     shuffle=False, 
-        # ) 
+        encoder_states_dataloader = accelerator.prepare(encoder_states_dataloader) 
 
-        # encoder_states_dataloader = accelerator.prepare(encoder_states_dataloader) 
+        uncond_tokens = tokenizer(
+            [""], 
+            padding="max_length", 
+            max_length=tokenizer.model_max_length,
+            truncation=True, 
+            return_tensors="pt", 
+        ).input_ids 
+        uncond_encoder_states = text_encoder(uncond_tokens.to(accelerator.device))[0] 
 
-        # uncond_tokens = tokenizer(
-        #     [""], 
-        #     padding="max_length", 
-        #     max_length=tokenizer.model_max_length,
-        #     truncation=True, 
-        #     return_tensors="pt", 
-        # ).input_ids 
-        # uncond_encoder_states = text_encoder(uncond_tokens.to(accelerator.device))[0] 
+        torch.manual_seed(args.seed * accelerator.process_index) 
+        accelerator.print(f"starting generation for type 1 inference...")  
+        for batch in tqdm(encoder_states_dataloader, disable = not accelerator.is_main_process):  
+            encoder_states, ids = batch 
+            B = encoder_states.shape[0] 
+            assert encoder_states.shape == (B, 77, 1024) 
+            latents = torch.randn(B, 4, 64, 64).to(accelerator.device)  
+            scheduler.set_timesteps(50)
+            for t in scheduler.timesteps:
+                # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
+                latent_model_input = torch.cat([latents] * 2)
 
-        # torch.manual_seed(args.seed * accelerator.process_index) 
-        # accelerator.print(f"starting generation for type 1 inference...")  
-        # for batch in tqdm(encoder_states_dataloader, disable = not accelerator.is_main_process):  
-        #     encoder_states, ids = batch 
-        #     B = encoder_states.shape[0] 
-        #     assert encoder_states.shape == (B, 77, 1024) 
-        #     latents = torch.randn(B, 4, 64, 64).to(accelerator.device)  
-        #     scheduler.set_timesteps(50)
-        #     for t in scheduler.timesteps:
-        #         # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
-        #         latent_model_input = torch.cat([latents] * 2)
+                # scaling the latents for the scheduler timestep  
+                latent_model_input = scheduler.scale_model_input(latent_model_input, timestep=t)
 
-        #         # scaling the latents for the scheduler timestep  
-        #         latent_model_input = scheduler.scale_model_input(latent_model_input, timestep=t)
+                # predict the noise residual
+                concat_encoder_states = torch.cat([uncond_encoder_states.repeat(B, 1, 1), encoder_states], dim=0) 
+                noise_pred = unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample
 
-        #         # predict the noise residual
-        #         concat_encoder_states = torch.cat([uncond_encoder_states.repeat(B, 1, 1), encoder_states], dim=0) 
-        #         noise_pred = unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample
+                # perform guidance
+                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                noise_pred = noise_pred_uncond + 7.5 * (noise_pred_text - noise_pred_uncond)
 
-        #         # perform guidance
-        #         noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-        #         noise_pred = noise_pred_uncond + 7.5 * (noise_pred_text - noise_pred_uncond)
+                # compute the previous noisy sample x_t -> x_t-1
+                latents = scheduler.step(noise_pred, t, latents).prev_sample
 
-        #         # compute the previous noisy sample x_t -> x_t-1
-        #         latents = scheduler.step(noise_pred, t, latents).prev_sample
+            # scale the latents 
+            latents = 1 / 0.18215 * latents
 
-        #     # scale the latents 
-        #     latents = 1 / 0.18215 * latents
+            # decode the latents 
+            images = vae.decode(latents).sample 
 
-        #     # decode the latents 
-        #     images = vae.decode(latents).sample 
+            # post processing the images and storing them 
+            # os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
+            save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", f"type1")  
+            os.makedirs(save_path_global, exist_ok=True) 
+            for idx, image in zip(ids, images):  
+                image = (image / 2 + 0.5).clamp(0, 1).squeeze()
+                image = (image * 255).to(torch.uint8) 
+                generated_images[idx] = image 
+                image = image.cpu().numpy()  
+                image = np.transpose(image, (1, 2, 0)) 
+                image = np.ascontiguousarray(image) 
+                azimuth = idx // n_prompts_per_azimuth 
+                prompt_idx = idx % n_prompts_per_azimuth 
+                prompt = prompts_dataset.prompts[prompt_idx] 
 
-        #     # post processing the images and storing them 
-        #     # os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
-        #     save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", f"type1")  
-        #     os.makedirs(save_path_global, exist_ok=True) 
-        #     for idx, image in zip(ids, images):  
-        #         image = (image / 2 + 0.5).clamp(0, 1).squeeze()
-        #         image = (image * 255).to(torch.uint8) 
-        #         generated_images[idx] = image 
-        #         image = image.cpu().numpy()  
-        #         image = np.transpose(image, (1, 2, 0)) 
-        #         image = np.ascontiguousarray(image) 
-        #         azimuth = idx // n_prompts_per_azimuth 
-        #         prompt_idx = idx % n_prompts_per_azimuth 
-        #         prompt = prompts_dataset.prompts[prompt_idx] 
+                # add an additional check here to make sure that the subject IS present in the prompt, otherwise there will be a mixup 
+                subject = prompts_dataset.prompt_wise_subjects[prompt_idx]
+                if subject not in prompt:  
+                    # we must insert the subject information in the prompt, so that there is no mixup!
+                    prompt = prompt.replace("bnha", prompts_dataset.prompt_wise_subjects[prompt_idx])    
+                assert prompt.find(subject) != -1 
 
-        #         # add an additional check here to make sure that the subject IS present in the prompt, otherwise there will be a mixup 
-        #         subject = prompts_dataset.prompt_wise_subjects[prompt_idx]
-        #         if subject not in prompt:  
-        #             # we must insert the subject information in the prompt, so that there is no mixup!
-        #             prompt = prompt.replace("bnha", prompts_dataset.prompt_wise_subjects[prompt_idx])    
-        #         assert prompt.find(subject) != -1 
-
-        #         prompt_ = "_".join(prompt.split()) 
-        #         save_path_prompt = osp.join(save_path_global, prompt_) 
-        #         os.makedirs(save_path_prompt, exist_ok=True) 
-        #         image = Image.fromarray(image) 
-        #         image.save(osp.join(save_path_prompt, f"{str(int(azimuth.item())).zfill(3)}.jpg"))  
+                prompt_ = "_".join(prompt.split()) 
+                save_path_prompt = osp.join(save_path_global, prompt_) 
+                os.makedirs(save_path_prompt, exist_ok=True) 
+                image = Image.fromarray(image) 
+                image.save(osp.join(save_path_prompt, f"{str(int(azimuth.item())).zfill(3)}.jpg"))  
                 # image = Image.fromarray(image) 
                 # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
@@ -357,19 +352,19 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         # ]
 
         # IT MAKES SENSE TO KEEP THE SAME SUBJECTS AS THE TYPE 1 INFERENCE 
-        subjects = [
-            "bnha pickup truck",
-            "bnha motorbike",  
-            "bnha horse", 
-            "bnha lion", 
-            "bnha cat", 
-            "bnha elephant", 
-            "bnha bus", 
-            "bnha giraffe", 
-            "bnha jeep", 
-        ] 
+        # subjects = [
+        #     "bnha pickup truck",
+        #     "bnha motorbike",  
+        #     "bnha horse", 
+        #     "bnha lion", 
+        #     "bnha cat", 
+        #     "bnha elephant", 
+        #     "bnha bus", 
+        #     "bnha giraffe", 
+        #     "bnha jeep", 
+        # ] 
 
-        subjects = random.sample(subjects, NUM_COLS) 
+        # subjects = random.sample(subjects, NUM_COLS) 
 
         # if not use_sks: 
         #     prompts_dataset = PromptDataset(num_samples=6, subjects=)  
@@ -388,6 +383,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         n_prompts_per_azimuth = len(prompts_dataset.subjects) * len(prompts_dataset.template_prompts) 
         encoder_hidden_states = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 77, 1024)).to(accelerator.device).contiguous()  
 
+        # this is the inference where we use the learnt embeddings 
         accelerator.print(f"collecting the encoder hidden states for type 2 inference...") 
         for azimuth in range(prompts_dataset.num_samples): 
             if azimuth % accelerator.num_processes == accelerator.process_index: 
@@ -395,8 +391,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(accelerator.device) 
                 # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
                 mlp_embs = mlp(sincos.unsqueeze(0).repeat(len(prompts_dataset.prompts), 1))   
-                # if args.textual_inv: 
-                if True: 
+                if args.textual_inv: 
                     bnha_embs = [] 
                     for i in range(len(prompts_dataset.prompt_wise_subjects)):   
                         subject = prompts_dataset.prompt_wise_subjects[i]  
@@ -413,7 +408,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                         # if hasattr(bnha_embs, subject): 
                         # this assertion is necessary as type 2 inference has only subjects seen during training 
-                        # assert hasattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha)  
+                        assert hasattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha)  
                             # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
                         # bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha))     
                         # we use the class embeddings instead of learnt embedding in the type2 inference... 
@@ -424,7 +419,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                             assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]], input_embeddings[TOKEN2ID[subject_without_bnha]])  
 
                             # to check that the appearance embedding did receive some update!
-                            # assert not torch.allclose(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha), accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]]) 
+                            assert not torch.allclose(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha), accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]]) 
 
                             # to check that the text encoder's bnha embedding and the class embedding are the same 
                             assert torch.allclose(bnha_embs[-1], input_embeddings[TOKEN2ID[subject_without_bnha]]) 
@@ -565,9 +560,6 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             "bnha truck", 
             "bnha zebra",  
             "bnha sedan", 
-            "bnha shoe", 
-            "bnha hen", 
-            "bnha dog", 
         ]
 
         subjects = random.sample(subjects, NUM_COLS)  
@@ -583,6 +575,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         n_prompts_per_azimuth = len(prompts_dataset.subjects) * len(prompts_dataset.template_prompts) 
         encoder_hidden_states = torch.zeros((prompts_dataset.num_samples * n_prompts_per_azimuth, 77, 1024)).to(accelerator.device).contiguous()  
 
+        # this is the inference where we use the learnt embeddings 
         accelerator.print(f"collecting the encoder hidden states for type 3 inference...") 
         for azimuth in range(prompts_dataset.num_samples): 
             if azimuth % accelerator.num_processes == accelerator.process_index: 
@@ -590,8 +583,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(accelerator.device) 
                 # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["sks"]] = mlp(sincos.unsqueeze(0)) 
                 mlp_embs = mlp(sincos.unsqueeze(0).repeat(len(prompts_dataset.prompts), 1))   
-                # if args.textual_inv: 
-                if True:  
+                if args.textual_inv: 
                     bnha_embs = [] 
                     for i in range(len(prompts_dataset.prompt_wise_subjects)):   
                         subject = prompts_dataset.prompt_wise_subjects[i]  
@@ -609,7 +601,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
                         # if hasattr(bnha_embs, subject): 
                         # this assertion is necessary as type 3 inference has only subjects NOT seen during training 
-                        # assert not hasattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha)  
+                        assert not hasattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha)  
                             # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
                         # bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject_without_bnha))     
                         bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]]) 
@@ -748,40 +740,41 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             # stores all the videos for this particular prompt on wandb  
             template_prompt_videos = {} 
 
-            # # collecting results of type 1 inference 
-            # prompts_dataset = prompts_dataset1 
-            # template_prompt_videos["type1"] = {} 
-            # for subject in sorted(prompts_dataset.subjects):  
+            # collecting results of type 1 inference 
+            prompts_dataset = prompts_dataset1 
+            template_prompt_videos["type1"] = {} 
+            for subject in sorted(prompts_dataset.subjects):  
 
-            #     save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "type1")    
+                save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "type1")    
 
-            #     subject_prompt = template_prompt.replace("SUBJECT", subject)   
-            #     prompt_ = "_".join(subject_prompt.split()) 
-            #     prompt_path = osp.join(save_path_global, prompt_) 
-            #     img_names = os.listdir(prompt_path)   
-            #     img_names = [img_name for img_name in img_names if img_name.find(f"jpg") != -1] 
-            #     img_names = sorted(img_names) 
+                subject_prompt = template_prompt.replace("SUBJECT", subject)   
+                prompt_ = "_".join(subject_prompt.split()) 
+                prompt_path = osp.join(save_path_global, prompt_) 
+                img_names = os.listdir(prompt_path)   
+                img_names = [img_name for img_name in img_names if img_name.find(f"jpg") != -1] 
+                img_names = sorted(img_names) 
 
-            #     assert "bnha" in subject 
-            #     keyname = subject.replace(f"bnha", "pose+app") 
+                assert "bnha" in subject 
+                keyname = subject.replace(f"bnha", "pose+app") 
 
-            #     template_prompt_videos["type1"][keyname] = [] 
-            #     assert len(img_names) == prompts_dataset.num_samples, f"{len(img_names) = }, {prompts_dataset.num_samples = }" 
-            #     for img_name in img_names: 
-            #         # print(f"for {subject} i am using {prompt_path = } and {img_name = }") 
-            #         img_path = osp.join(prompt_path, img_name) 
-            #         got_image = False 
-            #         # while not got_image: 
-            #         #     try: 
-            #         #         img = Image.open(img_path) 
-            #         #         got_image = True 
-            #         #     except Exception as e: 
-            #         #         print(f"could not read the image, will try again, don't worry, just read and chill!") 
-            #         #         got_image = False 
-            #         #     if got_image: 
-            #         #         break 
-            #         img = Image.open(img_path) 
-            #         template_prompt_videos["type1"][keyname].append(img) 
+                template_prompt_videos["type1"][keyname] = [] 
+                assert len(img_names) == prompts_dataset.num_samples, f"{len(img_names) = }, {prompts_dataset.num_samples = }" 
+                for img_name in img_names: 
+                    # prompt_path has a BUG 
+                    # print(f"for {subject} i am using {prompt_path = } and {img_name = }") 
+                    img_path = osp.join(prompt_path, img_name) 
+                    got_image = False 
+                    # while not got_image: 
+                    #     try: 
+                    #         img = Image.open(img_path) 
+                    #         got_image = True 
+                    #     except Exception as e: 
+                    #         print(f"could not read the image, will try again, don't worry, just read and chill!") 
+                    #         got_image = False 
+                    #     if got_image: 
+                    #         break 
+                    img = Image.open(img_path) 
+                    template_prompt_videos["type1"][keyname].append(img) 
 
 
             # collecting results of type 2 inference 
@@ -1180,13 +1173,13 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=-1,
+        default=10000,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=100000,
+        default=90000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -1349,11 +1342,12 @@ def main(args):
         assert np.allclose(angles, angles_ref) 
 
     # max train steps 
-    # + 1 is added because stage1_steps is set to -1 
-    args.max_train_steps = args.stage1_steps + args.stage2_steps + 1  
+    args.max_train_steps = args.stage1_steps + args.stage2_steps 
 
     # accelerator 
     accelerator = Accelerator(
+        kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)],  
+        # find_unused_parameters=True, 
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
     )
@@ -1466,10 +1460,10 @@ def main(args):
         set_use_memory_efficient_attention_xformers(unet, True)
         set_use_memory_efficient_attention_xformers(vae, True)
 
-    if args.gradient_checkpointing:
-        unet.enable_gradient_checkpointing()
-        if args.train_text_encoder:
-            text_encoder.gradient_checkpointing_enable()
+    # if args.gradient_checkpointing:
+    #     unet.enable_gradient_checkpointing()
+    #     if args.train_text_encoder:
+    #         text_encoder.gradient_checkpointing_enable()
 
 
     # Use 8-bit Adam for lower memory usage or to fine-tune the model in 16GB GPUs
@@ -1735,7 +1729,6 @@ def main(args):
         text_encoder.train()
 
     # steps_per_angle = {} 
-    input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight).detach()  
 
     for step, batch in enumerate(train_dataloader):
         # for batch_idx, angle in enumerate(batch["anagles"]): 
@@ -1785,6 +1778,7 @@ def main(args):
         strictly forbidden unless prior written permission is obtained from Adobe.
         """
 
+        input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight).detach()  
         # if we are in stage 2 of training, only then do we need to compute the pose embedding, otherwise it is zero 
         if global_step > args.stage1_steps: 
             progress_bar.set_description(f"stage 2: ")
@@ -1798,7 +1792,6 @@ def main(args):
             mlp_emb = continuous_word_model(p) 
 
         else: 
-            assert False # we are doing only stage 2 here, not learning the appearance  
             progress_bar.set_description(f"stage 1: ")
             mlp_emb = torch.zeros(B, 1024) 
 
@@ -1806,7 +1799,6 @@ def main(args):
         # textual inversion is used, then the embeddings are initialized with their classes  
         # else it is initialized with the default value for bnha 
         if args.textual_inv: 
-            # assert False 
             # bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
             # bnha_emb = torch.stack([bnha_embeds(subject) for subject in batch["subjects"]])  
             bnha_emb = [] 
@@ -1825,13 +1817,13 @@ def main(args):
             bnha_emb = [] 
             # bnha_emb = torch.clone(input_embeddings)[TOKEN2ID[]] 
             for idx in range(B): 
-                # REPLACING BY THE CLASS EMBEDDING 
-                bnha_emb.append(torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]].detach())  
+                bnha_emb.append(torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]]) 
 
             bnha_emb = torch.stack(bnha_emb) 
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
+        assert not torch.allclose(merged_emb, torch.zeros_like(merged_emb)) 
         merged_emb_norm = torch.linalg.norm(merged_emb)  
         assert merged_emb.shape[0] == B 
 
@@ -1943,23 +1935,23 @@ def main(args):
                 del bad_mlp_params 
 
                 # checking for each appearance embedding whether it should receive gradients  
-                # controlnet_subjects = [] 
-                # ref_subjects = [] 
-                # for idx in range(B): 
-                #     if batch["controlnet"][idx]: 
-                #         controlnet_subjects.append(batch["subjects"][idx]) 
-                #     else: 
-                #         ref_subjects.append(batch["subjects"][idx]) 
-                # for subject in args.subjects: 
-                #     if subject in ref_subjects: 
-                #         # the appearance must receive some gradient 
-                #         app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
-                #         assert app_emb.grad is not None  
-                #         assert not torch.allclose(app_emb.grad, torch.zeros(1024).to(accelerator.device))  
-                #     else: 
-                #         # the appearance must NOT have received any gradient 
-                #         app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
-                #         assert app_emb.grad is None or torch.allclose(app_emb.grad, torch.zeros(1024).to(accelerator.device))   
+                controlnet_subjects = [] 
+                ref_subjects = [] 
+                for idx in range(B): 
+                    if batch["controlnet"][idx]: 
+                        controlnet_subjects.append(batch["subjects"][idx]) 
+                    else: 
+                        ref_subjects.append(batch["subjects"][idx]) 
+                for subject in args.subjects: 
+                    if subject in ref_subjects: 
+                        # the appearance must receive some gradient 
+                        app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
+                        assert app_emb.grad is not None  
+                        assert not torch.allclose(app_emb.grad, torch.zeros(1024).to(accelerator.device))  
+                    else: 
+                        # the appearance must NOT have received any gradient 
+                        app_emb = getattr(accelerator.unwrap_model(bnha_embeds), subject)
+                        assert app_emb.grad is None or torch.allclose(app_emb.grad, torch.zeros(1024).to(accelerator.device))   
                     
 
                 # checking whether the text encoder will receive gradients 
@@ -2099,18 +2091,22 @@ def main(args):
             #     else itertools.chain(unet.parameters(), continuous_word_model.parameters())
             # )
             accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-        if DEBUG: 
-            with torch.no_grad(): 
-                merger_before = copy.deepcopy([p for p in merger.parameters()]) 
-                mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
-                unet_before = copy.deepcopy([p for p in unet.parameters()]) 
-                text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
-                if args.textual_inv: 
-                    bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
+        # if DEBUG: 
+            # with torch.no_grad(): 
+                # merger_before = copy.deepcopy([p for p in merger.parameters()]) 
+                # mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+                # unet_before = copy.deepcopy([p for p in unet.parameters()]) 
+                # text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
+                # if args.textual_inv: 
+                #     bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
         # lora_before = [torch.clone(p) for p in list(itertools.chain(*unet_lora_params))] 
         for name, optimizer in optimizers.items(): 
             optimizer.step() 
+        # lora_after = [torch.clone(p) for p in list(itertools.chain(*unet_lora_params))] 
+        # for p1, p2 in zip(lora_before, lora_after): 
+        #     assert not torch.allclose(p1, p2) 
+        #     print(f"unet_lora_params is changing!") 
 
         # calculating weight norms 
         if args.wandb and ((ddp_step + 1) % args.log_every == 0): 
@@ -2187,72 +2183,72 @@ def main(args):
                         assert False 
                     curr += 1
 
-        if DEBUG: 
-            # checking that no parameter should be NaN 
-            for p in merger.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
-            for p in continuous_word_model.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
-            for p in unet.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
-            for p in text_encoder.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
+        # if DEBUG: 
+        #     # checking that no parameter should be NaN 
+        #     for p in merger.parameters(): 
+        #         assert not torch.any(torch.isnan(p)) 
+        #     for p in continuous_word_model.parameters(): 
+        #         assert not torch.any(torch.isnan(p)) 
+        #     for p in unet.parameters(): 
+        #         assert not torch.any(torch.isnan(p)) 
+        #     for p in text_encoder.parameters(): 
+        #         assert not torch.any(torch.isnan(p)) 
 
-            with torch.no_grad(): 
-                merger_after = copy.deepcopy([p for p in merger.parameters()]) 
-                mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
-                unet_after = copy.deepcopy([p for p in unet.parameters()]) 
-                text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
-                if args.textual_inv: 
-                    bnha_after = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
+        #     with torch.no_grad(): 
+        #         merger_after = copy.deepcopy([p for p in merger.parameters()]) 
+        #         mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+        #         unet_after = copy.deepcopy([p for p in unet.parameters()]) 
+        #         text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
+        #         if args.textual_inv: 
+        #             bnha_after = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
-                merger_after = [p1 - p2 for p1, p2 in zip(merger_before, merger_after)] 
-                del merger_before 
-                mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
-                del mlp_before 
-                unet_after = [p1 - p2 for p1, p2 in zip(unet_before, unet_after)]  
-                del unet_before 
-                text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
-                del text_encoder_before
-                if args.textual_inv: 
-                    bnha_after = [p1 - p2 for p1, p2 in zip(bnha_before, bnha_after)]   
-                    del bnha_before 
+        #         merger_after = [p1 - p2 for p1, p2 in zip(merger_before, merger_after)] 
+        #         del merger_before 
+        #         mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
+        #         del mlp_before 
+        #         unet_after = [p1 - p2 for p1, p2 in zip(unet_before, unet_after)]  
+        #         del unet_before 
+        #         text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
+        #         del text_encoder_before
+        #         if args.textual_inv: 
+        #             bnha_after = [p1 - p2 for p1, p2 in zip(bnha_before, bnha_after)]   
+        #             del bnha_before 
 
-                change = False 
-                for p_diff in merger_after: 
-                    if torch.sum(p_diff): 
-                        change = True 
-                        break 
-                assert change 
+        #         change = False 
+        #         for p_diff in merger_after: 
+        #             if torch.sum(p_diff): 
+        #                 change = True 
+        #                 break 
+        #         assert change 
 
-                change = False 
-                for p_diff in mlp_after:  
-                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
-                        change = True 
-                        break 
-                assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
+        #         change = False 
+        #         for p_diff in mlp_after:  
+        #             if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
+        #                 change = True 
+        #                 break 
+        #         assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
 
-                change = False 
-                for p_diff in unet_after:  
-                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
-                        change = True 
-                        break 
-                assert not (change ^ args.train_unet)  
+        #         change = False 
+        #         for p_diff in unet_after:  
+        #             if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
+        #                 change = True 
+        #                 break 
+        #         assert not (change ^ args.train_unet)  
 
-                change = False 
-                for p_diff in text_encoder_after:  
-                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
-                        change = True 
-                        break 
-                assert not (change ^ args.train_text_encoder)   
+        #         change = False 
+        #         for p_diff in text_encoder_after:  
+        #             if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
+        #                 change = True 
+        #                 break 
+        #         assert not (change ^ args.train_text_encoder)   
             
-                if args.textual_inv and torch.sum(torch.tensor(batch["controlnet"])).item() < B:  
-                    change = False 
-                    for p_diff in bnha_after:  
-                        if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
-                            change = True 
-                            break 
-                    assert not (change ^ args.textual_inv), f"{batch['controlnet'] = }" 
+        #         if args.textual_inv and torch.sum(torch.tensor(batch["controlnet"])).item() < B:  
+        #             change = False 
+        #             for p_diff in bnha_after:  
+        #                 if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
+        #                     change = True 
+        #                     break 
+        #             assert not (change ^ args.textual_inv), f"{batch['controlnet'] = }" 
 
 
         progress_bar.update(accelerator.num_processes * args.train_batch_size) 
@@ -2286,7 +2282,7 @@ def main(args):
                 text_encoder_params_safe = [torch.clone(p) for p in text_encoder.parameters()] 
                 mlp_params_safe = [torch.clone(p) for p in continuous_word_model.parameters()] 
                 merger_params_safe = [torch.clone(p) for p in merger.parameters()] 
-                # bnha_embeds_safe = [torch.clone(p) for p in bnha_embeds.parameters()] 
+                bnha_embeds_safe = [torch.clone(p) for p in bnha_embeds.parameters()] 
 
 
             if args.textual_inv and args.online_inference: 
@@ -2307,8 +2303,8 @@ def main(args):
                     assert torch.allclose(p_, p) 
                 for p_, p in zip(merger_params_safe, merger.parameters()):  
                     assert torch.allclose(p_, p) 
-                # for p_, p in zip(bnha_embeds_safe, bnha_embeds.parameters()):  
-                #     assert torch.allclose(p_, p) 
+                for p_, p in zip(bnha_embeds_safe, bnha_embeds.parameters()):  
+                    assert torch.allclose(p_, p) 
 
 
             # if accelerator.is_main_process: 
