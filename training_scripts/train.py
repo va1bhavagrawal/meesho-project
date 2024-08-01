@@ -52,13 +52,13 @@ TOKEN2ID = {
     "dog": 1929, 
 }
 DEBUG = True  
-BS = 4     
+BS = 4       
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 VLOG_STEPS = [1000, 5000, 10000, 50000, 70000, 80000, 90000, 100000] 
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
-NUM_SAMPLES = 18   
+NUM_SAMPLES = 18     
 NUM_COLS = 4   
 
 from datasets import DisentangleDataset 
@@ -369,6 +369,9 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             "bnha jeep", 
         ] 
 
+        common_seed = get_common_seed() 
+        set_seed(common_seed)  
+
         subjects = random.sample(subjects, NUM_COLS) 
 
         # if not use_sks: 
@@ -378,8 +381,6 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
         torch.cuda.empty_cache() 
 
-        common_seed = get_common_seed() 
-        set_seed(common_seed)  
 
         prompts_dataset2 = PromptDataset(num_samples=NUM_SAMPLES, subjects=subjects) 
         prompts_dataset = prompts_dataset2 
@@ -478,7 +479,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         ).input_ids 
         uncond_encoder_states = text_encoder(uncond_tokens.to(accelerator.device))[0] 
 
-        torch.manual_seed(args.seed * accelerator.process_index) 
+        # torch.manual_seed(args.seed * accelerator.process_index) 
         accelerator.print(f"starting generation for type 2 inference...")  
         for batch in tqdm(encoder_states_dataloader, disable = not accelerator.is_main_process):  
             encoder_states, ids = batch 
@@ -661,7 +662,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         ).input_ids 
         uncond_encoder_states = text_encoder(uncond_tokens.to(accelerator.device))[0] 
 
-        torch.manual_seed(args.seed * accelerator.process_index) 
+        # torch.manual_seed(args.seed * accelerator.process_index) 
         accelerator.print(f"starting generation for type 3 inference...")  
         for batch in tqdm(encoder_states_dataloader, disable = not accelerator.is_main_process):  
             encoder_states, ids = batch 
@@ -1926,21 +1927,23 @@ def main(args):
                 # for (n, p) in merger.named_parameters():  
                     # if (n, p) not in bad_merger_params:  
                         # print(f"{n, p = } in merger is NOT bad!")
-                if global_step < args.stage1_steps: 
-                    assert len(bad_merger_params) < len(list(merger.parameters()))  
-                elif global_step > args.stage1_steps: 
-                    assert len(bad_merger_params) == 0  
+                # if global_step < args.stage1_steps: 
+                #     assert len(bad_merger_params) < len(list(merger.parameters()))  
+                if global_step > 1: 
+                    assert len(bad_merger_params) == 0, f"{len(bad_merger_params) = }" 
+                    # print(f"{len(bad_merger_params) = }") 
 
                 # checking that mlp receives gradients in stage 2 
                 # print(f"merger does receive gradients!")
                 bad_mlp_params = [(n, p) for (n, p) in continuous_word_model.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
                 # assert not ((len(bad_mlp_params) < len(list(continuous_word_model.parameters()))) ^ (global_step > args.stage1_steps))  
-                assert not ((len(bad_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
-                if global_step > args.stage1_steps: 
+                # assert not ((len(bad_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
+                if global_step > 1: 
                     # print(f"{len(bad_mlp_params) = }, {len(list(continuous_word_model.parameters())) = }")  
-                    assert len(bad_mlp_params) < len(list(continuous_word_model.parameters()))  
+                    # assert len(bad_mlp_params) < len(list(continuous_word_model.parameters()))  
+                    assert len(bad_mlp_params) == 0  
+                # print(f"{len(bad_mlp_params) = }") 
                     # print(f"mlp does receive gradients!")
-                del bad_mlp_params 
 
                 # checking for each appearance embedding whether it should receive gradients  
                 # controlnet_subjects = [] 

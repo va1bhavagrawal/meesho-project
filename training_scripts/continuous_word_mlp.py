@@ -63,6 +63,15 @@ class MergedEmbedding(nn.Module):
         self.linear3 = nn.Linear(2048, 2048) 
         self.linear4 = nn.Linear(2048, 1024) 
 
+        merger_state_dict = self.state_dict() 
+        # for name, param in merger_state_dict.items():  
+        #     merger_state_dict[name] = nn.Parameter(torch.zeros_like(param), requires_grad=True)   
+
+        merger_state_dict["linear4.weight"] = torch.zeros_like(self.linear4.weight) 
+        merger_state_dict["linear4.bias"] = torch.zeros_like(self.linear4.bias)  
+
+        self.load_state_dict(merger_state_dict)
+
     def forward(self, pose_embed, appearance_embed): 
         concat_embed = torch.cat([pose_embed, appearance_embed], dim=-1) 
         x = self.linear1(concat_embed) 
@@ -71,5 +80,5 @@ class MergedEmbedding(nn.Module):
         x = F.relu(x)  
         x = self.linear3(x) 
         x = F.relu(x) 
-        x = self.linear4(x) 
+        x = self.linear4(x) + appearance_embed  
         return x 
