@@ -3,3 +3,5 @@ training_data_vaibhav/
 ckps/
 training_scripts/wandb/
 training_scripts/*gif 
+training_data_vaibhav*/
+multiobject/
