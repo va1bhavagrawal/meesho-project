@@ -8,3 +8,4 @@ training_scripts/*gif
 multiobject/ 
 template_truck/
 training_scripts/__pycache__
+tmp/

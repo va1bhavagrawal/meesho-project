@@ -40,17 +40,17 @@ class HotEmbedding(nn.Module):
         return self.embed
 
 
-class AppearanceEmbeddings(nn.Module):
-    def __init__(self, init_embeddings: dict): 
-        super().__init__() 
-        self.n_embeddings = len(init_embeddings.values())  
-        for key, value in init_embeddings.items(): 
-            # self.embeds[key] = torch.nn.Parameter(value.detach())    
-            self.register_parameter(key, torch.nn.Parameter(value.detach())) 
+# class AppearanceEmbeddings(nn.Module):
+#     def __init__(self, init_embeddings: dict): 
+#         super().__init__() 
+#         self.n_embeddings = len(init_embeddings.values())  
+#         for key, value in init_embeddings.items(): 
+#             # self.embeds[key] = torch.nn.Parameter(value.detach())    
+#             self.register_parameter(key, torch.nn.Parameter(value.detach())) 
     
-    def forward(self, name): 
-        raise NotImplementedError(f"there is no forward method for this class") 
-        # return getattr(self, name) 
+#     def forward(self, name): 
+#         raise NotImplementedError(f"there is no forward method for this class") 
+#         # return getattr(self, name) 
 
 
 class MergedEmbedding(nn.Module): 

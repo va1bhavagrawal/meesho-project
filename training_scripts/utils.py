@@ -127,7 +127,7 @@ def create_gif(images, save_path, duration=1):
     return 
 
 
-def collect_generated_images_for_single_subject(subjects, vis_dir, prompt, keyname, save_path):  
+def collect_generated_images(subjects, vis_dir, prompt, keyname, save_path):  
     # stores all the videos for this particular prompt on wandb  
     template_prompt_videos = {} 
 

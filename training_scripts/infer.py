@@ -316,7 +316,7 @@ class Infer:
             self.accelerator.print(f"every thread finished their generation, now collecting them to form a gif...") 
 
             if accelerator.is_main_process: 
-                collect_generated_images_for_single_subject(subjects, self.vis_dir, prompt, "pose+app", self.gif_name)  
+                collect_generated_images(subjects, self.vis_dir, prompt, "pose+app", self.gif_name)  
 
 
 
