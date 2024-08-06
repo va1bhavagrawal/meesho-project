@@ -127,13 +127,14 @@ class DisentangleDataset(Dataset):
         example["scaler"] = angle 
 
         # choosing from the instance images, not the augmentation 
-        if False:  
+        if True:  
             example["controlnet"] = False 
             # prompt = f"a photo of a bnha {subject} in front of a dark background"  
             prompt = f"a photo of a bnha in front of a dark background"  
+            example["prompt"] = prompt 
 
             example["prompt_ids"] = self.tokenizer(
-                prompt, 
+                example["prompt"],  
                 padding="do_not_pad", 
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length, 
@@ -184,20 +185,50 @@ class DisentangleDataset(Dataset):
         example["img"] = self.image_transforms(img)  
 
         if self.args.with_prior_preservation: 
-            subject_class_imgs_path = osp.join(self.args.class_data_dir, subject_)  
-            assert len(os.listdir(subject_class_imgs_path)) == self.args.num_class_images 
-            class_img_name = str(index % self.args.num_class_images).zfill(3) + ".jpg"  
-            class_img_path = osp.join(subject_class_imgs_path, class_img_name) 
-            assert osp.exists(class_img_path), f"{class_img_path = }"
-            class_img = Image.open(class_img_path) 
-            example["class_img"] = self.image_transforms(class_img) 
-            class_prompt = f"a photo of a {subject}"
+        #     subject_class_imgs_path = osp.join(self.args.class_data_dir, subject_)  
+        #     assert len(os.listdir(subject_class_imgs_path)) == self.args.num_class_images 
+        #     class_img_name = str(index % self.args.num_class_images).zfill(3) + ".jpg"  
+        #     class_img_path = osp.join(subject_class_imgs_path, class_img_name) 
+        #     assert osp.exists(class_img_path), f"{class_img_path = }"
+        #     class_img = Image.open(class_img_path) 
+        #     example["class_img"] = self.image_transforms(class_img) 
+        #     class_prompt = f"a photo of a {subject}"
+        #     example["class_prompt_ids"] = self.tokenizer(
+        #         class_prompt, 
+        #         padding="do_not_pad", 
+        #         truncation=True, 
+        #         max_length=self.tokenizer.model_max_length 
+        #     ).input_ids 
+        #     print(f"{class_prompt = }") 
+            subject_prior_dir = osp.join(self.args.class_data_dir, subject_)   
+            avlble_imgs = os.listdir(subject_prior_dir)  
+            chosen_img = random.choice(avlble_imgs) 
+
+            prompt_idx = int(chosen_img.split("___prompt")[-1].split(".jpg")[0])  
+            prompt = self.args.controlnet_prompts[prompt_idx] 
+            # there must be the keyword SUBJECT in the prompt, that can be replaced for the relevant subject 
+            assert prompt.find("SUBJECT") != -1 
+            prompt = prompt.replace("SUBJECT", f"bnha")  
+            assert prompt.find("bnha") != -1 
+            # assert prompt.find(subject) != -1 
+            # we DO NOT want the subject to be present in the prompt text 
+            assert prompt.find(f" {subject} ") == -1, f"{prompt = }, {subject = }" 
+            example["class_prompt"] = prompt 
             example["class_prompt_ids"] = self.tokenizer(
-                class_prompt, 
+                example["class_prompt"],  
                 padding="do_not_pad", 
                 truncation=True, 
-                max_length=self.tokenizer.model_max_length 
+                max_length=self.tokenizer.model_max_length, 
             ).input_ids 
-            print(f"{class_prompt = }") 
+
+            img_path = osp.join(subject_prior_dir, chosen_img) 
+            assert osp.exists(img_path) 
+            img = Image.open(img_path)   
+            if not img.mode == "RGB":  
+                img = img.convert("RGB") 
+            example["class_img"] = self.image_transforms(img) 
+            class_prompt = prompt 
+
+        print(f"{class_prompt = }")
 
         return example 
