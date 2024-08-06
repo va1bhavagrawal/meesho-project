@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="poseonly_dropout"      
+export RUN_NAME="pose_dropout_0.1prior"      
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
