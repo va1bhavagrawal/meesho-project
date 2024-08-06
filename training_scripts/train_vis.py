@@ -55,7 +55,7 @@ BS = 4
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 VLOG_STEPS = [10000, 40000, 60000, 80000, 100000]
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
-SAVE_STEPS = [5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
+SAVE_STEPS = [500, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]   
 NUM_SAMPLES = 18   
 NUM_COLS = 4  
 
@@ -176,6 +176,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             "bnha cat", 
             "bnha elephant", 
             "bnha bus", 
+            "bnha giraffe", 
             "bnha jeep", 
         ] 
 
@@ -1331,19 +1332,19 @@ def main(args):
 
     # sanity check: for every subject there should be the same angles  
     # print(f"{subjects_ = }")
-    # for subject_ in subjects_[:1]: 
-    #     subject_path = osp.join(args.instance_data_dir, subject_) 
-    #     files = os.listdir(subject_path) 
-    #     angles = [float(file.replace(f".jpg", "")) for file in files] 
-    #     angles = sorted(np.array(angles)) 
+    for subject_ in subjects_[:1]: 
+        subject_path = osp.join(args.instance_data_dir, subject_) 
+        files = os.listdir(subject_path) 
+        angles = [float(file.replace(f".jpg", "")) for file in files] 
+        angles = sorted(np.array(angles)) 
 
-    # angles_ref = angles.copy()  
-    # for subject_ in subjects_[1:]: 
-    #     subject_path = osp.join(args.instance_data_dir, subject_) 
-    #     files = os.listdir(subject_path) 
-    #     angles = [float(file.replace(f".jpg", "")) for file in files] 
-    #     angles = sorted(np.array(angles)) 
-    #     assert np.allclose(angles, angles_ref) 
+    angles_ref = angles.copy()  
+    for subject_ in subjects_[1:]: 
+        subject_path = osp.join(args.instance_data_dir, subject_) 
+        files = os.listdir(subject_path) 
+        angles = [float(file.replace(f".jpg", "")) for file in files] 
+        angles = sorted(np.array(angles)) 
+        assert np.allclose(angles, angles_ref) 
 
     # max train steps 
     args.max_train_steps = args.stage1_steps + args.stage2_steps + 1  
@@ -1549,7 +1550,7 @@ def main(args):
         optimizers["appearance"] = optimizer_bnha 
 
 
-    pos_size = 6 
+    pos_size = 2
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
     optimizer_mlp = optimizer_class(
         continuous_word_model.parameters(),  
@@ -1608,14 +1609,14 @@ def main(args):
             assert TOKEN2ID[example["subject"]] not in example["prompt_ids"] 
 
         subjects = [example["subject"] for example in examples] 
+        # for the prior preservation 
+        subjects = subjects + subjects 
         pixel_values = []
         for example in examples:
             pixel_values.append(example["img"])
 
         """Adding the scaler of the embedding into the batch"""
-        # scalers = torch.Tensor([example["scaler"] for example in examples])
-        scalers = [torch.tensor(example["scaler"]) for example in examples] 
-        scalers = torch.stack(scalers, dim=0)  
+        scalers = torch.Tensor([example["scaler"] for example in examples])
 
         if args.with_prior_preservation:
             prompt_ids += [example["class_prompt_ids"] for example in examples]
@@ -1742,14 +1743,14 @@ def main(args):
     if args.train_text_encoder:
         text_encoder.train()
 
-    if DEBUG: 
-        if osp.exists(f"vis"): 
-            shutil.rmtree(f"vis") 
-        os.makedirs("vis")  
 
     input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight).detach()  
 
     # steps_per_angle = {} 
+    if DEBUG: 
+        if osp.exists(f"vis"): 
+            shutil.rmtree(f"vis") 
+        os.makedirs("vis")  
 
     for step, batch in enumerate(train_dataloader):
         if DEBUG: 
@@ -1760,12 +1761,14 @@ def main(args):
         #     else:
         #         steps_per_angle[angle] = 1 
 
-        B = len(batch["scalers"])   
+        # B = len(batch["scalers"])   
+        B = len(batch["prompt_ids"]) 
         wandb_log_data = {}
         force_wandb_log = False 
         # Convert images to latent space
         vae.to(accelerator.device, dtype=weight_dtype)
 
+        # printing the input JUST before model(x) 
         if DEBUG: 
             for batch_idx, img_t in enumerate(batch["pixel_values"]): 
                 img = (img_t * 0.5 + 0.5) * 255  
@@ -1775,6 +1778,7 @@ def main(args):
                 plt_title = "\n".join(textwrap.wrap(plt_title, width=60)) 
                 plt.title(plt_title, fontsize=9)  
                 plt.savefig(f"vis/{str(step).zfill(3)}_{str(batch_idx).zfill(3)}.jpg") 
+
 
         latents = vae.encode(
             batch["pixel_values"].to(dtype=weight_dtype)
@@ -1815,19 +1819,17 @@ def main(args):
         # if we are in stage 2 of training, only then do we need to compute the pose embedding, otherwise it is zero 
         if global_step > args.stage1_steps: 
             progress_bar.set_description(f"stage 2: ")
-            # p = torch.Tensor(batch["scalers"] / (2 * math.pi)) 
-            p = torch.Tensor(batch["scalers"]) / torch.tensor([2 * math.pi, 2 * math.pi, 1.0]).to(accelerator.device)   
-            # p = p.unsqueeze(-1) 
-            assert p.shape == (B, 3) 
-            p = p.repeat(1, 2) 
-            assert torch.allclose(p[:, 0], p[:, 3]) 
-            assert torch.allclose(p[:, 1], p[:, 4]) 
-            assert torch.allclose(p[:, 2], p[:, 5]) 
-            p[:, 0:3] = torch.sin(2 * torch.pi * p[:, 0:3]) 
-            p[:, 3:6] = torch.cos(2 * torch.pi * p[:, 3:6]) 
+            p = torch.Tensor(batch["scalers"] / (2 * math.pi)) 
+            p = p.unsqueeze(-1)
+            p = p.repeat(1, 2)
+            p[:, 0] = torch.sin(2 * torch.pi * p[:, 0]) 
+            p[:, 1] = torch.cos(2 * torch.pi * p[:, 1])
 
             # getting the embeddings from the mlp
             mlp_emb = continuous_word_model(p) 
+
+            zero_mlp_emb = torch.zeros_like(mlp_emb) 
+            mlp_emb = torch.cat((mlp_emb, zero_mlp_emb), dim=0) 
 
         else: 
             assert False 
@@ -1860,6 +1862,7 @@ def main(args):
                 bnha_emb.append(torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]].detach())  
 
             bnha_emb = torch.stack(bnha_emb) 
+            # bnha_emb = torch.cat((bnha_emb, bnha_emb), dim=0)  
 
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
@@ -1870,7 +1873,9 @@ def main(args):
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
         encoder_hidden_states = []
-        input_ids, input_ids_prior = torch.chunk(batch["prompt_ids"], 2, dim=0) 
+        # input_ids, input_ids_prior = torch.chunk(batch["prompt_ids"], 2, dim=0) 
+        input_ids = batch["prompt_ids"] 
+        assert len(input_ids) == B 
 
         for batch_idx, batch_item in enumerate(input_ids): 
             # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
@@ -1890,9 +1895,9 @@ def main(args):
         # replacing the text encoder input embeddings by the original ones, this time setting them to be HOT, this will be useful in case we choose to do textual inversion 
         # here we are not cloning because these won't be stepped upon anyways, and this way we can save some memory also!  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=True)   
-        encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
-        assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
-        encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0)
+        # encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
+        # assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
+        # encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0)
 
         """End Adobe CONFIDENTIAL"""
 

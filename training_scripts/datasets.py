@@ -123,17 +123,24 @@ class DisentangleDataset(Dataset):
 
         # selecting the random view for the chosen subject 
         random_ref_img = random.choice(os.listdir(subject_ref_dir))  
-        angle = float(random_ref_img.split(f".jpg")[0])  
-        example["scaler"] = angle 
+        # angle = float(random_ref_img.split(f".jpg")[0])  
+        # example["scaler"] = angle 
+        _, view, a, e, r, _ = random_ref_img.split(f"__") 
+        # print(f"{random_ref_img = }")
+        a = float(a) 
+        e = float(e) 
+        r = float(r) 
+        example["scaler"] = [a, e, r] 
 
         # choosing from the instance images, not the augmentation 
-        if False:  
+        if True:  
             example["controlnet"] = False 
             # prompt = f"a photo of a bnha {subject} in front of a dark background"  
             prompt = f"a photo of a bnha in front of a dark background"  
+            example["prompt"] = prompt 
 
             example["prompt_ids"] = self.tokenizer(
-                prompt, 
+                example["prompt"], 
                 padding="do_not_pad", 
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length, 
@@ -192,8 +199,9 @@ class DisentangleDataset(Dataset):
             class_img = Image.open(class_img_path) 
             example["class_img"] = self.image_transforms(class_img) 
             class_prompt = f"a photo of a {subject}"
+            example["class_prompt"] = class_prompt 
             example["class_prompt_ids"] = self.tokenizer(
-                class_prompt, 
+                example["class_prompt"], 
                 padding="do_not_pad", 
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length 
