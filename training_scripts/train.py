@@ -2334,15 +2334,15 @@ def main(args):
                 # bnha_embeds_safe = [torch.clone(p) for p in bnha_embeds.parameters()] 
 
 
-            if args.textual_inv and args.online_inference: 
-                assert False 
-                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, bnha_embeds) 
-                force_wandb_log = True 
-                set_seed(args.seed + accelerator.process_index) 
-            elif args.online_inference: 
-                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger) 
-                force_wandb_log = True 
-                set_seed(args.seed + accelerator.process_index) 
+            # if args.textual_inv and args.online_inference: 
+            #     assert False 
+            #     wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, bnha_embeds) 
+            #     force_wandb_log = True 
+            #     set_seed(args.seed + accelerator.process_index) 
+            # elif args.online_inference: 
+            #     wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger) 
+            #     force_wandb_log = True 
+            #     set_seed(args.seed + accelerator.process_index) 
 
             if DEBUG: 
                 for p_, p in zip(unet_params_safe, unet.parameters()): 
