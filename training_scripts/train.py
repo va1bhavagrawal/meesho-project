@@ -176,7 +176,6 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             "bnha cat", 
             "bnha elephant", 
             "bnha bus", 
-            "bnha giraffe", 
             "bnha jeep", 
         ] 
 
