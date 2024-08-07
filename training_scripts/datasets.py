@@ -127,7 +127,7 @@ class DisentangleDataset(Dataset):
         example["scaler"] = angle 
 
         # choosing from the instance images, not the augmentation 
-        if False:  
+        if True:  
             example["controlnet"] = False 
             # prompt = f"a photo of a bnha {subject} in front of a dark background"  
             prompt = f"a photo of a bnha in front of a dark background"  
