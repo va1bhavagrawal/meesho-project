@@ -9,3 +9,8 @@ multiobject/
 template_truck/
 training_scripts/__pycache__
 tmp/
+training_scripts/vis/*  
+training_scripts/*vis* 
+training_scripts/*safe* 
+training_data_*/
+aer*/

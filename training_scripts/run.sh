@@ -1,12 +1,12 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="pose_dropout_0.1prior"      
+export RUN_NAME="skippose_posedropout"      
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
-export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_multiobject"
+export INSTANCE_DIR="../training_data_vaibhav_posedropout/ref_imgs_multiobject" 
+export CONTROLNET_DATA_DIR="../training_data_vaibhav_posedropout/controlnet_imgs_multiobject"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_multiobject"
+export CLASS_DATA_DIR="../training_data_vaibhav_posedropout/prior_imgs_multiobject"
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_0508.txt" 
 export VIS_DIR="../multiobject/"  
 

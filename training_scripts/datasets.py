@@ -171,8 +171,8 @@ class DisentangleDataset(Dataset):
             assert osp.exists(img_path) 
             img = Image.open(img_path)   
 
-        print(f"{prompt = }")
-        print(f"{img_path = }")
+        # print(f"{prompt = }")
+        # print(f"{img_path = }")
         # in either case, the poseappearance embedding would be necessary 
         # in either case, the subject name in the prompt would be necessary too 
         assert prompt.find("bnha") != -1 
@@ -229,6 +229,6 @@ class DisentangleDataset(Dataset):
             example["class_img"] = self.image_transforms(img) 
             class_prompt = prompt 
 
-        print(f"{class_prompt = }")
+        # print(f"{class_prompt = }")
 
         return example 
