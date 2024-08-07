@@ -27,7 +27,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet \
   --resolution=512 \
   --train_batch_size=1 \
-  --inference_batch_size=4 \
+  --inference_batch_size=2 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
