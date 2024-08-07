@@ -37,9 +37,9 @@ class PromptDataset(Dataset):
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
             "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-            # "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
-            # "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
-            # "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
+            "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
+            "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
+            "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
             "a SUBJECT in a colorful tulip field, with windmills in the background", 
         ]
         # this is just an indicator of azimuth, not the exact value 
@@ -127,15 +127,13 @@ class DisentangleDataset(Dataset):
         example["scaler"] = angle 
 
         # choosing from the instance images, not the augmentation 
-        # if index % 5 != 0: 
-        # only choosing the controlnet images in this one 
-        if True:  
+        if False:  
             example["controlnet"] = False 
+            # prompt = f"a photo of a bnha {subject} in front of a dark background"  
             prompt = f"a photo of a bnha in front of a dark background"  
-            example["prompt"] = prompt 
 
             example["prompt_ids"] = self.tokenizer(
-                example["prompt"],  
+                prompt, 
                 padding="do_not_pad", 
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length, 
@@ -172,8 +170,8 @@ class DisentangleDataset(Dataset):
             assert osp.exists(img_path) 
             img = Image.open(img_path)   
 
-        # print(f"{prompt = }")
-        # print(f"{img_path = }")
+        print(f"{prompt = }")
+        print(f"{img_path = }")
         # in either case, the poseappearance embedding would be necessary 
         # in either case, the subject name in the prompt would be necessary too 
         assert prompt.find("bnha") != -1 
@@ -186,7 +184,6 @@ class DisentangleDataset(Dataset):
         example["img"] = self.image_transforms(img)  
 
         if self.args.with_prior_preservation: 
-            assert False 
             subject_class_imgs_path = osp.join(self.args.class_data_dir, subject_)  
             assert len(os.listdir(subject_class_imgs_path)) == self.args.num_class_images 
             class_img_name = str(index % self.args.num_class_images).zfill(3) + ".jpg"  

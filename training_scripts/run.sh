@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="poseonly_nosubject_skip"
+export RUN_NAME="zero123_style_noprior_azimuthonly"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
@@ -37,10 +37,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter \
   --lr_warmup_steps=0 \
   --online_inference \
-  --with_prior_preservation \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --run_name="$RUN_NAME" \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
