@@ -53,10 +53,10 @@ TOKEN2ID = {
     "dog": 1929, 
 }
 DEBUG = False  
-BS = 4  
+BS = 4   
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 5000, 10000, 50000, 70000, 80000, 90000, 100000] 
+VLOG_STEPS = [1000, 5000, 10000, 50000, 100000] 
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
 NUM_SAMPLES = 18     
@@ -567,7 +567,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             "bnha truck", 
             "bnha zebra",  
             "bnha sedan", 
-            "bnha shoe", 
+            # "bnha shoe", 
             "bnha hen", 
             "bnha dog", 
         ]
@@ -1738,7 +1738,7 @@ def main(args):
     if args.train_text_encoder:
         text_encoder.train()
 
-    if DEBUG: 
+    if DEBUG and accelerator.is_main_process: 
         if osp.exists(f"vis"): 
             shutil.rmtree(f"vis") 
         os.makedirs("vis")  
@@ -1753,20 +1753,26 @@ def main(args):
         #     else:
         #         steps_per_angle[angle] = 1 
 
+        B = len(batch["scalers"])   
+
         accelerator.print(f"<=====================================================================>")
         for key, value in batch.items(): 
             if ("ids" in key) or ("values" in key): 
                 accelerator.print(f"{key}: {value.shape}") 
             else:
                 accelerator.print(f"{key}: {value}") 
+            if DEBUG: 
+                if "ids" in key: 
+                    for batch_idx in range(B): 
+                        assert TOKEN2ID[batch["subjects"][batch_idx]] in batch[key][batch_idx] 
+                        assert TOKEN2ID["bnha"] in batch[key][batch_idx]  
 
-        B = len(batch["scalers"])   
         wandb_log_data = {}
         force_wandb_log = False 
         # Convert images to latent space
         vae.to(accelerator.device, dtype=weight_dtype)
 
-        if DEBUG: 
+        if DEBUG and accelerator.is_main_process: 
             for batch_idx, img_t in enumerate(batch["pixel_values"]): 
                 img = (img_t * 0.5 + 0.5) * 255  
                 img = img.permute(1, 2, 0).cpu().numpy().astype(np.uint8) 
@@ -1869,6 +1875,10 @@ def main(args):
         merged_emb = merger(mlp_emb, bnha_emb)  
         merged_emb_norm = torch.linalg.norm(merged_emb)  
         assert merged_emb.shape[0] == B 
+
+
+        # pose embedding norm 
+        pose_emb_norm = torch.linalg.norm(mlp_emb) 
 
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
@@ -2175,6 +2185,9 @@ def main(args):
                 # merged_embedding norm 
                 all_norms.append(merged_emb_norm)  
 
+                # pose embedding norm 
+                all_norms.append(pose_emb_norm) 
+
                 # unet 
                 if args.train_unet: 
                     unet_norm = [torch.linalg.norm(param) for param in unet.parameters() if param.grad is not None]
@@ -2210,7 +2223,8 @@ def main(args):
                 wandb_log_data["mlp_norm"] = gathered_norms[0] 
                 wandb_log_data["merger_norm"] = gathered_norms[1]  
                 wandb_log_data["merged_emb_norm"] = gathered_norms[2] 
-                curr = 3  
+                wandb_log_data["pose_emb_norm"] = gathered_norms[3] 
+                curr = 4  
                 while curr < len(gathered_norms):  
                     if args.train_unet and ("unet_norm" not in wandb_log_data.keys()): 
                         wandb_log_data["unet_norm"] = gathered_norms[curr]  

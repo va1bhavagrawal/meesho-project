@@ -37,10 +37,10 @@ class PromptDataset(Dataset):
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
             "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-            # "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
-            # "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
+            "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
+            "a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
             # "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
-            "a SUBJECT in a colorful tulip field, with windmills in the background", 
+            # "a SUBJECT in a colorful tulip field, with windmills in the background", 
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  
@@ -57,12 +57,14 @@ class PromptDataset(Dataset):
                 #     prompt = "a sks photo of " + prompt 
                 # else: 
                 #     prompt = "a photo of " + prompt 
+                assert "bnha" in subject 
                 subject_without_bnha = subject.replace("bnha", "").strip()  
                 subject_without_bnha = " " + subject_without_bnha + " " 
-                prompt_ = prompt.replace(f"SUBJECT", "bnha") 
+                prompt_ = prompt.replace(f"SUBJECT", subject)  
                 # we DO NOT want the subject to be present in the prompt text 
-                assert prompt_.find(subject) == -1, f"{prompt_ = }, {prompt = }, {subject = }" 
-                assert prompt_.find(subject_without_bnha) == -1, f"{prompt_ = }, {prompt = }, {subject_without_bnha = }, {subject = }" 
+                assert prompt_.find(subject) != -1, f"{prompt_ = }, {prompt = }, {subject = }" 
+                assert prompt_.find("bnha") != -1 
+                # assert prompt_.find(subject_without_bnha) == -1, f"{prompt_ = }, {prompt = }, {subject_without_bnha = }, {subject = }" 
                 prompts.append(prompt_)  
                 prompt_wise_subjects.append(subject) 
         return prompt_wise_subjects, prompts  
@@ -131,7 +133,7 @@ class DisentangleDataset(Dataset):
         # only choosing the controlnet images in this one 
         if True:  
             example["controlnet"] = False 
-            prompt = f"a photo of a bnha in front of a dark background"  
+            prompt = f"a photo of a bnha {subject} in front of a dark background"  
             example["prompt"] = prompt 
 
             example["prompt_ids"] = self.tokenizer(
@@ -179,7 +181,7 @@ class DisentangleDataset(Dataset):
         assert prompt.find("bnha") != -1 
         # assert prompt.find(subject) != -1 
         # we DO NOT want the subject to be present in the prompt text 
-        assert prompt.find(f" {subject} ") == -1, f"{prompt = }, {subject = }"  
+        assert prompt.find(f" {subject} ") != -1, f"{prompt = }, {subject = }"  
 
         if not img.mode == "RGB":  
             img = img.convert("RGB") 
