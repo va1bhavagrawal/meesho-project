@@ -1,12 +1,12 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="poseonly_subjectinprompt_pickuptruck_randomxy"    
+export RUN_NAME="poseonly_subjectinprompt_motorbike_randomxy"    
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_pickup_truck_axy/ref_imgs_multiobject" 
-export CONTROLNET_DATA_DIR="../training_data_pickup_truck_axy/controlnet_imgs_multiobject"
+export INSTANCE_DIR="../training_data_motorbike_axy/ref_imgs_multiobject" 
+export CONTROLNET_DATA_DIR="../training_data_motorbike_axy/controlnet_imgs_multiobject"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_pickup_truck_axy/prior_imgs_multiobject"
+export CLASS_DATA_DIR="../training_data_motorbike_axy/prior_imgs_multiobject"
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_0508.txt" 
 export VIS_DIR="../multiobject/"  
 
