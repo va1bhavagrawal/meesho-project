@@ -20,9 +20,8 @@ class PromptDataset(Dataset):
         self.num_samples = num_samples 
         self.subjects = [
             "bnha pickup truck",
-            "pickup truck",
-            "bus", 
-            "motorbike",  
+            "bnha bus", 
+            "bnha motorbike",  
         ] 
 
         self.template_prompts = [
@@ -107,10 +106,19 @@ class DisentangleDataset(Dataset):
 
         example["subject"] = subject 
 
-        # selecting the random view for the chosen subject 
-        random_ref_img = random.choice(os.listdir(subject_ref_dir))  
-        angle = float(random_ref_img.split(f".jpg")[0])  
-        example["scaler"] = angle 
+        # # selecting the random view for the chosen subject 
+        # random_ref_img = random.choice(os.listdir(subject_ref_dir))  
+        # # angle = float(random_ref_img.split(f".jpg")[0])  
+        # a, e, r, x, y, _ = random_ref_img.split("__") 
+        # a = float(a) 
+        # e = float(e) 
+        # r = float(r) 
+        # x = float(x) 
+        # y = float(y) 
+        # assert r == 1.8 
+        # assert e == 0.0  
+        # # example["scaler"] = angle 
+        # example["scaler"] = a 
 
         # choosing from the instance images, not the augmentation 
         # if index % 5 != 0: 
@@ -133,30 +141,47 @@ class DisentangleDataset(Dataset):
         # choosing from the controlnet augmentation 
         else: 
             example["controlnet"] = True  
-            subject_angle_controlnet_dir = osp.join(self.args.controlnet_data_dir, subject_, str(angle))  
-            avlble_imgs = os.listdir(subject_angle_controlnet_dir) 
-            chosen_img = random.choice(avlble_imgs) 
+            # subject_angle_controlnet_dir = osp.join(self.args.controlnet_data_dir, subject_, str(angle))  
+            # avlble_imgs = os.listdir(subject_angle_controlnet_dir) 
+            # chosen_img = random.choice(avlble_imgs) 
 
-            prompt_idx = int(chosen_img.split("___prompt")[-1].split(".jpg")[0])  
+            # selecting the random view for the chosen subject 
+            chosen_cntrl_img = random.choice(os.listdir(osp.join(self.args.controlnet_data_dir, subject_)))   
+            # angle = float(random_ref_img.split(f".jpg")[0])  
+            a, e, r, x, y, _ = chosen_cntrl_img.split("__") 
+            a = float(a) 
+            e = float(e) 
+            r = float(r) 
+            x = float(x) 
+            y = float(y) 
+            assert r == 1.8 
+            assert e == 0.0  
+            # example["scaler"] = angle 
+            example["scaler"] = a 
+
+            prompt_idx = int(chosen_cntrl_img.split("__prompt")[-1].split(".jpg")[0])  
             prompt = self.args.controlnet_prompts[prompt_idx] 
             # there must be the keyword SUBJECT in the prompt, that can be replaced for the relevant subject 
             assert prompt.find("SUBJECT") != -1 
             prompt = prompt.replace("SUBJECT", f"bnha {subject}")  
             assert prompt.find("bnha") != -1 
             assert prompt.find(subject) != -1 
+            example["prompt"] = prompt 
             example["prompt_ids"] = self.tokenizer(
-                prompt, 
+                # prompt, 
+                example["prompt"], 
                 padding="do_not_pad", 
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length, 
             ).input_ids 
 
-            img_path = osp.join(subject_angle_controlnet_dir, chosen_img)
-            assert osp.exists(img_path) 
+            # img_path = osp.join(subject_angle_controlnet_dir, chosen_img)
+            img_path = osp.join(self.args.controlnet_data_dir, subject_, chosen_cntrl_img) 
+            assert osp.exists(img_path), f"{img_path = }" 
             img = Image.open(img_path)   
 
-        print(f"{prompt = }")
-        print(f"{img_path = }")
+        # print(f"{prompt = }")
+        # print(f"{img_path = }")
         # in either case, the poseappearance embedding would be necessary 
         # in either case, the subject name in the prompt would be necessary too 
         assert prompt.find("bnha") != -1 
@@ -177,12 +202,14 @@ class DisentangleDataset(Dataset):
             class_img = Image.open(class_img_path) 
             example["class_img"] = self.image_transforms(class_img) 
             class_prompt = f"a photo of a {subject}"
+            example["class_prompt"] = class_prompt 
             example["class_prompt_ids"] = self.tokenizer(
-                class_prompt, 
+                # class_prompt, 
+                example["class_prompt"], 
                 padding="do_not_pad", 
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length 
             ).input_ids 
-            print(f"{class_prompt = }") 
+            # print(f"{class_prompt = }") 
 
         return example 

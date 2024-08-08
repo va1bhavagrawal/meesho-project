@@ -1,5 +1,13 @@
 training_data/
 training_data_vaibhav/
-ckps/
+ckpts/
 training_scripts/wandb/
 training_scripts/*gif 
+*a_shifted* 
+training_scripts/*vis*/
+training_scripts/*vis* 
+*aer* 
+*aer*/
+multiobject/
+training_data*/
+training_scripts/inference_results*/
