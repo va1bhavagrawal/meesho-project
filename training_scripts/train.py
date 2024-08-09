@@ -1338,7 +1338,7 @@ def main(args):
         assert merged_emb.shape[0] == B 
 
         # pose embedding norm 
-        pose_emb_norm = torch.linalg.norm(mlp_emb) 
+        pose_emb_norm = torch.linalg.norm(mlp_emb).to(accelerator.device)  
 
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
