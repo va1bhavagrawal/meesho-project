@@ -26,6 +26,7 @@ from io import BytesIO
 from utils import * 
 
 import matplotlib.pyplot as plt 
+import textwrap 
 
 # from metrics import MetricEvaluator 
 
@@ -41,12 +42,13 @@ TOKEN2ID = {
     "elephant": 10299,   
     "jeep": 11286,  
     "motorbike": 33341,  
+    "sedan": 24237, 
 }
-DEBUG = True  
-BS = 4 
-SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
+DEBUG = False  
+BS = 4  
+SAVE_STEPS = [5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000]  
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
+VLOG_STEPS = [1000, 10000, 30000, 50000, 70000, 90000, 110000] 
 
 from datasets import DisentangleDataset 
 
@@ -138,6 +140,7 @@ def create_gif(images, save_path, duration=1):
 
 def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, use_sks, bnha_embeds=None):  
     with torch.no_grad(): 
+        text_encoder = copy.deepcopy(text_encoder) 
         vae.to(accelerator.device) 
         # the list of videos 
         # each item in the list is the video of a prompt at different viewpoints, or just random generations if use_sks=False  
@@ -175,9 +178,13 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                         subject = subject.replace("bnha", "").strip() 
 
                         # if hasattr(bnha_embs, subject): 
-                        assert hasattr(accelerator.unwrap_model(bnha_embeds), subject)  
+                        # assert hasattr(accelerator.unwrap_model(bnha_embeds), subject), f"{subject = }, {[p for p in bnha_embeds.parameters()]}"  
+                        if hasattr(accelerator.unwrap_model(bnha_embeds), subject): 
+
                             # if the subject (after removing bnha) is in the training subjects, then just replace the learnt appearance embedding 
-                        bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
+                            bnha_embs.append(getattr(accelerator.unwrap_model(bnha_embeds), subject))     
+                        else: 
+                            bnha_embs.append(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
                             # bnha_embs.append(bnha_embeds(subject))      
                         # else: 
                         #     # if the subject is not in the training subjects, then zero is passed as the appearance embedding 
@@ -640,7 +647,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=60000,
+        default=100000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -788,19 +795,19 @@ def main(args):
 
     # sanity check: for every subject there should be the same angles  
     # print(f"{subjects_ = }")
-    for subject_ in subjects_[:1]: 
-        subject_path = osp.join(args.instance_data_dir, subject_) 
-        files = os.listdir(subject_path) 
-        angles = [float(file.replace(f".jpg", "")) for file in files] 
-        angles = sorted(np.array(angles)) 
+    # for subject_ in subjects_[:1]: 
+    #     subject_path = osp.join(args.instance_data_dir, subject_) 
+    #     files = os.listdir(subject_path) 
+    #     angles = [float(file.replace(f".jpg", "")) for file in files] 
+    #     angles = sorted(np.array(angles)) 
 
-    angles_ref = angles.copy()  
-    for subject_ in subjects_[1:]: 
-        subject_path = osp.join(args.instance_data_dir, subject_) 
-        files = os.listdir(subject_path) 
-        angles = [float(file.replace(f".jpg", "")) for file in files] 
-        angles = sorted(np.array(angles)) 
-        assert np.allclose(angles, angles_ref) 
+    # angles_ref = angles.copy()  
+    # for subject_ in subjects_[1:]: 
+    #     subject_path = osp.join(args.instance_data_dir, subject_) 
+    #     files = os.listdir(subject_path) 
+    #     angles = [float(file.replace(f".jpg", "")) for file in files] 
+    #     angles = sorted(np.array(angles)) 
+    #     assert np.allclose(angles, angles_ref) 
 
     # max train steps 
     args.max_train_steps = args.stage1_steps + args.stage2_steps 
@@ -1060,6 +1067,7 @@ def main(args):
         prompt_ids = [example["prompt_ids"] for example in examples] 
         subjects = [example["subject"] for example in examples] 
         pixel_values = []
+        prompts = [example["prompt"] for example in examples] 
         for example in examples:
             pixel_values.append(example["img"])
 
@@ -1069,6 +1077,7 @@ def main(args):
         if args.with_prior_preservation:
             prompt_ids += [example["class_prompt_ids"] for example in examples]
             pixel_values += [example["class_img"] for example in examples]
+            prompts += [example["class_prompt"] for example in examples]  
 
         pixel_values = torch.stack(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
@@ -1086,6 +1095,7 @@ def main(args):
             "scalers": scalers,
             "subjects": subjects, 
             "controlnet": is_controlnet, 
+            "prompts": prompts, 
         }
 
         return batch 
@@ -1190,6 +1200,14 @@ def main(args):
 
     # steps_per_angle = {} 
 
+    if DEBUG and accelerator.is_main_process: 
+        if osp.exists(f"vis"): 
+            shutil.rmtree(f"vis") 
+        os.makedirs("vis") 
+
+
+    input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight).detach()  
+
     for step, batch in enumerate(train_dataloader):
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
@@ -1198,10 +1216,44 @@ def main(args):
         #         steps_per_angle[angle] = 1 
 
         B = len(batch["scalers"])   
+
+        accelerator.print(f"<=============================== step {step * accelerator.num_processes}  ======================================>")
+        for key, value in batch.items(): 
+            if ("ids" in key) or ("values" in key): 
+                accelerator.print(f"{key}: {value.shape}") 
+            else:
+                accelerator.print(f"{key}: {value}") 
+
+            # making some checks on the dataloader outputs in case of DEBUG mode 
+            if DEBUG: 
+                if "ids" in key: 
+                    # this is necessary because we are on a "nosubject" formulation 
+                    for batch_idx in range(B):  
+                        assert TOKEN2ID[batch["subjects"][batch_idx]] in value 
+                        assert TOKEN2ID["bnha"] in value 
+
         wandb_log_data = {}
         force_wandb_log = False 
         # Convert images to latent space
         vae.to(accelerator.device, dtype=weight_dtype)
+
+        assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight, input_embeddings) 
+
+        if DEBUG and accelerator.is_main_process: 
+            for batch_idx, img_t in enumerate(batch["pixel_values"]): 
+                img = (img_t * 0.5 + 0.5) * 255  
+                img = img.permute(1, 2, 0).cpu().numpy().astype(np.uint8) 
+                plt.figure(figsize=(20, 20)) 
+                plt.imshow(img)  
+                if batch_idx < B: 
+                    plt_title = f"{step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t{batch['subjects'][batch_idx] = }\t{batch['scalers'][batch_idx] = }" 
+                else: 
+                    plt_title = f"{step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t" 
+                plt_title = "\n".join(textwrap.wrap(plt_title, width=60)) 
+                plt.title(plt_title, fontsize=9)  
+                plt.savefig(f"vis/{str(step).zfill(3)}_{str(batch_idx).zfill(3)}.jpg") 
+                plt.close() 
+
         latents = vae.encode(
             batch["pixel_values"].to(dtype=weight_dtype)
         ).latent_dist.sample()
@@ -1238,7 +1290,6 @@ def main(args):
         strictly forbidden unless prior written permission is obtained from Adobe.
         """
 
-        input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight).detach()  
         # if we are in stage 2 of training, only then do we need to compute the pose embedding, otherwise it is zero 
         if global_step > args.stage1_steps: 
             progress_bar.set_description(f"stage 2: ")
@@ -1285,6 +1336,9 @@ def main(args):
         merged_emb = merger(mlp_emb, bnha_emb)  
         merged_emb_norm = torch.linalg.norm(merged_emb)  
         assert merged_emb.shape[0] == B 
+
+        # pose embedding norm 
+        pose_emb_norm = torch.linalg.norm(mlp_emb) 
 
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
@@ -1531,6 +1585,9 @@ def main(args):
                 # merged_embedding norm 
                 all_norms.append(merged_emb_norm)  
 
+                # pose embedding norm 
+                all_norms.append(pose_emb_norm) 
+
                 # unet 
                 if args.train_unet: 
                     unet_norm = [torch.linalg.norm(param) for param in unet.parameters() if param.grad is not None]
@@ -1566,7 +1623,8 @@ def main(args):
                 wandb_log_data["mlp_norm"] = gathered_norms[0] 
                 wandb_log_data["merger_norm"] = gathered_norms[1]  
                 wandb_log_data["merged_emb_norm"] = gathered_norms[2] 
-                curr = 3  
+                wandb_log_data["pose_emb_norm"] = gathered_norms[3] 
+                curr = 4  
                 while curr < len(gathered_norms):  
                     if args.train_unet and ("unet_norm" not in wandb_log_data.keys()): 
                         wandb_log_data["unet_norm"] = gathered_norms[curr]  

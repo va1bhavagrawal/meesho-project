@@ -1,13 +1,13 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="2obj_freeze_notext"   
+export RUN_NAME="randomxy_freezeapp"   
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_vaibhav2/ref_imgs_multiobject" 
-export CONTROLNET_DATA_DIR="../training_data_vaibhav2/controlnet_imgs_multiobject"
+export INSTANCE_DIR="../training_data_pickup_truck_axy/ref_imgs_multiobject" 
+export CONTROLNET_DATA_DIR="../training_data_pickup_truck_axy/controlnet_imgs_multiobject"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_vaibhav2/prior_imgs_multiobject"
-export CONTROLNET_PROMPTS_FILE="../prompts/prompts_2007.txt" 
+export CLASS_DATA_DIR="../training_data_pickup_truck_axy/prior_imgs_multiobject"
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_0508.txt" 
 export VIS_DIR="../multiobject/"  
 
 # export CUDA_VISIBLE_DEVICES=1
