@@ -19,4 +19,4 @@ training_scripts/*.gif
 *.jpg 
 training_scripts/*.jpg 
 training_scripts/*.png
-
+training_scripts/*safe* 

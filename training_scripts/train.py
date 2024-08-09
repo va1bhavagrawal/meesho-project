@@ -1809,6 +1809,108 @@ def main(args):
                 
 
         # Checks if the accelerator has performed an optimization step behind the scenes
+        # if accelerator.sync_gradients:
+        #     # if args.save_steps and global_step - last_save >= args.save_steps:
+        #     if len(SAVE_STEPS) > 0 and global_step >= SAVE_STEPS[0]: 
+        #         save_step = SAVE_STEPS[0] 
+        #         SAVE_STEPS.pop(0) 
+        #         if accelerator.is_main_process:
+        #             # newer versions of accelerate allow the 'keep_fp32_wrapper' arg. without passing
+        #             # it, the models will be unwrapped, and when they are then used for further training,
+        #             # we will crash. pass this, but only to newer versions of accelerate. fixes
+        #             # https://github.com/huggingface/diffusers/issues/1566
+        #             accepts_keep_fp32_wrapper = "keep_fp32_wrapper" in set(
+        #                 inspect.signature(
+        #                     accelerator.unwrap_model
+        #                 ).parameters.keys()
+        #             )
+        #             extra_args = (
+        #                 {"keep_fp32_wrapper": True}
+        #                 if accepts_keep_fp32_wrapper
+        #                 else {}
+        #             )
+        #             pipeline = StableDiffusionPipeline.from_pretrained(
+        #                 args.pretrained_model_name_or_path,
+        #                 unet=accelerator.unwrap_model(unet, **extra_args),
+        #                 text_encoder=accelerator.unwrap_model(
+        #                     text_encoder, **extra_args
+        #                 ),
+        #                 revision=args.revision,
+        #             )
+
+        #             # filename_unet = (
+        #             #     f"{args.output_dir}/lora_weight_{global_step}.pt"
+        #             # )
+        #             # filename_text_encoder = f"{args.output_dir}/lora_weight_{global_step}.text_encoder.pt"
+        #             # print(f"save weights {filename_unet}, {filename_text_encoder}")
+        #             # save_lora_weight(pipeline.unet, filename_unet)
+                    
+        #             if args.output_format == "safe" or args.output_format == "both":
+        #                 loras = {}
+        #                 if args.train_unet: 
+        #                     loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+
+        #                 print("Cross Attention is also updated!")
+
+        #                 # """ If updating only cross attention """
+        #                 # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
+
+        #                 if args.train_text_encoder:
+        #                     loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+
+        #                 if loras != {}: 
+        #                     save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
+                        
+        #                 """
+        #                 ADOBE CONFIDENTIAL
+        #                 Copyright 2024 Adobe
+        #                 All Rights Reserved.
+        #                 NOTICE: All information contained herein is, and remains
+        #                 the property of Adobe and its suppliers, if any. The intellectual
+        #                 and technical concepts contained herein are proprietary to Adobe 
+        #                 and its suppliers and are protected by all applicable intellectual 
+        #                 property laws, including trade secret and copyright laws. 
+        #                 Dissemination of this information or reproduction of this material is 
+        #                 strictly forbidden unless prior written permission is obtained from Adobe.
+        #                 """
+        #                 torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp_{global_step}.pt")
+        #                 """End Adobe CONFIDENTIAL"""
+                    
+                    
+        #             # if args.train_text_encoder:
+        #             #     save_lora_weight(
+        #             #         pipeline.text_encoder,
+        #             #         filename_text_encoder,
+        #             #         target_replace_module=["CLIPAttention"],
+        #             #     )
+
+        #             # for _up, _down in extract_lora_ups_down(pipeline.unet):
+        #             #     print(
+        #             #         "First Unet Layer's Up Weight is now : ",
+        #             #         _up.weight.data,
+        #             #     )
+        #             #     print(
+        #             #         "First Unet Layer's Down Weight is now : ",
+        #             #         _down.weight.data,
+        #             #     )
+        #             #     break
+        #             # if args.train_text_encoder:
+        #             #     for _up, _down in extract_lora_ups_down(
+        #             #         pipeline.text_encoder,
+        #             #         target_replace_module=["CLIPAttention"],
+        #             #     ):
+        #             #         print(
+        #             #             "First Text Encoder Layer's Up Weight is now : ",
+        #             #             _up.weight.data,
+        #             #         )
+        #             #         print(
+        #             #             "First Text Encoder Layer's Down Weight is now : ",
+        #             #             _down.weight.data,
+        #             #         )
+        #             #         break
+
+
+        # Checks if the accelerator has performed an optimization step behind the scenes
         if accelerator.sync_gradients:
             # if args.save_steps and global_step - last_save >= args.save_steps:
             if len(SAVE_STEPS) > 0 and global_step >= SAVE_STEPS[0]: 
@@ -1845,36 +1947,74 @@ def main(args):
                     # print(f"save weights {filename_unet}, {filename_text_encoder}")
                     # save_lora_weight(pipeline.unet, filename_unet)
                     
-                    if args.output_format == "safe" or args.output_format == "both":
-                        loras = {}
-                        if args.train_unet: 
-                            loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+                    # if args.output_format == "safe" or args.output_format == "both":
 
-                        print("Cross Attention is also updated!")
+                    # this is for the whole model along with the optimizers 
+                    training_state = {} 
+                    # for name, optimizer in optimizers.items(): 
+                    #     training_state[name] = {} 
+                    #     training_state[name]["optimizer"] = optimizer.state_dict() 
+                    #     training_state[name]["parameters"] =  
 
-                        # """ If updating only cross attention """
-                        # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
+                    training_state["appearance"] = {} 
+                    training_state["contword"] = {} 
+                    training_state["merger"] = {} 
+                    training_state["text_encoder"] = {} 
+                    training_state["unet"] = {} 
 
-                        if args.train_text_encoder:
-                            loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+                    training_state["merger"]["optimizer"] = optimizers["merger"].state_dict() 
+                    training_state["merger"]["model"] = accelerator.unwrap_model(merger).state_dict() 
 
-                        if loras != {}: 
-                            save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
-                        
-                        """
-                        ADOBE CONFIDENTIAL
-                        Copyright 2024 Adobe
-                        All Rights Reserved.
-                        NOTICE: All information contained herein is, and remains
-                        the property of Adobe and its suppliers, if any. The intellectual
-                        and technical concepts contained herein are proprietary to Adobe 
-                        and its suppliers and are protected by all applicable intellectual 
-                        property laws, including trade secret and copyright laws. 
-                        Dissemination of this information or reproduction of this material is 
-                        strictly forbidden unless prior written permission is obtained from Adobe.
-                        """
-                        torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp_{global_step}.pt")
-                        """End Adobe CONFIDENTIAL"""
+                    training_state["contword"]["optimizer"] = optimizers["contword"].state_dict() 
+                    training_state["contword"]["model"] = accelerator.unwrap_model(continuous_word_model).state_dict() 
+
+                    if args.textual_inv: 
+                        training_state["appearance"]["optimizer"] = optimizers["appearance"].state_dict() 
+                        training_state["appearance"]["model"] = accelerator.unwrap_model(bnha_embeds).state_dict()  
+
+                    if args.train_unet: 
+                        training_state["unet"]["optimizer"] = optimizers["unet"].state_dict() 
+                        training_state["unet"]["model"] = args.pretrained_model_name_or_path  
+                        training_state["unet"]["lora"] = list(itertools.chain(*unet_lora_params)) 
+
+                    if args.train_text_encoder: 
+                        training_state["text_encoder"]["optimizer"] = optimizers["text_encoder"].state_dict() 
+                        training_state["text_encoder"]["model"] = args.pretrained_model_name_or_path  
+                        training_state["text_encoder"]["lora"] = list(itertools.chain(*text_encoder_lora_params)) 
+
+                    save_dir = osp.join(args.output_dir, f"training_state_{global_step}.pth")
+                    torch.save(training_state, save_dir)   
+
+                    # this is for saving the safeloras 
+                    loras = {}
+                    if args.train_unet: 
+                        loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+
+                    print("Cross Attention is also updated!")
+
+                    # """ If updating only cross attention """
+                    # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
+
+                    if args.train_text_encoder:
+                        loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+
+                    if loras != {}: 
+                        save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
+                    
+                    """
+                    ADOBE CONFIDENTIAL
+                    Copyright 2024 Adobe
+                    All Rights Reserved.
+                    NOTICE: All information contained herein is, and remains
+                    the property of Adobe and its suppliers, if any. The intellectual
+                    and technical concepts contained herein are proprietary to Adobe 
+                    and its suppliers and are protected by all applicable intellectual 
+                    property laws, including trade secret and copyright laws. 
+                    Dissemination of this information or reproduction of this material is 
+                    strictly forbidden unless prior written permission is obtained from Adobe.
+                    """
+                    # torch.save(continuous_word_model.state_dict(), f"{args.output_dir}/mlp_{global_step}.pt")
+                    """End Adobe CONFIDENTIAL"""
                     
                     
                     # if args.train_text_encoder:
@@ -1908,6 +2048,7 @@ def main(args):
                     #             _down.weight.data,
                     #         )
                     #         break
+
 
 
 
