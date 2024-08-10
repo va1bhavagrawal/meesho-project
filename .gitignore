@@ -5,3 +5,5 @@ training_scripts/wandb/
 training_scripts/*gif 
 training_data_vaibhav*/
 multiobject/
+training_scripts/inference_results/
+training_scripts/*.mp4 
