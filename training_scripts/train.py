@@ -56,7 +56,7 @@ DEBUG = False
 BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 5000, 10000, 50000, 70000, 80000, 90000, 100000] 
+VLOG_STEPS = [16, 1000, 5000, 10000, 50000, 70000, 80000, 90000, 100000] 
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
 NUM_SAMPLES = 18     
@@ -360,20 +360,20 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         # IT MAKES SENSE TO KEEP THE SAME SUBJECTS AS THE TYPE 1 INFERENCE 
         subjects = [
             "bnha pickup truck",
-            "bnha motorbike",  
-            "bnha horse", 
-            "bnha lion", 
-            "bnha cat", 
-            "bnha elephant", 
-            "bnha bus", 
-            "bnha giraffe", 
-            "bnha jeep", 
+            # "bnha motorbike",  
+            # "bnha horse", 
+            # "bnha lion", 
+            # "bnha cat", 
+            # "bnha elephant", 
+            # "bnha bus", 
+            # "bnha giraffe", 
+            # "bnha jeep", 
         ] 
 
         common_seed = get_common_seed() 
         set_seed(common_seed)  
 
-        subjects = random.sample(subjects, NUM_COLS) 
+        subjects = random.sample(subjects, 1) 
 
         # if not use_sks: 
         #     prompts_dataset = PromptDataset(num_samples=6, subjects=)  
@@ -409,7 +409,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                         assert "bnha" in subject 
                         subject_without_bnha = subject.replace("bnha", "").strip()  
                         # this assertion is necessary as type 2 inference has only subjects seen during training 
-                        assert subject_without_bnha in args.subjects 
+                        assert subject_without_bnha in args.subjects, f"{subject_without_bnha = }" 
 
                         # subject = subject.replace("bnha", "").strip() 
 
@@ -562,17 +562,18 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         set_seed(common_seed)  
 
         subjects = [
-            "bnha bicycle", 
-            "bnha tractor", 
-            "bnha truck", 
-            "bnha zebra",  
             "bnha sedan", 
-            "bnha shoe", 
-            "bnha hen", 
-            "bnha dog", 
+            # "bnha bicycle", 
+            # "bnha tractor", 
+            # "bnha truck", 
+            # "bnha zebra",  
+            # "bnha sedan", 
+            # "bnha shoe", 
+            # "bnha hen", 
+            # "bnha dog", 
         ]
 
-        subjects = random.sample(subjects, NUM_COLS)  
+        subjects = random.sample(subjects, 1)  
 
         # if not use_sks: 
         #     prompts_dataset = PromptDataset(num_samples=6, subjects=)  
