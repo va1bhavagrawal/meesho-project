@@ -37,11 +37,10 @@ class PromptDataset(Dataset):
         self.template_prompts = [
             # prompts testing if the model can follow the prompt to create an 'environment'
             "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-            "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
-            "a photo of a SUBJECT in front of a dark background",  
+            # "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
             # "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
             # "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
-            # "a SUBJECT in a colorful tulip field, with windmills in the background", 
+            "a SUBJECT in a colorful tulip field, with windmills in the background", 
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  
@@ -139,9 +138,8 @@ class DisentangleDataset(Dataset):
             r = float(r) 
             x = int(x) 
             y = int(y) 
-            example["scaler"] = a 
             example["controlnet"] = False 
-            prompt = f"a photo of a bnha in front of a dark background"  
+            prompt = f"a photo of a bnha {subject} in front of a dark background"  
             example["prompt"] = prompt 
 
             example["prompt_ids"] = self.tokenizer(
@@ -169,12 +167,11 @@ class DisentangleDataset(Dataset):
             r = float(r) 
             x = int(x) 
             y = int(y) 
-            example["scaler"] = a 
 
             # avlble_imgs = os.listdir(subject_angle_controlnet_dir) 
             # chosen_img = random.choice(avlble_imgs) 
 
-            prompt_idx = int(chosen_img.split("__prompt")[-1].split(".jpg")[0])  
+            prompt_idx = int(chosen_img.split("___prompt")[-1].split(".jpg")[0])  
             prompt = self.args.controlnet_prompts[prompt_idx] 
             # there must be the keyword SUBJECT in the prompt, that can be replaced for the relevant subject 
             assert prompt.find("SUBJECT") != -1 
@@ -183,9 +180,8 @@ class DisentangleDataset(Dataset):
             # assert prompt.find(subject) != -1 
             # we DO NOT want the subject to be present in the prompt text 
             assert prompt.find(f" {subject} ") == -1, f"{prompt = }, {subject = }" 
-            example["prompt"] = prompt 
             example["prompt_ids"] = self.tokenizer(
-                example["prompt"], 
+                prompt, 
                 padding="do_not_pad", 
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length, 
@@ -224,6 +220,6 @@ class DisentangleDataset(Dataset):
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length 
             ).input_ids 
-            # print(f"{class_prompt = }") 
+            print(f"{class_prompt = }") 
 
         return example 
