@@ -1,6 +1,7 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
 export RUN_NAME="poseonly_nosubject_seeblack"
+# export RUN_NAME="debug"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_pickup_truck_axy/ref_imgs_multiobject" 
