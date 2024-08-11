@@ -1,13 +1,14 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="multiobject_poseonly_notext_repeat"   
+# export RUN_NAME="debug"    
+export RUN_NAME="poseonly_8obj_subject_seeblack"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_vaibhav/ref_imgs_multiobject" 
-export CONTROLNET_DATA_DIR="../training_data_vaibhav/controlnet_imgs_multiobject"
+export INSTANCE_DIR="../training_data_large/ref_imgs_multiobject" 
+export CONTROLNET_DATA_DIR="../training_data_large/controlnet_imgs_multiobject"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_vaibhav/prior_imgs_multiobject"
-export CONTROLNET_PROMPTS_FILE="../prompts/prompts_2007.txt" 
+export CLASS_DATA_DIR="../training_data_large/prior_imgs_multiobject"
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_0508.txt"  
 export VIS_DIR="../multiobject/"  
 
 # export CUDA_VISIBLE_DEVICES=1
