@@ -71,12 +71,13 @@ BS = 4
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000]  
-VLOG_STEPS = [100, 10000]  
-for vlog_step in range(50000, 210000, 50000):  
-    VLOG_STEPS = VLOG_STEPS + [vlog_step] 
+# VLOG_STEPS = [100, 10000]  
+# for vlog_step in range(50000, 210000, 50000):  
+#     VLOG_STEPS = VLOG_STEPS + [vlog_step] 
+VLOG_STEPS = [] 
 SAVE_STEPS = [100, 5000]  
 for save_step in range(10000, 210000, 10000): 
-    SAVE_STEPS = SAVE_STEPS = [save_step] 
+    SAVE_STEPS = SAVE_STEPS + [save_step] 
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 NUM_COLS = 4  
 NUM_SAMPLES = 18  
@@ -1536,7 +1537,7 @@ def main(args):
     #     weight_decay=args.adam_weight_decay,
     #     eps=args.adam_epsilon,
     # )
-    optimizers = [] 
+    optimizers = {}  
     if args.train_unet: 
         optimizer_unet = optimizer_class(
             itertools.chain(*unet_lora_params), 
@@ -1545,7 +1546,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        optimizers.append(optimizer_unet) 
+        # optimizers.append(optimizer_unet) 
+        optimizers["unet"] = optimizer_unet  
 
     if args.train_text_encoder: 
         optimizer_text_encoder = optimizer_class(
@@ -1555,7 +1557,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        optimizers.append(optimizer_text_encoder) 
+        # optimizers.append(optimizer_text_encoder) 
+        optimizers["text_encoder"] = optimizer_text_encoder  
 
     if args.textual_inv: 
         # the appearance embeddings 
@@ -1575,7 +1578,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        optimizers.append(optimizer_bnha) 
+        # optimizers.append(optimizer_bnha) 
+        optimizers["appearance"] = optimizer_bnha  
 
 
     pos_size = 2
@@ -1587,7 +1591,8 @@ def main(args):
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
     )
-    optimizers.append(optimizer_mlp)  
+    # optimizers.append(optimizer_mlp)  
+    optimizers["contword"] = optimizer_mlp  
 
 
     # the merged token formulation 
@@ -1600,7 +1605,8 @@ def main(args):
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
     )
-    optimizers.append(optimizer_merger) 
+    # optimizers.append(optimizer_merger) 
+    optimizers["merger"] = optimizer_merger  
 
 
     noise_scheduler = DDPMScheduler.from_config(
@@ -1693,10 +1699,10 @@ def main(args):
     
     
     unet, text_encoder, merger, continuous_word_model, train_dataloader = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader)  
-    optimizers_ = [] 
-    for optimizer in optimizers: 
+    optimizers_ = {}  
+    for name, optimizer in optimizers.items(): 
         optimizer = accelerator.prepare(optimizer) 
-        optimizers_.append(optimizer) 
+        optimizers_[name] = optimizer  
     if args.textual_inv: 
         bnha_embeds = accelerator.prepare(bnha_embeds) 
     optimizers = optimizers_  
@@ -2180,7 +2186,7 @@ def main(args):
                 if args.textual_inv: 
                     bnha_before = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
 
-        for optimizer in optimizers: 
+        for name, optimizer in optimizers.items(): 
             optimizer.step() 
 
         # calculating weight norms 
@@ -2334,7 +2340,7 @@ def main(args):
         # optimizer_unet.zero_grad()
         # optimizer_text_encoder.zero_grad()
         # continuous_word_optimizer.zero_grad()
-        for optimizer in optimizers: 
+        for name, optimizer in optimizers.items(): 
             optimizer.zero_grad() 
 
         """end Adobe CONFIDENTIAL"""
