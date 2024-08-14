@@ -71,15 +71,17 @@ BS = 4
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000]  
-# VLOG_STEPS = [100, 10000]  
-# for vlog_step in range(50000, 210000, 50000):  
-#     VLOG_STEPS = VLOG_STEPS + [vlog_step] 
-VLOG_STEPS = [] 
+VLOG_STEPS = [100, 10000]  
+for vlog_step in range(50000, 210000, 50000):  
+    VLOG_STEPS = VLOG_STEPS + [vlog_step] 
+# VLOG_STEPS = [] 
 SAVE_STEPS = [100, 5000]  
 for save_step in range(10000, 210000, 10000): 
     SAVE_STEPS = SAVE_STEPS + [save_step] 
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
-NUM_COLS = 4  
+print(f"{VLOG_STEPS = }") 
+print(f"{SAVE_STEPS = }") 
+NUM_COLS = 1   
 NUM_SAMPLES = 18  
 
 
@@ -379,14 +381,14 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         # IT MAKES SENSE TO KEEP THE SAME SUBJECTS AS THE TYPE 1 INFERENCE 
         subjects = [
             "bnha pickup truck",
-            "bnha motorbike",  
-            "bnha horse", 
-            "bnha lion", 
-            "bnha cat", 
-            "bnha elephant", 
-            "bnha bus", 
+            # "bnha motorbike",  
+            # "bnha horse", 
+            # "bnha lion", 
+            # "bnha cat", 
+            # "bnha elephant", 
+            # "bnha bus", 
             # "bnha giraffe", 
-            "bnha jeep", 
+            # "bnha jeep", 
         ] 
 
         common_seed = get_common_seed() 
@@ -587,14 +589,14 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         set_seed(common_seed)  
 
         subjects = [
-            "bnha bicycle", 
-            "bnha tractor", 
-            "bnha truck", 
-            "bnha zebra",  
+            # "bnha bicycle", 
+            # "bnha tractor", 
+            # "bnha truck", 
+            # "bnha zebra",  
             "bnha sedan", 
-            "bnha shoe", 
-            "bnha hen", 
-            "bnha dog", 
+            # "bnha shoe", 
+            # "bnha hen", 
+            # "bnha dog", 
         ]
 
         subjects = random.sample(subjects, NUM_COLS)  
