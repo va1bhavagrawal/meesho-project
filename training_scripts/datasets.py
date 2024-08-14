@@ -39,9 +39,9 @@ class PromptDataset(Dataset):
             "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
             "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
             "a photo of a SUBJECT in front of a dark background",  
-            # "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
-            # "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
-            # "a SUBJECT in a colorful tulip field, with windmills in the background", 
+            "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
+            "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
+            "a SUBJECT in a colorful tulip field, with windmills in the background", 
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  

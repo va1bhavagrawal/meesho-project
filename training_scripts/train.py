@@ -56,9 +56,20 @@ DEBUG = False
 BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-VLOG_STEPS = [1000, 5000, 10000, 50000, 70000, 80000, 90000, 100000] 
+# VLOG_STEPS = [50000, 
+VLOG_STEPS = [100]  
+for vlog_step in range(50000, 210000, 50000): 
+    VLOG_STEPS = VLOG_STEPS + [vlog_step]  
+    
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
-SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
+# SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
+SAVE_STEPS = [500, 1000, 5000] 
+for save_step in range(10000, 210000, 10000): 
+    SAVE_STEPS = SAVE_STEPS + [save_step] 
+
+print(f"{VLOG_STEPS = }")
+print(f"{SAVE_STEPS = }")
+
 NUM_SAMPLES = 18     
 NUM_COLS = 4   
 
@@ -1189,7 +1200,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=100000,
+        default=200000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -1744,7 +1755,7 @@ def main(args):
     input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight).detach()  
 
     # steps_per_angle = {} 
-    if DEBUG: 
+    if DEBUG and accelerator.is_main_process: 
         if osp.exists(f"vis"): 
             shutil.rmtree(f"vis") 
         os.makedirs("vis")  
@@ -1783,7 +1794,7 @@ def main(args):
         # Convert images to latent space
         vae.to(accelerator.device, dtype=weight_dtype)
 
-        if DEBUG: 
+        if DEBUG and accelerator.is_main_process: 
             for batch_idx, img_t in enumerate(batch["pixel_values"]): 
                 img = (img_t * 0.5 + 0.5) * 255  
                 img = img.permute(1, 2, 0).cpu().numpy().astype(np.uint8) 
