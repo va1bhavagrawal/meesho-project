@@ -1,13 +1,13 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="poseonly_nosubject_scales"
+export RUN_NAME="poseonly_nosubject_scales_multiobject"
 # export RUN_NAME="debug"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_scales/ref_imgs_multiobject" 
-export CONTROLNET_DATA_DIR="../training_data_scales/controlnet_imgs_multiobject"
+export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
+export CONTROLNET_DATA_DIR="../training_data_scales_large/controlnet_imgs_multiobject"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_scales/prior_imgs_multiobject"
+export CLASS_DATA_DIR="../training_data_scales_large/prior_imgs_multiobject"
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_0508.txt" 
 export VIS_DIR="../multiobject/"  
 
