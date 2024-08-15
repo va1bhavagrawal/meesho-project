@@ -36,7 +36,7 @@ class PromptDataset(Dataset):
             "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
             "a photo of a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
             "a photo of a SUBJECT in front of a dark background", 
-            # "a SUBJECT in a colorful tulip field, with windmills in the background", 
+            "a photo of a SUBJECT in a colorful tulip field, with windmills in the background", 
         ]
         # this is just an indicator of azimuth, not the exact value 
         self.azimuths = torch.arange(num_samples)  
@@ -53,7 +53,8 @@ class PromptDataset(Dataset):
                 #     prompt = "a sks photo of " + prompt 
                 # else: 
                 #     prompt = "a photo of " + prompt 
-                prompt_ = prompt.replace(f"SUBJECT", subject)
+                assert "bnha" in subject 
+                prompt_ = prompt.replace(f"SUBJECT", subject) 
                 prompts.append(prompt_)  
                 prompt_wise_subjects.append(subject) 
         return prompt_wise_subjects, prompts  

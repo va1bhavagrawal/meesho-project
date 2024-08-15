@@ -81,7 +81,7 @@ for save_step in range(10000, 210000, 10000):
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 print(f"{VLOG_STEPS = }") 
 print(f"{SAVE_STEPS = }") 
-NUM_COLS = 1   
+NUM_COLS = 4  
 NUM_SAMPLES = 18  
 
 
@@ -381,14 +381,13 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         # IT MAKES SENSE TO KEEP THE SAME SUBJECTS AS THE TYPE 1 INFERENCE 
         subjects = [
             "bnha pickup truck",
-            # "bnha motorbike",  
-            # "bnha horse", 
-            # "bnha lion", 
-            # "bnha cat", 
-            # "bnha elephant", 
-            # "bnha bus", 
-            # "bnha giraffe", 
-            # "bnha jeep", 
+            "bnha motorbike",  
+            "bnha horse", 
+            "bnha lion", 
+            "bnha cat", 
+            "bnha elephant", 
+            "bnha bus", 
+            "bnha jeep", 
         ] 
 
         common_seed = get_common_seed() 
@@ -589,14 +588,14 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         set_seed(common_seed)  
 
         subjects = [
-            # "bnha bicycle", 
-            # "bnha tractor", 
-            # "bnha truck", 
-            # "bnha zebra",  
+            "bnha bicycle", 
+            "bnha tractor", 
+            "bnha truck", 
+            "bnha zebra",  
             "bnha sedan", 
-            # "bnha shoe", 
-            # "bnha hen", 
-            # "bnha dog", 
+            "bnha shoe", 
+            "bnha hen", 
+            "bnha dog", 
         ]
 
         subjects = random.sample(subjects, NUM_COLS)  
