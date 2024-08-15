@@ -1,0 +1,71 @@
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Keyword arguments {'device': 'cuda:0'} are not expected by StableDiffusionControlNetPipeline and will be ignored.
+You have disabled the safety checker for <class 'diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_controlnet.StableDiffusionControlNetPipeline'> by passing `safety_checker=None`. Ensure that you abide to the conditions of the Stable Diffusion license and do not expose unfiltered results in services or applications open to the public. Both the diffusers team and Hugging Face strongly recommend to keep the safety filter enabled in all public facing circumstances, disabling it only for use-cases that involve analyzing network behavior or auditing its results. For more information, please have a look at https://github.com/huggingface/diffusers/pull/254 .
+prompt = 'a SUBJECT in a snowy forest, with a gentle snowfall and snow-covered trees\n'
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+a photo of a horse in a snowy forest, with a gentle snowfall and snow-covered trees
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:04<01:17,  4.08s/it] 10%|█         | 2/20 [00:06<00:51,  2.88s/it] 15%|█▌        | 3/20 [00:08<00:43,  2.54s/it] 20%|██        | 4/20 [00:10<00:37,  2.34s/it] 25%|██▌       | 5/20 [00:12<00:33,  2.24s/it] 30%|███       | 6/20 [00:14<00:30,  2.18s/it] 35%|███▌      | 7/20 [00:16<00:27,  2.14s/it] 40%|████      | 8/20 [00:18<00:25,  2.11s/it] 45%|████▌     | 9/20 [00:20<00:23,  2.10s/it] 50%|█████     | 10/20 [00:22<00:20,  2.09s/it] 55%|█████▌    | 11/20 [00:24<00:18,  2.08s/it] 60%|██████    | 12/20 [00:26<00:16,  2.08s/it] 65%|██████▌   | 13/20 [00:28<00:14,  2.08s/it] 70%|███████   | 14/20 [00:30<00:12,  2.08s/it] 75%|███████▌  | 15/20 [00:33<00:10,  2.08s/it] 80%|████████  | 16/20 [00:35<00:08,  2.08s/it] 85%|████████▌ | 17/20 [00:37<00:06,  2.08s/it] 90%|█████████ | 18/20 [00:39<00:04,  2.08s/it] 95%|█████████▌| 19/20 [00:41<00:02,  2.08s/it]100%|██████████| 20/20 [00:43<00:00,  2.07s/it]100%|██████████| 20/20 [00:43<00:00,  2.17s/it]
+slurmstepd: error: *** JOB 173 ON cn4 CANCELLED AT 2024-08-15T18:36:54 ***

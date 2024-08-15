@@ -383,7 +383,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         common_seed = get_common_seed() 
         set_seed(common_seed)  
 
-        subjects = random.sample(subjects, 1) 
+        subjects = random.sample(subjects, NUM_COLS) 
 
         # if not use_sks: 
         #     prompts_dataset = PromptDataset(num_samples=6, subjects=)  
@@ -583,7 +583,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             "bnha dog", 
         ]
 
-        subjects = random.sample(subjects, 1)  
+        subjects = random.sample(subjects, NUM_COLS)  
 
         # if not use_sks: 
         #     prompts_dataset = PromptDataset(num_samples=6, subjects=)  
