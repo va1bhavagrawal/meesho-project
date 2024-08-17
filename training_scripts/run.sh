@@ -1,7 +1,7 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
 # export RUN_NAME="debug"    
-export RUN_NAME="poseonly_subject_scales_large"
+export RUN_NAME="poseonly_subject_scales_large_nounet"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
@@ -18,6 +18,8 @@ export VIS_DIR="../multiobject/"
 
 # python3 train_wingpose.py \
 
+export HF_HOME="/ssd_scratch/cvit/vaibhav/"
+
 accelerate launch --config_file accelerate_config.yaml train.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
@@ -25,10 +27,9 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
-  --train_unet \
   --resolution=512 \
   --train_batch_size=1 \
-  --inference_batch_size=4 \
+  --inference_batch_size=1 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
   --learning_rate_text=5e-5 \
@@ -43,5 +44,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \
   --run_name="$RUN_NAME" \
+  --ada \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
