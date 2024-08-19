@@ -1,0 +1,414 @@
+VLOG_STEPS = [100, 10000, 50000, 100000, 150000, 200000]VLOG_STEPS = [100, 10000, 50000, 100000, 150000, 200000]
+
+SAVE_STEPS = [100, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]SAVE_STEPS = [100, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+
+VLOG_STEPS = [100, 10000, 50000, 100000, 150000, 200000]
+SAVE_STEPS = [100, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+VLOG_STEPS = [100, 10000, 50000, 100000, 150000, 200000]
+SAVE_STEPS = [100, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+  0%|          | 0/200000 [00:00<?, ?it/s]<=============================== step 0  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([2.8623], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ['a photo of a bnha cat in a serene Japanese garden, surrounded by cherry blossoms\n']
+stage 2: :   0%|          | 0/200000 [00:01<?, ?it/s]stage 2: :   0%|          | 4/200000 [00:03<41:58:27,  1.32it/s]stage 2: :   0%|          | 4/200000 [00:03<41:58:27,  1.32it/s, loss=0.0834]<=============================== step 4  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([4.9218], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha bus in front of a dark background']
+stage 2: :   0%|          | 4/200000 [00:03<41:58:27,  1.32it/s, loss=0.0834]stage 2: :   0%|          | 8/200000 [00:04<26:28:52,  2.10it/s, loss=0.0834]stage 2: :   0%|          | 8/200000 [00:04<26:28:52,  2.10it/s, loss=0.02]  <=============================== step 8  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([5.3058], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background']
+stage 2: :   0%|          | 8/200000 [00:04<26:28:52,  2.10it/s, loss=0.02]stage 2: :   0%|          | 12/200000 [00:04<19:27:32,  2.85it/s, loss=0.02]stage 2: :   0%|          | 12/200000 [00:04<19:27:32,  2.85it/s, loss=0.0723]<=============================== step 12  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([1.5708], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha elephant in front of a dark background']
+stage 2: :   0%|          | 12/200000 [00:05<19:27:32,  2.85it/s, loss=0.0723]stage 2: :   0%|          | 16/200000 [00:05<16:12:07,  3.43it/s, loss=0.0723]stage 2: :   0%|          | 16/200000 [00:05<16:12:07,  3.43it/s, loss=0.158] <=============================== step 16  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([3.5605], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ['a photo of a bnha cat in front of the Eiffel Tower at sunset with a colorful sky\n']
+stage 2: :   0%|          | 16/200000 [00:06<16:12:07,  3.43it/s, loss=0.158]stage 2: :   0%|          | 20/200000 [00:06<14:31:37,  3.82it/s, loss=0.158]stage 2: :   0%|          | 20/200000 [00:06<14:31:37,  3.82it/s, loss=0.222]<=============================== step 20  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([3.9444], device='cuda:0')
+subjects: ['horse']
+controlnet: [False]
+prompts: ['a photo of a bnha horse in front of a dark background']
+stage 2: :   0%|          | 20/200000 [00:07<14:31:37,  3.82it/s, loss=0.222]stage 2: :   0%|          | 24/200000 [00:07<13:21:41,  4.16it/s, loss=0.222]stage 2: :   0%|          | 24/200000 [00:07<13:21:41,  4.16it/s, loss=0.0703]<=============================== step 24  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([4.8171], device='cuda:0')
+subjects: ['motorbike']
+controlnet: [False]
+prompts: ['a photo of a bnha motorbike in front of a dark background']
+stage 2: :   0%|          | 24/200000 [00:07<13:21:41,  4.16it/s, loss=0.0703]stage 2: :   0%|          | 28/200000 [00:08<12:40:16,  4.38it/s, loss=0.0703]stage 2: :   0%|          | 28/200000 [00:08<12:40:16,  4.38it/s, loss=0.0354]<=============================== step 28  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([0.1396], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck in front of a dark background']
+stage 2: :   0%|          | 28/200000 [00:08<12:40:16,  4.38it/s, loss=0.0354]stage 2: :   0%|          | 32/200000 [00:09<12:14:35,  4.54it/s, loss=0.0354]stage 2: :   0%|          | 32/200000 [00:09<12:14:35,  4.54it/s, loss=0.228] <=============================== step 32  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([3.5605], device='cuda:0')
+subjects: ['jeep']
+controlnet: [False]
+prompts: ['a photo of a bnha jeep in front of a dark background']
+stage 2: :   0%|          | 32/200000 [00:09<12:14:35,  4.54it/s, loss=0.228]stage 2: :   0%|          | 36/200000 [00:09<11:58:15,  4.64it/s, loss=0.228]stage 2: :   0%|          | 36/200000 [00:09<11:58:15,  4.64it/s, loss=0.146]<=============================== step 36  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([4.5728], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background']
+stage 2: :   0%|          | 36/200000 [00:10<11:58:15,  4.64it/s, loss=0.146]stage 2: :   0%|          | 40/200000 [00:10<11:45:28,  4.72it/s, loss=0.146]stage 2: :   0%|          | 40/200000 [00:10<11:45:28,  4.72it/s, loss=0.134]<=============================== step 40  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([2.5482], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha elephant in front of a dark background']
+stage 2: :   0%|          | 40/200000 [00:11<11:45:28,  4.72it/s, loss=0.134]stage 2: :   0%|          | 44/200000 [00:11<11:41:17,  4.75it/s, loss=0.134]stage 2: :   0%|          | 44/200000 [00:11<11:41:17,  4.75it/s, loss=0.0369]<=============================== step 44  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([5.6200], device='cuda:0')
+subjects: ['elephant']
+controlnet: [True]
+prompts: ['a photo of a bnha elephant by a riverside with wildflowers blooming nearby\n']
+stage 2: :   0%|          | 44/200000 [00:11<11:41:17,  4.75it/s, loss=0.0369]stage 2: :   0%|          | 48/200000 [00:12<11:50:18,  4.69it/s, loss=0.0369]stage 2: :   0%|          | 48/200000 [00:12<11:50:18,  4.69it/s, loss=0.148] <=============================== step 48  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([0.5236], device='cuda:0')
+subjects: ['jeep']
+controlnet: [False]
+prompts: ['a photo of a bnha jeep in front of a dark background']
+stage 2: :   0%|          | 48/200000 [00:12<11:50:18,  4.69it/s, loss=0.148]stage 2: :   0%|          | 52/200000 [00:13<11:50:43,  4.69it/s, loss=0.148]stage 2: :   0%|          | 52/200000 [00:13<11:50:43,  4.69it/s, loss=0.0304]<=============================== step 52  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([1.5359], device='cuda:0')
+subjects: ['lion']
+controlnet: [True]
+prompts: ['a photo of a bnha lion in a vast desert with towering sand dunes and a clear blue sky\n']
+stage 2: :   0%|          | 52/200000 [00:13<11:50:43,  4.69it/s, loss=0.0304]stage 2: :   0%|          | 56/200000 [00:14<12:03:47,  4.60it/s, loss=0.0304]stage 2: :   0%|          | 56/200000 [00:14<12:03:47,  4.60it/s, loss=0.156] <=============================== step 56  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([4.9567], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha bus in front of a dark background']
+stage 2: :   0%|          | 56/200000 [00:14<12:03:47,  4.60it/s, loss=0.156]stage 2: :   0%|          | 60/200000 [00:14<11:47:16,  4.71it/s, loss=0.156]stage 2: :   0%|          | 60/200000 [00:14<11:47:16,  4.71it/s, loss=0.0332]<=============================== step 60  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([5.5501], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ['a photo of a bnha cat in a lush vineyard with rows of grapevines stretching into the distance\n']
+stage 2: :   0%|          | 60/200000 [00:15<11:47:16,  4.71it/s, loss=0.0332]stage 2: :   0%|          | 64/200000 [00:15<11:48:39,  4.70it/s, loss=0.0332]stage 2: :   0%|          | 64/200000 [00:15<11:48:39,  4.70it/s, loss=0.175] <=============================== step 64  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([0.9076], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background']
+stage 2: :   0%|          | 64/200000 [00:16<11:48:39,  4.70it/s, loss=0.175]stage 2: :   0%|          | 68/200000 [00:16<11:41:32,  4.75it/s, loss=0.175]stage 2: :   0%|          | 68/200000 [00:16<11:41:32,  4.75it/s, loss=0.151]<=============================== step 68  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([3.3510], device='cuda:0')
+subjects: ['motorbike']
+controlnet: [False]
+prompts: ['a photo of a bnha motorbike in front of a dark background']
+stage 2: :   0%|          | 68/200000 [00:17<11:41:32,  4.75it/s, loss=0.151]stage 2: :   0%|          | 72/200000 [00:17<11:47:29,  4.71it/s, loss=0.151]stage 2: :   0%|          | 72/200000 [00:17<11:47:29,  4.71it/s, loss=0.204]<=============================== step 72  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([2.7227], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background']
+stage 2: :   0%|          | 72/200000 [00:17<11:47:29,  4.71it/s, loss=0.204]stage 2: :   0%|          | 76/200000 [00:18<11:40:57,  4.75it/s, loss=0.204]stage 2: :   0%|          | 76/200000 [00:18<11:40:57,  4.75it/s, loss=0.15] <=============================== step 76  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([4.0492], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha bus in front of a dark background']
+stage 2: :   0%|          | 76/200000 [00:18<11:40:57,  4.75it/s, loss=0.15]stage 2: :   0%|          | 80/200000 [00:19<12:39:31,  4.39it/s, loss=0.15]stage 2: :   0%|          | 80/200000 [00:19<12:39:31,  4.39it/s, loss=0.0345]<=============================== step 80  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([2.3387], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background']
+stage 2: :   0%|          | 80/200000 [00:19<12:39:31,  4.39it/s, loss=0.0345]stage 2: :   0%|          | 84/200000 [00:20<12:22:03,  4.49it/s, loss=0.0345]stage 2: :   0%|          | 84/200000 [00:20<12:22:03,  4.49it/s, loss=0.0351]<=============================== step 84  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([0.5934], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background']
+stage 2: :   0%|          | 84/200000 [00:20<12:22:03,  4.49it/s, loss=0.0351]stage 2: :   0%|          | 88/200000 [00:21<12:07:16,  4.58it/s, loss=0.0351]stage 2: :   0%|          | 88/200000 [00:21<12:07:16,  4.58it/s, loss=0.317] <=============================== step 88  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([3.5256], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background']
+stage 2: :   0%|          | 88/200000 [00:21<12:07:16,  4.58it/s, loss=0.317]stage 2: :   0%|          | 92/200000 [00:21<11:52:14,  4.68it/s, loss=0.317]stage 2: :   0%|          | 92/200000 [00:21<11:52:14,  4.68it/s, loss=0.0239]<=============================== step 92  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([2.7925], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background']
+stage 2: :   0%|          | 92/200000 [00:22<11:52:14,  4.68it/s, loss=0.0239]stage 2: :   0%|          | 96/200000 [00:22<11:42:50,  4.74it/s, loss=0.0239]stage 2: :   0%|          | 96/200000 [00:22<11:42:50,  4.74it/s, loss=0.152] <=============================== step 96  ======================================>
+prompt_ids: torch.Size([1, 77])
+pixel_values: torch.Size([1, 3, 512, 512])
+scalers: tensor([5.0265], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck in front of a dark background']
+stage 2: :   0%|          | 96/200000 [00:23<11:42:50,  4.74it/s, loss=0.152]stage 2: :   0%|          | 100/200000 [00:23<11:34:29,  4.80it/s, loss=0.152]Date and Time in Integer Format: 20
+Date and Time in Integer Format: 20
+Date and Time in Integer Format: 20
+Date and Time in Integer Format: 20
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Date and Time in Integer Format: 20
+Date and Time in Integer Format: 20
+collecting the encoder hidden states for type 2 inference...
+a photo of a bnha horse parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha horse parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha horse beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha horse on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha horse in front of a dark background
+a photo of a bnha horse in a colorful tulip field, with windmills in the background
+a photo of a bnha jeep parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha jeep parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha jeep beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+Date and Time in Integer Format: 20
+a photo of a bnha jeep on a tropical beach, with palm trees swaying and waves crashing on the shore
+Date and Time in Integer Format: 20
+a photo of a bnha jeep in front of a dark background
+a photo of a bnha jeep in a colorful tulip field, with windmills in the background
+a photo of a bnha elephant parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha elephant parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha elephant beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha elephant on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha elephant in front of a dark background
+a photo of a bnha elephant in a colorful tulip field, with windmills in the background
+a photo of a bnha pickup truck parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha pickup truck parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha pickup truck beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha pickup truck on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha pickup truck in front of a dark background
+a photo of a bnha pickup truck in a colorful tulip field, with windmills in the background
+a photo of a bnha horse parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha horse parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha horse beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha horse on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha horse in front of a dark background
+a photo of a bnha horse in a colorful tulip field, with windmills in the background
+a photo of a bnha jeep parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha jeep parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha jeep beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha jeep on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha jeep in front of a dark background
+a photo of a bnha jeep in a colorful tulip field, with windmills in the background
+a photo of a bnha elephant parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha elephant parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha elephant beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha elephant on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha elephant in front of a dark background
+a photo of a bnha elephant in a colorful tulip field, with windmills in the background
+a photo of a bnha pickup truck parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha pickup truck parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha pickup truck beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha pickup truck on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha pickup truck in front of a dark background
+a photo of a bnha pickup truck in a colorful tulip field, with windmills in the background
+a photo of a bnha horse parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha horse parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha horse beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha horse on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha horse in front of a dark background
+a photo of a bnha horse in a colorful tulip field, with windmills in the background
+a photo of a bnha jeep parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha jeep parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha jeep beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha jeep on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha jeep in front of a dark background
+a photo of a bnha jeep in a colorful tulip field, with windmills in the background
+a photo of a bnha elephant parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha elephant parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha elephant beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha elephant on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha elephant in front of a dark background
+a photo of a bnha elephant in a colorful tulip field, with windmills in the background
+a photo of a bnha pickup truck parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha pickup truck parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha pickup truck beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha pickup truck on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha pickup truck in front of a dark background
+a photo of a bnha pickup truck in a colorful tulip field, with windmills in the background
+a photo of a bnha horse parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha horse parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha horse beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha horse on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha horse in front of a dark background
+a photo of a bnha horse in a colorful tulip field, with windmills in the background
+a photo of a bnha jeep parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha jeep parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha jeep beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha jeep on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha jeep in front of a dark background
+a photo of a bnha jeep in a colorful tulip field, with windmills in the background
+a photo of a bnha elephant parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha elephant parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha elephant beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha elephant on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha elephant in front of a dark background
+a photo of a bnha elephant in a colorful tulip field, with windmills in the background
+a photo of a bnha pickup truck parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha pickup truck parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha pickup truck beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha pickup truck on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha pickup truck in front of a dark background
+a photo of a bnha pickup truck in a colorful tulip field, with windmills in the background
+a photo of a bnha horse parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha horse parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha horse beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha horse on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha horse in front of a dark background
+a photo of a bnha horse in a colorful tulip field, with windmills in the background
+a photo of a bnha jeep parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha jeep parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha jeep beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha jeep on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha jeep in front of a dark background
+a photo of a bnha jeep in a colorful tulip field, with windmills in the background
+a photo of a bnha elephant parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha elephant parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha elephant beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha elephant on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha elephant in front of a dark background
+a photo of a bnha elephant in a colorful tulip field, with windmills in the background
+a photo of a bnha pickup truck parked on a remote country road, surrounded by rolling hills, vast open fields and tall trees
+a photo of a bnha pickup truck parked on a bustling city street, surrounded by towering skyscrapers and neon lights
+a photo of a bnha pickup truck beside a field of blooming sunflowers, with snowy mountain ranges in the distance.
+a photo of a bnha pickup truck on a tropical beach, with palm trees swaying and waves crashing on the shore
+a photo of a bnha pickup truck in front of a dark background
+a photo of a bnha pickup truck in a colorful tulip field, with windmills in the background
+starting generation for type 2 inference...
+
+  0%|          | 0/27 [00:00<?, ?it/s][A
+  4%|▎         | 1/27 [00:22<09:52, 22.78s/it][A
+  7%|▋         | 2/27 [00:45<09:31, 22.86s/it][A
+ 11%|█         | 3/27 [01:08<09:11, 22.98s/it][A
+ 15%|█▍        | 4/27 [01:32<08:50, 23.07s/it][A
+ 19%|█▊        | 5/27 [01:55<08:29, 23.16s/it][A
+ 22%|██▏       | 6/27 [02:18<08:08, 23.27s/it][A
+ 26%|██▌       | 7/27 [02:42<07:47, 23.36s/it][A
+ 30%|██▉       | 8/27 [03:06<07:25, 23.46s/it][A
+ 33%|███▎      | 9/27 [03:29<07:02, 23.47s/it][A
+ 37%|███▋      | 10/27 [03:53<06:38, 23.47s/it][A
+ 41%|████      | 11/27 [04:16<06:15, 23.45s/it][A
+ 44%|████▍     | 12/27 [04:39<05:51, 23.44s/it][A
+ 48%|████▊     | 13/27 [05:03<05:28, 23.43s/it][A
+ 52%|█████▏    | 14/27 [05:26<05:04, 23.42s/it][A
+ 56%|█████▌    | 15/27 [05:50<04:41, 23.43s/it][A
+ 59%|█████▉    | 16/27 [06:13<04:17, 23.42s/it][A
+ 63%|██████▎   | 17/27 [06:36<03:53, 23.40s/it][A
+ 67%|██████▋   | 18/27 [07:00<03:30, 23.38s/it][A
+ 70%|███████   | 19/27 [07:23<03:07, 23.38s/it][A
+ 74%|███████▍  | 20/27 [07:46<02:43, 23.38s/it][A
+ 78%|███████▊  | 21/27 [08:10<02:20, 23.40s/it][A
+ 81%|████████▏ | 22/27 [08:33<01:57, 23.41s/it][A
+ 85%|████████▌ | 23/27 [08:57<01:33, 23.40s/it][A
+ 89%|████████▉ | 24/27 [09:20<01:10, 23.39s/it][A
+ 93%|█████████▎| 25/27 [09:43<00:46, 23.40s/it][A
+ 96%|█████████▋| 26/27 [10:07<00:23, 23.42s/it][ADate and Time in Integer Format: 20
+Date and Time in Integer Format: 20
+slurmstepd: error: *** JOB 265 ON cn6 CANCELLED AT 2024-08-20T05:04:46 ***
+W0820 05:04:46.387163 139824492279616 torch/distributed/elastic/agent/server/api.py:688] Received Signals.SIGTERM death signal, shutting down workers
+W0820 05:04:46.397282 139824492279616 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1751520 closing signal SIGTERM
+W0820 05:04:46.397812 139824492279616 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1751521 closing signal SIGTERM
+W0820 05:04:46.398032 139824492279616 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1751522 closing signal SIGTERM
+W0820 05:04:46.398235 139824492279616 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1751523 closing signal SIGTERM
+Traceback (most recent call last):
+  File "/home/rishubhp/miniconda3/envs/contwords/bin/accelerate", line 8, in <module>
+    sys.exit(main())
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/accelerate/commands/accelerate_cli.py", line 45, in main
+    args.func(args)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/accelerate/commands/launch.py", line 914, in launch_command
+    multi_gpu_launcher(args)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/accelerate/commands/launch.py", line 603, in multi_gpu_launcher
+    distrib_run.run(args)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 133, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 255, in launch_agent
+    result = agent.run()
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/elastic/metrics/api.py", line 124, in wrapper
+    result = f(*args, **kwargs)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/elastic/agent/server/api.py", line 680, in run
+    result = self._invoke_run(role)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/elastic/agent/server/api.py", line 835, in _invoke_run
+    time.sleep(monitor_interval)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 79, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 1751514 got signal: 15

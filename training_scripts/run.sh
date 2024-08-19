@@ -1,7 +1,8 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
 # export RUN_NAME="debug"    
-export RUN_NAME="poseonly_subject_scales_large"
+# export RUN_NAME="poseonly_subject_scales_large"
+export RUN_NAME="poseonly_subject_scales_large_nounet"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
@@ -25,7 +26,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --instance_prompt="Continuous MLP Training" \
-  --train_unet \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
@@ -38,7 +38,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter \
   --lr_warmup_steps=0 \
   --online_inference \
-  --with_prior_preservation \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --subject="$SUBJECT" \

@@ -66,7 +66,7 @@ TOKEN2ID = {
     "dog": 1929, 
 }
 
-DEBUG = False  
+DEBUG = True  
 BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
@@ -1054,7 +1054,7 @@ def parse_args(input_args=None):
     )
     parser.add_argument(
         "--with_prior_preservation",
-        default=True,
+        default=False,
         action="store_true",
         help="Flag to add prior preservation loss.",
     )
@@ -1325,18 +1325,18 @@ def parse_args(input_args=None):
     if env_local_rank != -1 and env_local_rank != args.local_rank:
         args.local_rank = env_local_rank
 
-    if args.with_prior_preservation:
-        if args.class_data_dir is None:
-            raise ValueError("You must specify a data directory for class images.")
-    else:
-        if args.class_data_dir is not None:
-            logger.warning(
-                "You need not use --class_data_dir without --with_prior_preservation."
-            )
-        if args.class_prompt is not None:
-            logger.warning(
-                "You need not use --class_prompt without --with_prior_preservation."
-            )
+    # if args.with_prior_preservation:
+    #     if args.class_data_dir is None:
+    #         raise ValueError("You must specify a data directory for class images.")
+    # else:
+    #     if args.class_data_dir is not None:
+    #         logger.warning(
+    #             "You need not use --class_data_dir without --with_prior_preservation."
+    #         )
+    #     if args.class_prompt is not None:
+    #         logger.warning(
+    #             "You need not use --class_prompt without --with_prior_preservation."
+    #         )
 
     if not safetensors_available:
         if args.output_format == "both":
@@ -1908,7 +1908,8 @@ def main(args):
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
         encoder_hidden_states = []
-        input_ids, input_ids_prior = torch.chunk(batch["prompt_ids"], 2, dim=0) 
+        # input_ids, input_ids_prior = torch.chunk(batch["prompt_ids"], 2, dim=0) 
+        input_ids = batch["prompt_ids"] 
 
         for batch_idx, batch_item in enumerate(input_ids): 
             # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
@@ -1925,9 +1926,9 @@ def main(args):
         # replacing the text encoder input embeddings by the original ones, this time setting them to be HOT, this will be useful in case we choose to do textual inversion 
         # here we are not cloning because these won't be stepped upon anyways, and this way we can save some memory also!  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(input_embeddings, requires_grad=True)   
-        encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
-        assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
-        encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0)
+        # encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
+        # assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
+        # encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0)
 
         """End Adobe CONFIDENTIAL"""
 
@@ -2586,7 +2587,8 @@ def main(args):
         if args.wandb and ddp_step % args.log_every == 0:
             # wandb_log_data["loss"] = gathered_loss
             wandb_log_data["corrected_mse_loss"] = gathered_losses[0]   
-            wandb_log_data["corrected_prior_loss"] = gathered_losses[1] 
+            if args.with_prior_preservation: 
+                wandb_log_data["corrected_prior_loss"] = gathered_losses[1] 
 
         if args.wandb: 
             # finally logging!
