@@ -1,6 +1,6 @@
 export SUBJECT="pickup truck"
 export FILE_ID="template_truck"
-export RUN_NAME="poseonly_nosubject_scales_multiobject"
+export RUN_NAME="poseonly_nosubject_longskip" 
 # export RUN_NAME="debug"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
