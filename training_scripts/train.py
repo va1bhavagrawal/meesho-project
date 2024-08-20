@@ -652,18 +652,18 @@ def parse_args(input_args=None):
     if env_local_rank != -1 and env_local_rank != args.local_rank:
         args.local_rank = env_local_rank
 
-    if args.with_prior_preservation:
-        if args.class_data_dir is None:
-            raise ValueError("You must specify a data directory for class images.")
-    else:
-        if args.class_data_dir is not None:
-            logger.warning(
-                "You need not use --class_data_dir without --with_prior_preservation."
-            )
-        if args.class_prompt is not None:
-            logger.warning(
-                "You need not use --class_prompt without --with_prior_preservation."
-            )
+    # if args.with_prior_preservation:
+    #     if args.class_data_dir is None:
+    #         raise ValueError("You must specify a data directory for class images.")
+    # else:
+    #     if args.class_data_dir is not None:
+    #         logger.warning(
+    #             "You need not use --class_data_dir without --with_prior_preservation."
+    #         )
+    #     if args.class_prompt is not None:
+    #         logger.warning(
+    #             "You need not use --class_prompt without --with_prior_preservation."
+    #         )
 
     if not safetensors_available:
         if args.output_format == "both":
