@@ -142,7 +142,10 @@ class DisentangleDataset(Dataset):
             y = int(y) 
             example["scaler"] = a 
             example["controlnet"] = False 
-            prompt = f"a photo of a bnha in front of a dark background"  
+            if not self.args.include_class_in_prompt: 
+                prompt = f"a photo of a bnha in front of a dark background"  
+            else: 
+                prompt = f"a photo of a bnha {subject.strip()} in front of a dark background" 
             example["prompt"] = prompt 
 
             example["prompt_ids"] = self.tokenizer(

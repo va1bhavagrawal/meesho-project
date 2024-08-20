@@ -1,0 +1,419 @@
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+VLOG_STEPS = [50000, 100000, 150000, 200000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+VLOG_STEPS = [50000, 100000, 150000, 200000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+VLOG_STEPS = [50000, 100000, 150000, 200000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+VLOG_STEPS = [50000, 100000, 150000, 200000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+Differences: 0
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+Differences: 0
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+Differences: 0
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+Differences: 0
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+  0%|          | 0/200000 [00:00<?, ?it/s]<=============================== step 0  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.9425], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ['a photo of a bnha cat in front of the Eiffel Tower at sunset with a colorful sky\n', 'a photo of a cat']
+stage 2: :   0%|          | 0/200000 [00:02<?, ?it/s]stage 2: :   0%|          | 4/200000 [00:04<55:56:09,  1.01s/it]stage 2: :   0%|          | 4/200000 [00:04<55:56:09,  1.01s/it, loss=0.438]<=============================== step 4  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.3840], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha bus in front of a dark background', 'a photo of a bus']
+stage 2: :   0%|          | 4/200000 [00:04<55:56:09,  1.01s/it, loss=0.438]stage 2: :   0%|          | 8/200000 [00:05<37:09:37,  1.49it/s, loss=0.438]stage 2: :   0%|          | 8/200000 [00:05<37:09:37,  1.49it/s, loss=0.611]<=============================== step 8  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.8274], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 8/200000 [00:06<37:09:37,  1.49it/s, loss=0.611]stage 2: :   0%|          | 12/200000 [00:07<30:02:09,  1.85it/s, loss=0.611]stage 2: :   0%|          | 12/200000 [00:07<30:02:09,  1.85it/s, loss=0.533]<=============================== step 12  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.9916], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha elephant in front of a dark background', 'a photo of a elephant']
+stage 2: :   0%|          | 12/200000 [00:08<30:02:09,  1.85it/s, loss=0.533]stage 2: :   0%|          | 16/200000 [00:08<26:35:13,  2.09it/s, loss=0.533]stage 2: :   0%|          | 16/200000 [00:08<26:35:13,  2.09it/s, loss=0.434]<=============================== step 16  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.3982], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ['a photo of a bnha cat in a medieval castle courtyard with ancient stone walls and archways\n', 'a photo of a cat']
+stage 2: :   0%|          | 16/200000 [00:09<26:35:13,  2.09it/s, loss=0.434]stage 2: :   0%|          | 20/200000 [00:10<24:49:30,  2.24it/s, loss=0.434]stage 2: :   0%|          | 20/200000 [00:10<24:49:30,  2.24it/s, loss=0.581]<=============================== step 20  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.6283], device='cuda:0')
+subjects: ['horse']
+controlnet: [False]
+prompts: ['a photo of a bnha horse in front of a dark background', 'a photo of a horse']
+stage 2: :   0%|          | 20/200000 [00:11<24:49:30,  2.24it/s, loss=0.581]stage 2: :   0%|          | 24/200000 [00:11<23:51:44,  2.33it/s, loss=0.581]stage 2: :   0%|          | 24/200000 [00:12<23:51:44,  2.33it/s, loss=0.351]<=============================== step 24  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.6303], device='cuda:0')
+subjects: ['motorbike']
+controlnet: [False]
+prompts: ['a photo of a bnha motorbike in front of a dark background', 'a photo of a motorbike']
+stage 2: :   0%|          | 24/200000 [00:12<23:51:44,  2.33it/s, loss=0.351]stage 2: :   0%|          | 28/200000 [00:13<22:51:19,  2.43it/s, loss=0.351]stage 2: :   0%|          | 28/200000 [00:13<22:51:19,  2.43it/s, loss=0.487]<=============================== step 28  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.3859], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck in front of a dark background', 'a photo of a pickup truck']
+stage 2: :   0%|          | 28/200000 [00:14<22:51:19,  2.43it/s, loss=0.487]stage 2: :   0%|          | 32/200000 [00:15<22:43:42,  2.44it/s, loss=0.487]stage 2: :   0%|          | 32/200000 [00:15<22:43:42,  2.44it/s, loss=0.611]<=============================== step 32  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.1662], device='cuda:0')
+subjects: ['jeep']
+controlnet: [False]
+prompts: ['a photo of a bnha jeep in front of a dark background', 'a photo of a jeep']
+stage 2: :   0%|          | 32/200000 [00:15<22:43:42,  2.44it/s, loss=0.611]stage 2: :   0%|          | 36/200000 [00:16<22:12:12,  2.50it/s, loss=0.611]stage 2: :   0%|          | 36/200000 [00:16<22:12:12,  2.50it/s, loss=0.562]<=============================== step 36  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.9774], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 36/200000 [00:17<22:12:12,  2.50it/s, loss=0.562]stage 2: :   0%|          | 40/200000 [00:18<21:50:35,  2.54it/s, loss=0.562]stage 2: :   0%|          | 40/200000 [00:18<21:50:35,  2.54it/s, loss=0.568]<=============================== step 40  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.9690], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha elephant in front of a dark background', 'a photo of a elephant']
+stage 2: :   0%|          | 40/200000 [00:18<21:50:35,  2.54it/s, loss=0.568]stage 2: :   0%|          | 44/200000 [00:19<21:53:47,  2.54it/s, loss=0.568]stage 2: :   0%|          | 44/200000 [00:19<21:53:47,  2.54it/s, loss=0.466]<=============================== step 44  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.], device='cuda:0')
+subjects: ['elephant']
+controlnet: [True]
+prompts: ['a photo of a bnha elephant on a rocky cliff overlooking a vast ocean\n', 'a photo of a elephant']
+stage 2: :   0%|          | 44/200000 [00:20<21:53:47,  2.54it/s, loss=0.466]stage 2: :   0%|          | 48/200000 [00:21<21:57:27,  2.53it/s, loss=0.466]stage 2: :   0%|          | 48/200000 [00:21<21:57:27,  2.53it/s, loss=0.531]<=============================== step 48  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.8727], device='cuda:0')
+subjects: ['jeep']
+controlnet: [False]
+prompts: ['a photo of a bnha jeep in front of a dark background', 'a photo of a jeep']
+stage 2: :   0%|          | 48/200000 [00:22<21:57:27,  2.53it/s, loss=0.531]stage 2: :   0%|          | 52/200000 [00:22<21:51:59,  2.54it/s, loss=0.531]stage 2: :   0%|          | 52/200000 [00:22<21:51:59,  2.54it/s, loss=0.451]<=============================== step 52  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.2793], device='cuda:0')
+subjects: ['lion']
+controlnet: [True]
+prompts: ["a photo of a bnha lion at a river's edge with stones scattered around\n", 'a photo of a lion']
+stage 2: :   0%|          | 52/200000 [00:23<21:51:59,  2.54it/s, loss=0.451]stage 2: :   0%|          | 56/200000 [00:24<21:44:05,  2.56it/s, loss=0.451]stage 2: :   0%|          | 56/200000 [00:24<21:44:05,  2.56it/s, loss=0.553]<=============================== step 56  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.3510], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha bus in front of a dark background', 'a photo of a bus']
+stage 2: :   0%|          | 56/200000 [00:25<21:44:05,  2.56it/s, loss=0.553]stage 2: :   0%|          | 60/200000 [00:26<23:06:48,  2.40it/s, loss=0.553]stage 2: :   0%|          | 60/200000 [00:26<23:06:48,  2.40it/s, loss=0.563]<=============================== step 60  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.8972], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ['a photo of a bnha cat in a vast desert with towering sand dunes and a clear blue sky\n', 'a photo of a cat']
+stage 2: :   0%|          | 60/200000 [00:27<23:06:48,  2.40it/s, loss=0.563]stage 2: :   0%|          | 64/200000 [00:27<22:34:30,  2.46it/s, loss=0.563]stage 2: :   0%|          | 64/200000 [00:27<22:34:30,  2.46it/s, loss=0.559]<=============================== step 64  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.1868], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 64/200000 [00:28<22:34:30,  2.46it/s, loss=0.559]stage 2: :   0%|          | 68/200000 [00:29<21:43:56,  2.56it/s, loss=0.559]stage 2: :   0%|          | 68/200000 [00:29<21:43:56,  2.56it/s, loss=0.59] <=============================== step 68  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.8850], device='cuda:0')
+subjects: ['motorbike']
+controlnet: [False]
+prompts: ['a photo of a bnha motorbike in front of a dark background', 'a photo of a motorbike']
+stage 2: :   0%|          | 68/200000 [00:30<21:43:56,  2.56it/s, loss=0.59]stage 2: :   0%|          | 72/200000 [00:30<21:15:34,  2.61it/s, loss=0.59]stage 2: :   0%|          | 72/200000 [00:30<21:15:34,  2.61it/s, loss=0.684]<=============================== step 72  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.9567], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 72/200000 [00:31<21:15:34,  2.61it/s, loss=0.684]stage 2: :   0%|          | 76/200000 [00:32<20:49:00,  2.67it/s, loss=0.684]stage 2: :   0%|          | 76/200000 [00:32<20:49:00,  2.67it/s, loss=0.559]<=============================== step 76  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.1396], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha bus in front of a dark background', 'a photo of a bus']
+stage 2: :   0%|          | 76/200000 [00:32<20:49:00,  2.67it/s, loss=0.559]stage 2: :   0%|          | 80/200000 [00:33<20:32:14,  2.70it/s, loss=0.559]stage 2: :   0%|          | 80/200000 [00:33<20:32:14,  2.70it/s, loss=0.415]<=============================== step 80  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.9916], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 80/200000 [00:34<20:32:14,  2.70it/s, loss=0.415]stage 2: :   0%|          | 84/200000 [00:35<20:19:00,  2.73it/s, loss=0.415]stage 2: :   0%|          | 84/200000 [00:35<20:19:00,  2.73it/s, loss=0.447]<=============================== step 84  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.4208], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 84/200000 [00:35<20:19:00,  2.73it/s, loss=0.447]stage 2: :   0%|          | 88/200000 [00:36<20:11:25,  2.75it/s, loss=0.447]stage 2: :   0%|          | 88/200000 [00:36<20:11:25,  2.75it/s, loss=0.637]<=============================== step 88  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.3982], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 88/200000 [00:37<20:11:25,  2.75it/s, loss=0.637]stage 2: :   0%|          | 92/200000 [00:37<20:02:17,  2.77it/s, loss=0.637]stage 2: :   0%|          | 92/200000 [00:37<20:02:17,  2.77it/s, loss=0.379]<=============================== step 92  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.8397], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 92/200000 [00:38<20:02:17,  2.77it/s, loss=0.379]stage 2: :   0%|          | 96/200000 [00:39<20:00:24,  2.78it/s, loss=0.379]stage 2: :   0%|          | 96/200000 [00:39<20:00:24,  2.78it/s, loss=0.639]<=============================== step 96  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.1170], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck in front of a dark background', 'a photo of a pickup truck']
+stage 2: :   0%|          | 96/200000 [00:40<20:00:24,  2.78it/s, loss=0.639]stage 2: :   0%|          | 100/200000 [00:40<19:59:49,  2.78it/s, loss=0.639]stage 2: :   0%|          | 100/200000 [00:40<19:59:49,  2.78it/s, loss=0.511]<=============================== step 100  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.4208], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ["a photo of a bnha cat at a river's edge with stones scattered around\n", 'a photo of a cat']
+stage 2: :   0%|          | 100/200000 [00:41<19:59:49,  2.78it/s, loss=0.511]stage 2: :   0%|          | 104/200000 [00:42<20:19:54,  2.73it/s, loss=0.511]stage 2: :   0%|          | 104/200000 [00:42<20:19:54,  2.73it/s, loss=0.441]<=============================== step 104  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.0698], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck in front of a dark background', 'a photo of a pickup truck']
+stage 2: :   0%|          | 104/200000 [00:42<20:19:54,  2.73it/s, loss=0.441]stage 2: :   0%|          | 108/200000 [00:43<20:12:16,  2.75it/s, loss=0.441]stage 2: :   0%|          | 108/200000 [00:43<20:12:16,  2.75it/s, loss=0.402]<=============================== step 108  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.6755], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck in front of a dark background', 'a photo of a pickup truck']
+stage 2: :   0%|          | 108/200000 [00:44<20:12:16,  2.75it/s, loss=0.402]stage 2: :   0%|          | 112/200000 [00:45<20:06:36,  2.76it/s, loss=0.402]stage 2: :   0%|          | 112/200000 [00:45<20:06:36,  2.76it/s, loss=0.535]<=============================== step 112  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.2689], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck in front of a dark background', 'a photo of a pickup truck']
+stage 2: :   0%|          | 112/200000 [00:45<20:06:36,  2.76it/s, loss=0.535]stage 2: :   0%|          | 116/200000 [00:46<19:56:21,  2.78it/s, loss=0.535]stage 2: :   0%|          | 116/200000 [00:46<19:56:21,  2.78it/s, loss=0.487]<=============================== step 116  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.6077], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck in front of a dark background', 'a photo of a pickup truck']
+stage 2: :   0%|          | 116/200000 [00:47<19:56:21,  2.78it/s, loss=0.487]stage 2: :   0%|          | 120/200000 [00:47<20:01:17,  2.77it/s, loss=0.487]stage 2: :   0%|          | 120/200000 [00:47<20:01:17,  2.77it/s, loss=0.504]<=============================== step 120  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.2915], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha elephant in front of a dark background', 'a photo of a elephant']
+stage 2: :   0%|          | 120/200000 [00:48<20:01:17,  2.77it/s, loss=0.504]stage 2: :   0%|          | 124/200000 [00:49<19:55:43,  2.79it/s, loss=0.504]stage 2: :   0%|          | 124/200000 [00:49<19:55:43,  2.79it/s, loss=0.376]<=============================== step 124  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.5029], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha elephant in front of a dark background', 'a photo of a elephant']
+stage 2: :   0%|          | 124/200000 [00:50<19:55:43,  2.79it/s, loss=0.376]stage 2: :   0%|          | 128/200000 [00:50<19:56:17,  2.78it/s, loss=0.376]stage 2: :   0%|          | 128/200000 [00:50<19:56:17,  2.78it/s, loss=0.521]<=============================== step 128  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.4784], device='cuda:0')
+subjects: ['jeep']
+controlnet: [False]
+prompts: ['a photo of a bnha jeep in front of a dark background', 'a photo of a jeep']
+stage 2: :   0%|          | 128/200000 [00:51<19:56:17,  2.78it/s, loss=0.521]stage 2: :   0%|          | 132/200000 [00:52<19:56:01,  2.79it/s, loss=0.521]stage 2: :   0%|          | 132/200000 [00:52<19:56:01,  2.79it/s, loss=0.398]<=============================== step 132  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.8623], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 132/200000 [00:53<19:56:01,  2.79it/s, loss=0.398]stage 2: :   0%|          | 136/200000 [00:53<20:30:52,  2.71it/s, loss=0.398]stage 2: :   0%|          | 136/200000 [00:53<20:30:52,  2.71it/s, loss=0.516]<=============================== step 136  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.4784], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 136/200000 [00:54<20:30:52,  2.71it/s, loss=0.516]stage 2: :   0%|          | 140/200000 [00:55<20:16:35,  2.74it/s, loss=0.516]stage 2: :   0%|          | 140/200000 [00:55<20:16:35,  2.74it/s, loss=0.497]<=============================== step 140  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.6426], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha elephant in front of a dark background', 'a photo of a elephant']
+stage 2: :   0%|          | 140/200000 [00:55<20:16:35,  2.74it/s, loss=0.497]stage 2: :   0%|          | 144/200000 [00:56<20:03:34,  2.77it/s, loss=0.497]stage 2: :   0%|          | 144/200000 [00:56<20:03:34,  2.77it/s, loss=0.455]<=============================== step 144  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.9341], device='cuda:0')
+subjects: ['motorbike']
+controlnet: [True]
+prompts: ['a photo of a bnha motorbike in a sunflower field under a clear blue sky\n', 'a photo of a motorbike']
+stage 2: :   0%|          | 144/200000 [00:57<20:03:34,  2.77it/s, loss=0.455]stage 2: :   0%|          | 148/200000 [00:58<20:20:03,  2.73it/s, loss=0.455]stage 2: :   0%|          | 148/200000 [00:58<20:20:03,  2.73it/s, loss=0.638]<=============================== step 148  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.5501], device='cuda:0')
+subjects: ['jeep']
+controlnet: [False]
+prompts: ['a photo of a bnha jeep in front of a dark background', 'a photo of a jeep']
+stage 2: :   0%|          | 148/200000 [00:58<20:20:03,  2.73it/s, loss=0.638]stage 2: :   0%|          | 152/200000 [00:59<20:13:24,  2.75it/s, loss=0.638]stage 2: :   0%|          | 152/200000 [00:59<20:13:24,  2.75it/s, loss=0.612]<=============================== step 152  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.2935], device='cuda:0')
+subjects: ['horse']
+controlnet: [False]
+prompts: ['a photo of a bnha horse in front of a dark background', 'a photo of a horse']
+stage 2: :   0%|          | 152/200000 [01:00<20:13:24,  2.75it/s, loss=0.612]stage 2: :   0%|          | 156/200000 [01:01<20:13:54,  2.74it/s, loss=0.612]stage 2: :   0%|          | 156/200000 [01:01<20:13:54,  2.74it/s, loss=0.465]<=============================== step 156  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.5133], device='cuda:0')
+subjects: ['horse']
+controlnet: [True]
+prompts: ['a photo of a bnha horse in space with the Milky Way galaxy stretching across the background ', 'a photo of a horse']
+stage 2: :   0%|          | 156/200000 [01:01<20:13:54,  2.74it/s, loss=0.465]stage 2: :   0%|          | 160/200000 [01:02<20:11:16,  2.75it/s, loss=0.465]stage 2: :   0%|          | 160/200000 [01:02<20:11:16,  2.75it/s, loss=0.551]<=============================== step 160  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.0698], device='cuda:0')
+subjects: ['horse']
+controlnet: [False]
+prompts: ['a photo of a bnha horse in front of a dark background', 'a photo of a horse']
+stage 2: :   0%|          | 160/200000 [01:03<20:11:16,  2.75it/s, loss=0.551]stage 2: :   0%|          | 164/200000 [01:03<20:02:28,  2.77it/s, loss=0.551]stage 2: :   0%|          | 164/200000 [01:03<20:02:28,  2.77it/s, loss=0.559]<=============================== step 164  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.5133], device='cuda:0')
+subjects: ['motorbike']
+controlnet: [False]
+prompts: ['a photo of a bnha motorbike in front of a dark background', 'a photo of a motorbike']
+stage 2: :   0%|          | 164/200000 [01:04<20:02:28,  2.77it/s, loss=0.559]stage 2: :   0%|          | 168/200000 [01:05<20:16:10,  2.74it/s, loss=0.559]stage 2: :   0%|          | 168/200000 [01:05<20:16:10,  2.74it/s, loss=0.6]  <=============================== step 168  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.1416], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 168/200000 [01:06<20:16:10,  2.74it/s, loss=0.6]stage 2: :   0%|          | 172/200000 [01:06<20:15:33,  2.74it/s, loss=0.6]stage 2: :   0%|          | 172/200000 [01:06<20:15:33,  2.74it/s, loss=0.533]<=============================== step 172  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.2463], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 172/200000 [01:07<20:15:33,  2.74it/s, loss=0.533]stage 2: :   0%|          | 176/200000 [01:08<20:08:57,  2.75it/s, loss=0.533]stage 2: :   0%|          | 176/200000 [01:08<20:08:57,  2.75it/s, loss=0.413]<=============================== step 176  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([6.1785], device='cuda:0')
+subjects: ['elephant']
+controlnet: [True]
+prompts: ['a photo of a bnha elephant by a riverside with wildflowers blooming nearby\n', 'a photo of a elephant']
+stage 2: :   0%|          | 176/200000 [01:09<20:08:57,  2.75it/s, loss=0.413]stage 2: :   0%|          | 180/200000 [01:09<20:13:51,  2.74it/s, loss=0.413]stage 2: :   0%|          | 180/200000 [01:09<20:13:51,  2.74it/s, loss=0.514]<=============================== step 180  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.4454], device='cuda:0')
+subjects: ['horse']
+controlnet: [False]
+prompts: ['a photo of a bnha horse in front of a dark background', 'a photo of a horse']
+stage 2: :   0%|          | 180/200000 [01:10<20:13:51,  2.74it/s, loss=0.514]stage 2: :   0%|          | 184/200000 [01:11<20:06:30,  2.76it/s, loss=0.514]stage 2: :   0%|          | 184/200000 [01:11<20:06:30,  2.76it/s, loss=0.454]<=============================== step 184  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.5029], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha lion in front of a dark background', 'a photo of a lion']
+slurmstepd: error: *** JOB 296 ON cn3 CANCELLED AT 2024-08-20T23:43:48 ***
+W0820 23:43:48.873628 139836567160640 torch/distributed/elastic/agent/server/api.py:688] Received Signals.SIGTERM death signal, shutting down workers
+W0820 23:43:48.876366 139836567160640 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 2280945 closing signal SIGTERM
+W0820 23:43:48.876777 139836567160640 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 2280946 closing signal SIGTERM
+W0820 23:43:48.877000 139836567160640 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 2280947 closing signal SIGTERM
+W0820 23:43:48.877195 139836567160640 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 2280948 closing signal SIGTERM
+Traceback (most recent call last):
+  File "/home/rishubhp/miniconda3/envs/contwords/bin/accelerate", line 8, in <module>
+    sys.exit(main())
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/accelerate/commands/accelerate_cli.py", line 45, in main
+    args.func(args)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/accelerate/commands/launch.py", line 914, in launch_command
+    multi_gpu_launcher(args)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/accelerate/commands/launch.py", line 603, in multi_gpu_launcher
+    distrib_run.run(args)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 133, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 255, in launch_agent
+    result = agent.run()
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/elastic/metrics/api.py", line 124, in wrapper
+    result = f(*args, **kwargs)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/elastic/agent/server/api.py", line 680, in run
+    result = self._invoke_run(role)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/elastic/agent/server/api.py", line 835, in _invoke_run
+    time.sleep(monitor_interval)
+  File "/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 79, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 2280939 got signal: 15

@@ -1,5 +1,5 @@
-# export RUN_NAME="poseonly_nosubject_longskip" 
-export RUN_NAME="debug"
+export RUN_NAME="poseonly_subjectinprompt" 
+# export RUN_NAME="debug"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
@@ -23,14 +23,14 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter="Y" \
   --center_crop="Y" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="N" \
-  --text_encoder_bypass="Y" \
-  --appearance_skip_connection="Y" \
+  --include_class_in_prompt="Y" \
+  --text_encoder_bypass="N" \
+  --appearance_skip_connection="N" \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --resolution=512 \
-  --train_batch_size=2 \
+  --train_batch_size=1 \
   --inference_batch_size=4 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \

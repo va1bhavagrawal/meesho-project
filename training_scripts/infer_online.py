@@ -125,7 +125,6 @@ from continuous_word_mlp import continuous_word_mlp, MergedEmbedding
 import glob
 import wandb 
 
-from datasets import PromptDataset  
 
 
 class EncoderStatesDataset(Dataset): 

@@ -57,12 +57,12 @@ from distutils.util import strtobool
 # }
 from infer_online import TOKEN2ID 
 
-DEBUG = False  
+DEBUG = True  
 BS = 4      
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = []   
+VLOG_STEPS = [100]   
 for vlog_step in range(50000, 210000, 50000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
@@ -1124,15 +1124,15 @@ def main(args):
                 accelerator.print(f"{key}: {value}") 
 
             # making some checks on the dataloader outputs in case of DEBUG mode 
-            if DEBUG: 
-                if "ids" in key: 
-                    # this is necessary because we are on a "nosubject" formulation 
-                    for batch_idx in range(B):  
-                        # print(f"{B = }")
-                        # print(f"{batch_idx = }")
-                        # print(f"{value.shape = }") 
-                        assert TOKEN2ID[batch["subjects"][batch_idx]] not in value[batch_idx], f"{batch['subjects'][batch_idx] = }, {batch['prompts'][batch_idx] = }"   
-                        assert TOKEN2ID["bnha"] in value 
+            # if DEBUG: 
+            #     if "ids" in key: 
+            #         # this is necessary because we are on a "nosubject" formulation 
+            #         for batch_idx in range(B):  
+            #             # print(f"{B = }")
+            #             # print(f"{batch_idx = }")
+            #             # print(f"{value.shape = }") 
+            #             assert TOKEN2ID[batch["subjects"][batch_idx]] not in value[batch_idx], f"{batch['subjects'][batch_idx] = }, {batch['prompts'][batch_idx] = }"   
+            #             assert TOKEN2ID["bnha"] in value 
 
         if DEBUG or args.wandb: 
             wandb_log_data = {}
