@@ -52,8 +52,8 @@ TOKEN2ID = {
     "shoe": 7342, 
     "dog": 1929, 
 }
-DEBUG = False  
-BS = 4  
+DEBUG = True  
+BS = 1  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -466,7 +466,13 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                         truncation=True, 
                         return_tensors="pt"
                     ).input_ids 
+                    # now must add a skip connection for the bnha token  
+                    # the first dimension must be the batch dimension, and must be singleton 
+                    assert tokens.shape[0] == 1 
+                    bnha_idx = list(tokens[0]).index(TOKEN2ID["bnha"]) 
+                    assert tokens[0][bnha_idx] == TOKEN2ID["bnha"] 
                     text_encoder_outputs = text_encoder(tokens.to(accelerator.device))[0].squeeze()   
+                    text_encoder_outputs[bnha_idx] += accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] 
                     encoder_hidden_states[azimuth * n_prompts_per_azimuth + i] = text_encoder_outputs  
         encoder_hidden_states = torch.sum(accelerator.gather(encoder_hidden_states.unsqueeze(0)), dim=0)  
 
@@ -650,6 +656,10 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                         truncation=True, 
                         return_tensors="pt"
                     ).input_ids 
+                    # now must add a skip connection for the bnha token  
+                    assert tokens.shape[0] == 1 
+                    bnha_idx = list(tokens[0]).index(TOKEN2ID["bnha"]) 
+                    assert tokens[0][bnha_idx] == TOKEN2ID["bnha"] 
                     text_encoder_outputs = text_encoder(tokens.to(accelerator.device))[0].squeeze()   
                     encoder_hidden_states[azimuth * n_prompts_per_azimuth + i] = text_encoder_outputs  
         encoder_hidden_states = torch.sum(accelerator.gather(encoder_hidden_states.unsqueeze(0)), dim=0)  
@@ -1908,8 +1918,13 @@ def main(args):
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_emb[batch_idx] 
 
-            # appending to the encoder states 
-            encoder_hidden_states.append(text_encoder(batch_item.unsqueeze(0))[0].squeeze()) 
+            # now must add a skip connection for the bnha token  
+            bnha_idx = list(batch_item).index(TOKEN2ID["bnha"]) 
+            assert batch_item[bnha_idx] == TOKEN2ID["bnha"] 
+            text_embeddings = text_encoder(batch_item.unsqueeze(0))[0].squeeze() 
+            text_embeddings[bnha_idx] = text_embeddings[bnha_idx] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] 
+
+            encoder_hidden_states.append(text_embeddings)  
 
         encoder_hidden_states = torch.stack(encoder_hidden_states)  
 
