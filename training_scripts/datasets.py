@@ -13,68 +13,68 @@ import glob
 import os 
 import os.path as osp 
 
-class PromptDataset(Dataset):
-    "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
+# class PromptDataset(Dataset):
+#     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
-    def __init__(self, num_samples=24, subjects=None):
-        self.num_samples = num_samples 
-        self.subjects = subjects 
-        assert self.subjects is not None 
-        # if self.subjects is None: 
-        #     self.subjects = [
-        #         "bnha pickup truck",
-        #         "bnha motorbike",  
-        #         "bnha horse", 
-        #         "bnha lion", 
-        #     ] 
-        # self.subjects2 = [
-        #     "bicycle", 
-        #     "tractor", 
-        #     "sports car", 
-        #     "brad pitt", 
-        # ]
+#     def __init__(self, num_samples=24, subjects=None):
+#         self.num_samples = num_samples 
+#         self.subjects = subjects 
+#         assert self.subjects is not None 
+#         # if self.subjects is None: 
+#         #     self.subjects = [
+#         #         "bnha pickup truck",
+#         #         "bnha motorbike",  
+#         #         "bnha horse", 
+#         #         "bnha lion", 
+#         #     ] 
+#         # self.subjects2 = [
+#         #     "bicycle", 
+#         #     "tractor", 
+#         #     "sports car", 
+#         #     "brad pitt", 
+#         # ]
 
-        self.template_prompts = [
-            # prompts testing if the model can follow the prompt to create an 'environment'
-            "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-            "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
-            "a photo of a SUBJECT in front of a dark background",  
-            "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
-            "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
-            "a SUBJECT in a colorful tulip field, with windmills in the background", 
-        ]
-        # this is just an indicator of azimuth, not the exact value 
-        self.azimuths = torch.arange(num_samples)  
-        self.prompt_wise_subjects, self.prompts = self.generate_prompts()
-        assert len(self.prompt_wise_subjects) == len(self.prompts) 
-
-
-    def generate_prompts(self):  
-        prompts = []
-        prompt_wise_subjects = [] 
-        for subject in self.subjects: 
-            for prompt in self.template_prompts:
-                # if use_sks:
-                #     prompt = "a sks photo of " + prompt 
-                # else: 
-                #     prompt = "a photo of " + prompt 
-                subject_without_bnha = subject.replace("bnha", "").strip()  
-                subject_without_bnha = " " + subject_without_bnha + " " 
-                prompt_ = prompt.replace(f"SUBJECT", "bnha") 
-                # we DO NOT want the subject to be present in the prompt text 
-                assert prompt_.find(subject) == -1, f"{prompt_ = }, {prompt = }, {subject = }" 
-                assert prompt_.find(subject_without_bnha) == -1, f"{prompt_ = }, {prompt = }, {subject_without_bnha = }, {subject = }" 
-                prompts.append(prompt_)  
-                prompt_wise_subjects.append(subject) 
-        return prompt_wise_subjects, prompts  
+#         self.template_prompts = [
+#             # prompts testing if the model can follow the prompt to create an 'environment'
+#             "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
+#             "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
+#             "a photo of a SUBJECT in front of a dark background",  
+#             "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
+#             "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
+#             "a SUBJECT in a colorful tulip field, with windmills in the background", 
+#         ]
+#         # this is just an indicator of azimuth, not the exact value 
+#         self.azimuths = torch.arange(num_samples)  
+#         self.prompt_wise_subjects, self.prompts = self.generate_prompts()
+#         assert len(self.prompt_wise_subjects) == len(self.prompts) 
 
 
-    def __len__(self):
-        return len(self.subjects) * len(self.template_prompts) * self.num_samples
+#     def generate_prompts(self):  
+#         prompts = []
+#         prompt_wise_subjects = [] 
+#         for subject in self.subjects: 
+#             for prompt in self.template_prompts:
+#                 # if use_sks:
+#                 #     prompt = "a sks photo of " + prompt 
+#                 # else: 
+#                 #     prompt = "a photo of " + prompt 
+#                 subject_without_bnha = subject.replace("bnha", "").strip()  
+#                 subject_without_bnha = " " + subject_without_bnha + " " 
+#                 prompt_ = prompt.replace(f"SUBJECT", "bnha") 
+#                 # we DO NOT want the subject to be present in the prompt text 
+#                 assert prompt_.find(subject) == -1, f"{prompt_ = }, {prompt = }, {subject = }" 
+#                 assert prompt_.find(subject_without_bnha) == -1, f"{prompt_ = }, {prompt = }, {subject_without_bnha = }, {subject = }" 
+#                 prompts.append(prompt_)  
+#                 prompt_wise_subjects.append(subject) 
+#         return prompt_wise_subjects, prompts  
 
 
-    def __getitem__(self, index):
-        return self.data[index] 
+#     def __len__(self):
+#         return len(self.subjects) * len(self.template_prompts) * self.num_samples
+
+
+#     def __getitem__(self, index):
+#         return self.data[index] 
 
 
 class DisentangleDataset(Dataset): 
@@ -99,8 +99,8 @@ class DisentangleDataset(Dataset):
             img_transforms.append(transforms.CenterCrop(args.resolution)) 
         if args.color_jitter:
             img_transforms.append(transforms.ColorJitter(0.2, 0.1))
-        if args.h_flip:
-            img_transforms.append(transforms.RandomHorizontalFlip())
+        # if args.h_flip:
+        #     img_transforms.append(transforms.RandomHorizontalFlip())
 
         self.image_transforms = transforms.Compose(
             [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
@@ -131,7 +131,8 @@ class DisentangleDataset(Dataset):
         # if index % 5 != 0: 
         # only choosing the controlnet images in this one 
         # if False:  
-        if index % 5 != 0: 
+        assert self.args.use_ref_images or self.args.use_controlnet_images 
+        if index % 5 != 0 and self.args.use_ref_images: 
             random_ref_img = random.choice(os.listdir(subject_ref_dir)) 
             a, e, r, x, y, _ = random_ref_img.split("__") 
             a = float(a) 
@@ -156,7 +157,7 @@ class DisentangleDataset(Dataset):
             img = Image.open(img_path)  
 
         # choosing from the controlnet augmentation 
-        else: 
+        elif self.args.use_controlnet_images:  
             example["controlnet"] = True  
             # subject_angle_controlnet_dir = osp.join(self.args.controlnet_data_dir, subject_, str(angle))  
 
@@ -178,11 +179,17 @@ class DisentangleDataset(Dataset):
             prompt = self.args.controlnet_prompts[prompt_idx] 
             # there must be the keyword SUBJECT in the prompt, that can be replaced for the relevant subject 
             assert prompt.find("SUBJECT") != -1 
-            prompt = prompt.replace("SUBJECT", f"bnha")  
+            if self.args.include_class_in_prompt: 
+                prompt = prompt.replace("SUBJECT", f"bnha {subject.strip()}")   
+            else: 
+                prompt = prompt.replace("SUBJECT", "bnha") 
             assert prompt.find("bnha") != -1 
             # assert prompt.find(subject) != -1 
             # we DO NOT want the subject to be present in the prompt text 
-            assert prompt.find(f" {subject} ") == -1, f"{prompt = }, {subject = }" 
+            if not self.args.include_class_in_prompt: 
+                assert prompt.find(f" {subject} ") == -1, f"{prompt = }, {subject = }" 
+            else: 
+                assert prompt.find(f" {subject} ") != -1, f"{prompt = }, {subject = }" 
             example["prompt"] = prompt 
             example["prompt_ids"] = self.tokenizer(
                 example["prompt"], 
@@ -199,10 +206,6 @@ class DisentangleDataset(Dataset):
         # print(f"{img_path = }")
         # in either case, the poseappearance embedding would be necessary 
         # in either case, the subject name in the prompt would be necessary too 
-        assert prompt.find("bnha") != -1 
-        # assert prompt.find(subject) != -1 
-        # we DO NOT want the subject to be present in the prompt text 
-        assert prompt.find(f" {subject} ") == -1, f"{prompt = }, {subject = }"  
 
         if not img.mode == "RGB":  
             img = img.convert("RGB") 
@@ -210,8 +213,9 @@ class DisentangleDataset(Dataset):
 
         if self.args.with_prior_preservation: 
             subject_class_imgs_path = osp.join(self.args.class_data_dir, subject_)  
-            assert len(os.listdir(subject_class_imgs_path)) == self.args.num_class_images 
-            class_img_name = str(index % self.args.num_class_images).zfill(3) + ".jpg"  
+            assert len(os.listdir(subject_class_imgs_path)) == 100  
+            n_class_images = len(os.listdir(subject_class_imgs_path)) 
+            class_img_name = str(index % n_class_images).zfill(3) + ".jpg"  
             class_img_path = osp.join(subject_class_imgs_path, class_img_name) 
             assert osp.exists(class_img_path), f"{class_img_path = }"
             class_img = Image.open(class_img_path) 

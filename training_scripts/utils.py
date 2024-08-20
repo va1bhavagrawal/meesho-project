@@ -127,7 +127,7 @@ def create_gif(images, save_path, duration=1):
     return 
 
 
-def collect_generated_images(subjects, vis_dir, prompt, keyname, save_path):  
+def collect_generated_images(subjects, vis_dir, prompt, save_path):  
     # stores all the videos for this particular prompt on wandb  
     template_prompt_videos = {} 
 
@@ -148,10 +148,9 @@ def collect_generated_images(subjects, vis_dir, prompt, keyname, save_path):
         img_names = sorted(img_names) 
 
         # assert "bnha" in subject 
-        # keyname = subject.replace(f"bnha", "pose+app") 
 
         # template_prompt_videos["type1"][keyname] = [] 
-        template_prompt_videos[keyname] = [] 
+        template_prompt_videos[subject] = [] 
         # assert len(img_names) == prompts_dataset.num_samples, f"{len(img_names) = }, {prompts_dataset.num_samples = }" 
         for img_name in img_names: 
             # prompt_path has a BUG 
@@ -168,7 +167,7 @@ def collect_generated_images(subjects, vis_dir, prompt, keyname, save_path):
             #     if got_image: 
             #         break 
             img = Image.open(img_path) 
-            template_prompt_videos[keyname].append(img) 
+            template_prompt_videos[subject].append(img) 
 
 
         # concatenate all the images for this template prompt 
@@ -180,24 +179,24 @@ def collect_generated_images(subjects, vis_dir, prompt, keyname, save_path):
         #         images.append(template_prompt_videos[subject][idx]) 
         #     concat_img = create_image_with_captions(images, sorted(prompts_dataset.subjects))  
         #     all_concat_imgs.append(concat_img) 
-        for idx in range(len(list(template_prompt_videos.values())[0])): 
-            images = [] 
-            captions = [] 
-            # for typename in list(template_prompt_videos.keys()): 
-            images_row = [] 
-            captions_row = [] 
-            for keyname in list(template_prompt_videos.keys()): 
-                images_row.append(template_prompt_videos[keyname][idx]) 
-                captions_row.append(keyname) 
-            images.append(images_row) 
-            captions.append(captions_row) 
+    for idx in range(len(list(template_prompt_videos.values())[0])): 
+        images = [] 
+        captions = [] 
+        # for typename in list(template_prompt_videos.keys()): 
+        images_row = [] 
+        captions_row = [] 
+        for subject in list(template_prompt_videos.keys()): 
+            images_row.append(template_prompt_videos[subject][idx]) 
+            captions_row.append(subject) 
+        images.append(images_row) 
+        captions.append(captions_row) 
 
-            concat_img = create_image_with_captions(images, captions)  
-            concat_img = create_image_with_captions([[concat_img]], [["---"]]) 
-            concat_img = create_image_with_captions([[concat_img]], [[f"{prompt}"]]) 
-            all_concat_imgs.append(concat_img) 
+        concat_img = create_image_with_captions(images, captions)  
+        concat_img = create_image_with_captions([[concat_img]], [["---"]]) 
+        concat_img = create_image_with_captions([[concat_img]], [[f"{prompt}"]]) 
+        all_concat_imgs.append(concat_img) 
 
 
-        # template_prompt_ = "_".join(template_prompt.split()) 
-        # video_path = osp.join(save_path_global, template_prompt_ + ".gif")  
-        create_gif(all_concat_imgs, save_path, 1) 
+    # template_prompt_ = "_".join(template_prompt.split()) 
+    # video_path = osp.join(save_path_global, template_prompt_ + ".gif")  
+    create_gif(all_concat_imgs, save_path, 1) 

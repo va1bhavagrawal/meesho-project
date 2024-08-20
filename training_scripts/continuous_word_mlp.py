@@ -47,21 +47,20 @@ class AppearanceEmbeddings(nn.Module):
         for key, value in init_embeddings.items(): 
             # self.embeds[key] = torch.nn.Parameter(value.detach())    
             self.register_parameter(key, torch.nn.Parameter(value.detach())) 
-        assert False 
     
     def forward(self, name): 
         # raise NotImplementedError(f"there is no forward method for this class") 
-        assert False 
         return getattr(self, name) 
 
 
 class MergedEmbedding(nn.Module): 
-    def __init__(self, pose_dim=1024, appearance_dim=1024): 
+    def __init__(self, skip_conn=True, pose_dim=1024, appearance_dim=1024): 
         super().__init__() 
         self.linear1 = nn.Linear(pose_dim + appearance_dim, 2048) 
         self.linear2 = nn.Linear(2048, 2048)  
         self.linear3 = nn.Linear(2048, 2048) 
         self.linear4 = nn.Linear(2048, 1024) 
+        self.skip_conn = skip_conn 
 
         merger_state_dict = self.state_dict() 
         # for name, param in merger_state_dict.items():  
@@ -80,5 +79,7 @@ class MergedEmbedding(nn.Module):
         x = F.relu(x)  
         x = self.linear3(x) 
         x = F.relu(x) 
-        x = self.linear4(x) + appearance_embed  
+        if self.skip_conn: 
+            x = self.linear4(x) + appearance_embed  
+
         return x 
