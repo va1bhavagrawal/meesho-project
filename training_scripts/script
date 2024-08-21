@@ -1,11 +1,10 @@
-#!/bin/sh
-#SBATCH --account=def-someuser
-#SBATCH --job-name=poseonly_subjectinprompt_nounet
-#SBATCH --ntasks=1                                     # Run on a single CPU
-#SBATCH --time=24:00:00                                   # Time limit hrs:min:sec
-#SBATCH --output=poseonly_subjectinprompt_nounet.out 
-#SBATCH --gres=gpu:4 
-#SBATCH --partition=long
-#SBATCH -w cn4  
+#!/bin/bash
+#SBATCH --job-name=train
+#SBATCH --output=job_output_%j.log  
+#SBATCH --ntasks=1                  
+#SBATCH --cpus-per-task=4           
+#SBATCH --mem=128G              
+#SBATCH --gres=gpu:A5000:4             
+#SBATCH --partition=short 
 
 ./run.sh 
