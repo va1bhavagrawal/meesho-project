@@ -1,4 +1,4 @@
-export RUN_NAME="app_nosubjectinprompt" 
+export RUN_NAME="app_nosubjectinprompt_bypass" 
 # export RUN_NAME="debug"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -24,7 +24,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="N" \
-  --text_encoder_bypass="N" \
+  --text_encoder_bypass="Y" \
   --appearance_skip_connection="Y" \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
