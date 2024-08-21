@@ -71,7 +71,19 @@ TOKEN2ID = {
     "man": 786, 
     "camel": 21914, 
     "dog": 1929,  
-}
+
+    # unque tokens 
+    "bk": 14083, 
+    "ak": 1196, 
+    "ck": 868, 
+    "dk": 16196, 
+    "ek": 2092, 
+    "fk": 12410, 
+    "gk": 18719, 
+} 
+
+# UNIQUE_TOKENS = ["bnha", "sks", "ak", "bk", "ck", "dk", "ek", "fk", "gk"] 
+UNIQUE_TOKENS = ["bnha", "sks"]  
 
 # DEBUG = False  
 # BS = 4   
@@ -159,7 +171,8 @@ def collate_fn(examples):
 
 
 class Infer: 
-    def __init__(self, seed, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, bs=8):   
+    def __init__(self, merged_emb_dim, seed, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, bs=8):   
+        self.merged_emb_dim = merged_emb_dim 
         self.seed = seed  
         self.accelerator = accelerator 
         self.unet = unet 
@@ -296,26 +309,32 @@ class Infer:
                     assert f"SUBJECT" in prompt 
                     subject_ = "_".join(subject.split()) 
 
-                    assert "bnha" in subject 
+                    assert "bnha" not in subject 
+                    assert "sks" not in subject 
 
-                    subject_without_bnha = subject.replace("bnha", "").strip()  
+                    # subject_without_bnha = subject.replace("bnha", "").strip()  
+                    unique_string = "" 
+                    for i in range(self.merged_emb_dim // 1024): 
+                        unique_string = unique_string + UNIQUE_TOKENS[i] + " " 
+                    unique_string = unique_string.strip() 
                     if not include_class_in_prompt: 
-                        subject_prompt = prompt.replace(f"SUBJECT", "bnha")  
+                        subject_prompt = prompt.replace(f"SUBJECT", unique_string)  
                     else: 
-                        subject_prompt = prompt.replace(f"SUBJECT", subject)  
-                    self.accelerator.print(f"{subject_prompt = }")
+                        subject_prompt = prompt.replace(f"SUBJECT", f"{unique_string} {subject}")   
+                    # self.accelerator.print(f"{subject_prompt = }")
 
                     if appearance_type == "learnt": 
                         assert self.bnha_embeds is not None 
-                        bnha_embs.append(getattr(self.accelerator.unwrap_model(self.bnha_embeds), subject_without_bnha))  
+                        bnha_embs.append(getattr(self.accelerator.unwrap_model(self.bnha_embeds), subject))  
                     elif appearance_type == "class": 
-                        bnha_embs.append(self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_without_bnha]]) 
+                        bnha_embs.append(self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
                     elif appearance_type == "zero": 
                         bnha_embs.append(torch.zeros((1024, )).to(self.accelerator.device)) 
                     else: 
                         print(f"{appearance_type = }") 
                         assert False 
 
+                    assert subject_prompt.find(unique_string) != -1 
                     subject_prompts.append(subject_prompt) 
                     save_paths.append(osp.join(self.tmp_dir, subject_, f"{str(azimuth_idx).zfill(3)}.jpg")) 
                     
@@ -327,9 +346,10 @@ class Infer:
 
                 for i in range(merged_embs.shape[0]): 
                     if pose_type == "0" and appearance_type == "zero": 
-                        refined_prompt = subject_prompts[i].replace("bnha", "") 
+                        refined_prompt = subject_prompts[i].replace(unique_string, "") 
                     else: 
                         refined_prompt = subject_prompts[i] 
+                    self.accelerator.print(f"{refined_prompt = }")
                     tokens = self.tokenizer(
                         refined_prompt, 
                         padding="max_length", 
@@ -338,17 +358,33 @@ class Infer:
                         return_tensors="pt"
                     ).input_ids 
 
-                    self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_embs[i]  
+                    # self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_embs[i]  
+                    for j in range(self.merged_emb_dim // 1024):  
+                        self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[j]]] = merged_embs[i][j * 1024 : (j+1) * 1024]  
 
                     if pose_type != "0" or appearance_type != "zero": 
-                        assert TOKEN2ID["bnha"] in tokens 
+                        for j in range(self.merged_emb_dim // 1024): 
+                            assert TOKEN2ID[UNIQUE_TOKENS[j]] in tokens 
 
-                    bnha_idx = list(tokens[0]).index(TOKEN2ID["bnha"])  
-                    assert tokens[0][bnha_idx] == TOKEN2ID["bnha"] 
-                    text_encoder_outputs = self.text_encoder(tokens.to(self.accelerator.device))[0].squeeze()   
+                    # bnha_idx = list(tokens[0]).index(TOKEN2ID["bnha"])  
+                    # assert tokens[0][bnha_idx] == TOKEN2ID["bnha"] 
+                    # text_encoder_outputs = self.text_encoder(tokens.to(self.accelerator.device))[0].squeeze()   
+                    # if self.text_encoder_bypass: 
+                    #     text_encoder_outputs[bnha_idx] = text_encoder_outputs[bnha_idx] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] 
+                    # unique_positions 
+                    # if self.text_encoder_bypass: 
+                    #     for i in range(self.merged_emb_dim // 1024): 
+                    #         text_encoder_outputs[]
+                    # encoder_states[azimuth_idx * len(subjects) + i] = text_encoder_outputs  
+
+
+                    unique_token_positions = [] 
+                    for j in range(self.merged_emb_dim // 1024): 
+                        unique_token_positions.append(list(tokens[0]).index(TOKEN2ID[UNIQUE_TOKENS[j]])) 
+                    text_embeddings = self.text_encoder(tokens.to(self.accelerator.device))[0].squeeze() 
                     if self.text_encoder_bypass: 
-                        text_encoder_outputs[bnha_idx] = text_encoder_outputs[bnha_idx] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] 
-                    encoder_states[azimuth_idx * len(subjects) + i] = text_encoder_outputs  
+                        for j, position in enumerate(unique_token_positions):  
+                            text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[j]]] 
 
 
 

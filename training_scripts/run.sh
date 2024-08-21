@@ -25,7 +25,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
   --text_encoder_bypass="Y" \
-  --appearance_skip_connection="Y" \
+  --appearance_skip_connection="N" \
+  --merged_emb_dim=2048 \
   --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
