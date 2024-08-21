@@ -1,4 +1,4 @@
-export RUN_NAME="poseonly_nosubjectinprompt" 
+export RUN_NAME="poseonly_subjectinprompt" 
 # export RUN_NAME="debug"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -21,11 +21,11 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-3 \
   --color_jitter="Y" \
-  --center_crop="Y" \
+  --center_crop="N" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="N" \
+  --include_class_in_prompt="Y" \
   --text_encoder_bypass="N" \
-  --appearance_skip_connection="Y" \
+  --appearance_skip_connection="N" \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
