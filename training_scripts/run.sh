@@ -1,4 +1,4 @@
-export RUN_NAME="poseonly_nosubjectinprompt" 
+export RUN_NAME="app_nosubjectinprompt" 
 # export RUN_NAME="debug"
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -12,7 +12,7 @@ export VIS_DIR="../multiobject/"
 
 accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
-  --textual_inv="N" \
+  --textual_inv="Y" \
   --train_text_encoder="N" \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
@@ -30,7 +30,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --resolution=512 \
-  --train_batch_size=1 \
+  --train_batch_size=2 \
   --inference_batch_size=4 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \

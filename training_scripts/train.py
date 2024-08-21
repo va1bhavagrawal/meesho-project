@@ -58,7 +58,7 @@ from distutils.util import strtobool
 from infer_online import TOKEN2ID 
 
 DEBUG = False  
-BS = 4        
+BS = 4     
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -179,12 +179,13 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             subfolder="tokenizer", 
         ) 
         tmp_dir = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "tmp")    
-        if args.textual_inv: 
-            assert bnha_embeds is not None 
-            infer = Infer(accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, bnha_embeds, bs=args.inference_batch_size)    
-        else: 
-            assert bnha_embeds is None 
-            infer = Infer(accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, None, bs=args.inference_batch_size)  
+        # if args.textual_inv: 
+        #     assert bnha_embeds is not None 
+        #     infer = Infer(args.seed, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, bnha_embeds, bs=args.inference_batch_size)    
+        # else: 
+        # PERFORMING ONLY CLASS INFERENCE HERE!
+        assert bnha_embeds is None 
+        infer = Infer(args.seed, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, None, bs=args.inference_batch_size)  
 
 
         prompt = "a photo of a SUBJECT in front of a dark background" 
@@ -227,44 +228,44 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
 
-        prompt = "a photo of a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore"  
-        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        subjects = [
-            "bnha truck", 
-            "bnha jeep", 
-            "bnha cat", 
-            "bnha horse", 
-        ] 
-        infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
-        assert osp.exists(gif_path) 
-        wandb_log_data[prompt] = wandb.Video(gif_path)  
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
+        # prompt = "a photo of a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore"  
+        # gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
+        # subjects = [
+        #     "bnha truck", 
+        #     "bnha jeep", 
+        #     "bnha cat", 
+        #     "bnha horse", 
+        # ] 
+        # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
+        # assert osp.exists(gif_path) 
+        # wandb_log_data[prompt] = wandb.Video(gif_path)  
+        # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
 
-        prompt = "a photo of a SUBJECT in a desert"  
-        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        subjects = [
-            "bnha camel", 
-            "bnha pickup truck", 
-            "bnha bus", 
-        ] 
-        infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
-        assert osp.exists(gif_path) 
-        wandb_log_data[prompt] = wandb.Video(gif_path)  
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
+        # prompt = "a photo of a SUBJECT in a desert"  
+        # gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
+        # subjects = [
+        #     "bnha camel", 
+        #     "bnha pickup truck", 
+        #     "bnha bus", 
+        # ] 
+        # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
+        # assert osp.exists(gif_path) 
+        # wandb_log_data[prompt] = wandb.Video(gif_path)  
+        # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
 
-        prompt = "a photo of a SUBJECT in a forest"  
-        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        subjects = [
-            "bnha elephant", 
-            "bnha lion", 
-            "bnha jeep", 
-        ] 
-        infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
-        assert osp.exists(gif_path) 
-        wandb_log_data[prompt] = wandb.Video(gif_path)  
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
+        # prompt = "a photo of a SUBJECT in a forest"  
+        # gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
+        # subjects = [
+        #     "bnha elephant", 
+        #     "bnha lion", 
+        #     "bnha jeep", 
+        # ] 
+        # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
+        # assert osp.exists(gif_path) 
+        # wandb_log_data[prompt] = wandb.Video(gif_path)  
+        # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
         # gif_names = os.listdir(osp.join(args.vis_dir, f"outputs_{step_number}"))  
         # gif_names = [name for name in gif_names if name.find(f".gif") != -1] 
@@ -1718,14 +1719,15 @@ def main(args):
                 # bnha_embeds_safe = [torch.clone(p) for p in bnha_embeds.parameters()] 
 
 
-            if (DEBUG or args.wandb) and args.textual_inv and args.online_inference: 
-                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, bnha_embeds, input_embeddings) 
-                force_wandb_log = True 
-                set_seed(args.seed + accelerator.process_index) 
-            elif (DEBUG or args.wandb) and args.online_inference: 
-                wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, None, input_embeddings) 
-                force_wandb_log = True 
-                set_seed(args.seed + accelerator.process_index) 
+            # if (DEBUG or args.wandb) and args.textual_inv and args.online_inference: 
+            #     wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, bnha_embeds, input_embeddings) 
+            #     force_wandb_log = True 
+            #     set_seed(args.seed + accelerator.process_index) 
+            # elif (DEBUG or args.wandb) and args.online_inference: 
+            # ONLY PERFORMING CLASS INFERENCE HERE!  
+            wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, None, input_embeddings) 
+            force_wandb_log = True 
+            set_seed(args.seed + accelerator.process_index) 
 
             if DEBUG: 
                 for p_, p in zip(unet_params_safe, unet.parameters()): 

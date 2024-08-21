@@ -159,7 +159,8 @@ def collate_fn(examples):
 
 
 class Infer: 
-    def __init__(self, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, bs=8):   
+    def __init__(self, seed, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, bs=8):   
+        self.seed = seed  
         self.accelerator = accelerator 
         self.unet = unet 
         self.text_encoder = text_encoder  
@@ -202,7 +203,8 @@ class Infer:
         # encoder_states = torch.stack(encoder_states).to(self.accelerator.device) 
         B = encoder_states.shape[0] 
         assert encoder_states.shape == (B, 77, 1024) 
-        latents = torch.randn(B, 4, 64, 64).to(self.accelerator.device)  
+        set_seed(self.seed) 
+        latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device).repeat(B, 1, 1, 1)  
         self.scheduler.set_timesteps(50)
         for t in self.scheduler.timesteps:
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
