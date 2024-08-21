@@ -1,5 +1,4 @@
-export RUN_NAME="app_nosubjectinprompt_bypass" 
-# export RUN_NAME="debug"
+export RUN_NAME="app_subjectinprompt_bypass_nounet_text" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
@@ -11,11 +10,12 @@ export VIS_DIR="../multiobject/"
 
 
 accelerate launch --config_file accelerate_config.yaml train.py \
-  --train_unet="Y" \
+  --train_unet="N" \
   --textual_inv="Y" \
-  --train_text_encoder="N" \
+  --train_text_encoder="Y" \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
+  --learning_rate_text=5e-5 \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
@@ -23,10 +23,10 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="N" \
+  --include_class_in_prompt="Y" \
   --text_encoder_bypass="Y" \
   --appearance_skip_connection="Y" \
-  --with_prior_preservation="Y" \
+  --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --resolution=512 \
