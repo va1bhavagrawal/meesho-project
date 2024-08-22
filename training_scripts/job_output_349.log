@@ -1,0 +1,332 @@
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: '/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/torchvision/image.so: undefined symbol: _ZN3c1017RegisterOperatorsD1Ev'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+VLOG_STEPS = [100, 50000, 100000, 150000, 200000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+VLOG_STEPS = [100, 50000, 100000, 150000, 200000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+VLOG_STEPS = [100, 50000, 100000, 150000, 200000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+VLOG_STEPS = [100, 50000, 100000, 150000, 200000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 170000, 180000, 190000, 200000]
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+wandb: Currently logged in as: vaibhav-agrawal (vaibhav-agrawal-19). Use `wandb login --relogin` to force relogin
+wandb: Appending key for api.wandb.ai to your netrc file: /home/rishubhp/.netrc
+Differences: 0
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+Differences: 0
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+wandb: wandb version 0.17.7 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.17.5
+wandb: Run data is saved locally in /home/rishubhp/vaibhav/meesho-project/training_scripts/wandb/run-20240822_120220-h8dfnzci
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run poseonly_subjectinprompt_extendedmerger3072_poseappskip
+wandb: ⭐️ View project at https://wandb.ai/vaibhav-agrawal-19/iisc
+wandb: 🚀 View run at https://wandb.ai/vaibhav-agrawal-19/iisc/runs/h8dfnzci
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Differences: 0
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+Updating cross attention only!
+['CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnDownBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'CrossAttnUpBlock2D', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'Attention', 'Attention', 'GEGLU', 'UNetMidBlock2DCrossAttn', 'Attention', 'Attention', 'GEGLU']
+Differences: 0
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/diffusers/configuration_utils.py:215: FutureWarning: It is deprecated to pass a pretrained model name or path to `from_config`.If you were trying to load a scheduler, please use <class 'diffusers.schedulers.scheduling_ddpm.DDPMScheduler'>.from_pretrained(...) instead. Otherwise, please make sure to pass a configuration dictionary instead. This functionality will be removed in v1.0.0.
+  deprecate("config-passed-as-path", "1.0.0", deprecation_message, standard_warn=False)
+  0%|          | 0/200000 [00:00<?, ?it/s]<=============================== step 0  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.2237], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ['a photo of a bnha sks ak cat in space with the Milky Way galaxy stretching across the background ', 'a photo of a cat']
+stage 2: :   0%|          | 0/200000 [00:01<?, ?it/s]stage 2: :   0%|          | 4/200000 [00:02<32:35:27,  1.70it/s]stage 2: :   0%|          | 4/200000 [00:02<32:35:27,  1.70it/s, loss=0.486]<=============================== step 4  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([6.1436], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak bus in front of a dark background', 'a photo of a bus']
+stage 2: :   0%|          | 4/200000 [00:02<32:35:27,  1.70it/s, loss=0.486]stage 2: :   0%|          | 8/200000 [00:02<17:49:33,  3.12it/s, loss=0.486]stage 2: :   0%|          | 8/200000 [00:02<17:49:33,  3.12it/s, loss=0.618]<=============================== step 8  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.0472], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 8/200000 [00:03<17:49:33,  3.12it/s, loss=0.618]stage 2: :   0%|          | 12/200000 [00:03<13:03:51,  4.25it/s, loss=0.618]stage 2: :   0%|          | 12/200000 [00:03<13:03:51,  4.25it/s, loss=0.533]<=============================== step 12  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([2.1642], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak elephant in front of a dark background', 'a photo of a elephant']
+stage 2: :   0%|          | 12/200000 [00:03<13:03:51,  4.25it/s, loss=0.533]stage 2: :   0%|          | 16/200000 [00:04<11:05:45,  5.01it/s, loss=0.533]stage 2: :   0%|          | 16/200000 [00:04<11:05:45,  5.01it/s, loss=0.46] <=============================== step 16  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.5256], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ['a photo of a bnha sks ak cat in a medieval castle courtyard with ancient stone walls and archways\n', 'a photo of a cat']
+stage 2: :   0%|          | 16/200000 [00:04<11:05:45,  5.01it/s, loss=0.46]stage 2: :   0%|          | 20/200000 [00:04<9:47:47,  5.67it/s, loss=0.46] stage 2: :   0%|          | 20/200000 [00:04<9:47:47,  5.67it/s, loss=0.609]<=============================== step 20  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([6.1087], device='cuda:0')
+subjects: ['horse']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak horse in front of a dark background', 'a photo of a horse']
+stage 2: :   0%|          | 20/200000 [00:04<9:47:47,  5.67it/s, loss=0.609]stage 2: :   0%|          | 24/200000 [00:05<9:02:00,  6.15it/s, loss=0.609]stage 2: :   0%|          | 24/200000 [00:05<9:02:00,  6.15it/s, loss=0.371]<=============================== step 24  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.9425], device='cuda:0')
+subjects: ['motorbike']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak motorbike in front of a dark background', 'a photo of a motorbike']
+stage 2: :   0%|          | 24/200000 [00:05<9:02:00,  6.15it/s, loss=0.371]stage 2: :   0%|          | 28/200000 [00:05<8:37:16,  6.44it/s, loss=0.371]stage 2: :   0%|          | 28/200000 [00:05<8:37:16,  6.44it/s, loss=0.492]<=============================== step 28  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.5851], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak pickup truck in front of a dark background', 'a photo of a pickup truck']
+stage 2: :   0%|          | 28/200000 [00:05<8:37:16,  6.44it/s, loss=0.492]stage 2: :   0%|          | 32/200000 [00:06<8:17:23,  6.70it/s, loss=0.492]stage 2: :   0%|          | 32/200000 [00:06<8:17:23,  6.70it/s, loss=0.613]<=============================== step 32  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.4887], device='cuda:0')
+subjects: ['jeep']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak jeep in front of a dark background', 'a photo of a jeep']
+stage 2: :   0%|          | 32/200000 [00:06<8:17:23,  6.70it/s, loss=0.613]stage 2: :   0%|          | 36/200000 [00:06<8:05:01,  6.87it/s, loss=0.613]stage 2: :   0%|          | 36/200000 [00:06<8:05:01,  6.87it/s, loss=0.523]<=============================== step 36  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([6.2483], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 36/200000 [00:06<8:05:01,  6.87it/s, loss=0.523]stage 2: :   0%|          | 40/200000 [00:07<7:56:22,  7.00it/s, loss=0.523]stage 2: :   0%|          | 40/200000 [00:07<7:56:22,  7.00it/s, loss=0.588]<=============================== step 40  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.1396], device='cuda:0')
+subjects: ['elephant']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak elephant in front of a dark background', 'a photo of a elephant']
+stage 2: :   0%|          | 40/200000 [00:07<7:56:22,  7.00it/s, loss=0.588]stage 2: :   0%|          | 44/200000 [00:07<7:51:13,  7.07it/s, loss=0.588]stage 2: :   0%|          | 44/200000 [00:07<7:51:13,  7.07it/s, loss=0.484]<=============================== step 44  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.7945], device='cuda:0')
+subjects: ['elephant']
+controlnet: [True]
+prompts: ['a photo of a bnha sks ak elephant in a serene Japanese garden, surrounded by cherry blossoms\n', 'a photo of a elephant']
+stage 2: :   0%|          | 44/200000 [00:08<7:51:13,  7.07it/s, loss=0.484]stage 2: :   0%|          | 48/200000 [00:08<7:50:08,  7.09it/s, loss=0.484]stage 2: :   0%|          | 48/200000 [00:08<7:50:08,  7.09it/s, loss=0.543]<=============================== step 48  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([4.1888], device='cuda:0')
+subjects: ['jeep']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak jeep in front of a dark background', 'a photo of a jeep']
+stage 2: :   0%|          | 48/200000 [00:08<7:50:08,  7.09it/s, loss=0.543]stage 2: :   0%|          | 52/200000 [00:08<7:51:00,  7.08it/s, loss=0.543]stage 2: :   0%|          | 52/200000 [00:09<7:51:00,  7.08it/s, loss=0.446]<=============================== step 52  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.5585], device='cuda:0')
+subjects: ['lion']
+controlnet: [True]
+prompts: ['a photo of a bnha sks ak lion in a lush vineyard with rows of grapevines stretching into the distance\n', 'a photo of a lion']
+stage 2: :   0%|          | 52/200000 [00:09<7:51:00,  7.08it/s, loss=0.446]stage 2: :   0%|          | 56/200000 [00:09<7:52:30,  7.05it/s, loss=0.446]stage 2: :   0%|          | 56/200000 [00:09<7:52:30,  7.05it/s, loss=0.629]<=============================== step 56  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.5256], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak bus in front of a dark background', 'a photo of a bus']
+stage 2: :   0%|          | 56/200000 [00:09<7:52:30,  7.05it/s, loss=0.629]stage 2: :   0%|          | 60/200000 [00:10<7:47:58,  7.12it/s, loss=0.629]stage 2: :   0%|          | 60/200000 [00:10<7:47:58,  7.12it/s, loss=0.552]<=============================== step 60  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.0472], device='cuda:0')
+subjects: ['cat']
+controlnet: [True]
+prompts: ["a photo of a bnha sks ak cat at a river's edge with stones scattered around\n", 'a photo of a cat']
+stage 2: :   0%|          | 60/200000 [00:10<7:47:58,  7.12it/s, loss=0.552]stage 2: :   0%|          | 64/200000 [00:10<7:55:10,  7.01it/s, loss=0.552]stage 2: :   0%|          | 64/200000 [00:10<7:55:10,  7.01it/s, loss=0.598]<=============================== step 64  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.8294], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 64/200000 [00:10<7:55:10,  7.01it/s, loss=0.598]stage 2: :   0%|          | 68/200000 [00:11<7:47:44,  7.12it/s, loss=0.598]stage 2: :   0%|          | 68/200000 [00:11<7:47:44,  7.12it/s, loss=0.586]<=============================== step 68  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([6.1436], device='cuda:0')
+subjects: ['motorbike']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak motorbike in front of a dark background', 'a photo of a motorbike']
+stage 2: :   0%|          | 68/200000 [00:11<7:47:44,  7.12it/s, loss=0.586]stage 2: :   0%|          | 72/200000 [00:11<7:46:50,  7.14it/s, loss=0.586]stage 2: :   0%|          | 72/200000 [00:11<7:46:50,  7.14it/s, loss=0.629]<=============================== step 72  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([3.9794], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 72/200000 [00:11<7:46:50,  7.14it/s, loss=0.629]stage 2: :   0%|          | 76/200000 [00:12<7:44:13,  7.18it/s, loss=0.629]stage 2: :   0%|          | 76/200000 [00:12<7:44:13,  7.18it/s, loss=0.589]<=============================== step 76  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.4887], device='cuda:0')
+subjects: ['bus']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak bus in front of a dark background', 'a photo of a bus']
+stage 2: :   0%|          | 76/200000 [00:12<7:44:13,  7.18it/s, loss=0.589]stage 2: :   0%|          | 80/200000 [00:12<7:43:54,  7.18it/s, loss=0.589]stage 2: :   0%|          | 80/200000 [00:12<7:43:54,  7.18it/s, loss=0.4]  <=============================== step 80  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.0821], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 80/200000 [00:13<7:43:54,  7.18it/s, loss=0.4]stage 2: :   0%|          | 84/200000 [00:13<7:49:28,  7.10it/s, loss=0.4]stage 2: :   0%|          | 84/200000 [00:13<7:49:28,  7.10it/s, loss=0.458]<=============================== step 84  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.2443], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 84/200000 [00:13<7:49:28,  7.10it/s, loss=0.458]stage 2: :   0%|          | 88/200000 [00:14<7:52:52,  7.05it/s, loss=0.458]stage 2: :   0%|          | 88/200000 [00:14<7:52:52,  7.05it/s, loss=0.709]<=============================== step 88  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([0.0698], device='cuda:0')
+subjects: ['cat']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak cat in front of a dark background', 'a photo of a cat']
+stage 2: :   0%|          | 88/200000 [00:14<7:52:52,  7.05it/s, loss=0.709]stage 2: :   0%|          | 92/200000 [00:14<7:52:34,  7.05it/s, loss=0.709]stage 2: :   0%|          | 92/200000 [00:14<7:52:34,  7.05it/s, loss=0.377]<=============================== step 92  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([1.1519], device='cuda:0')
+subjects: ['lion']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak lion in front of a dark background', 'a photo of a lion']
+stage 2: :   0%|          | 92/200000 [00:14<7:52:34,  7.05it/s, loss=0.377]stage 2: :   0%|          | 96/200000 [00:15<7:55:13,  7.01it/s, loss=0.377]stage 2: :   0%|          | 96/200000 [00:15<7:55:13,  7.01it/s, loss=0.632]<=============================== step 96  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: tensor([5.7945], device='cuda:0')
+subjects: ['pickup truck']
+controlnet: [False]
+prompts: ['a photo of a bnha sks ak pickup truck in front of a dark background', 'a photo of a pickup truck']
+stage 2: :   0%|          | 96/200000 [00:15<7:55:13,  7.01it/s, loss=0.632]stage 2: :   0%|          | 100/200000 [00:15<8:09:42,  6.80it/s, loss=0.632]azimuth = 0.0
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.05555555555555555
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.1111111111111111
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.16666666666666666
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.2222222222222222
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.2777777777777778
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.3333333333333333
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.3888888888888889
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.4444444444444444
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.5
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.5555555555555556
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.6111111111111112
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.6666666666666666
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.7222222222222222
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.7777777777777778
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.8333333333333334
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.8888888888888888
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+azimuth = 0.9444444444444444
+refined_prompt = 'a photo of a bnha sks ak pickup truck in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak sedan in front of a dark background'
+refined_prompt = 'a photo of a bnha sks ak horse in front of a dark background'
+every thread finished generating the encoder hidden states...
+every thread finished preparing their dataloaders...
+starting generation...
+1 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/001.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/001.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/002.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/002.jpg']
+3 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/004.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/004.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/004.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/005.jpg']
+0 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/000.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/000.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/000.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/001.jpg']
+2 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/002.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/003.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/003.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/003.jpg']
+0 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/005.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/005.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/006.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/006.jpg']
+3 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/009.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/009.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/010.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/010.jpg']
+1 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/006.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/007.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/007.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/007.jpg']
+2 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/008.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/008.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/008.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/009.jpg']
+0 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/010.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/011.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/011.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/011.jpg']
+3 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/014.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/015.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/015.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/015.jpg']
+1 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/012.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/012.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/012.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/013.jpg']
+2 is doing ['../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/013.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/horse/013.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/pickup_truck/014.jpg', '../multiobject/__poseonly_subjectinprompt_extendedmerger3072_poseappskip/outputs_100/tmp/sedan/014.jpg']

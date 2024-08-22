@@ -1,4 +1,4 @@
-export RUN_NAME="poseonly_subjectinprompt_extendedmerger3072_poseappskip" 
+export RUN_NAME="poseonly_nosubjectinprompt_extendedmerger3072_poseappskip" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
@@ -22,7 +22,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="Y" \
+  --include_class_in_prompt="N" \
   --text_encoder_bypass="Y" \
   --appearance_skip_connection="Y" \
   --merged_emb_dim=3072 \
