@@ -57,12 +57,12 @@ from distutils.util import strtobool
 # }
 from infer_online import TOKEN2ID, UNIQUE_TOKENS  
 
-DEBUG = True  
-BS = 1           
+DEBUG = False  
+BS = 4            
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = [8, 100]   
+VLOG_STEPS = [100]   
 for vlog_step in range(50000, 210000, 50000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
@@ -75,7 +75,7 @@ for save_step in range(10000, 210000, 10000):
 print(f"{VLOG_STEPS = }")
 print(f"{SAVE_STEPS = }")
 
-NUM_SAMPLES = 2  
+NUM_SAMPLES = 18   
 
 from datasets import DisentangleDataset 
 
@@ -214,28 +214,28 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
 
-        # prompt = "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees"  
-        # gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        # subjects = [
-        #     "pickup truck", 
-        #     "dog", 
-        #     "motorbike", 
-        #     "bus", 
-        # ] 
-        # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
-        # assert osp.exists(gif_path) 
-        # wandb_log_data[prompt] = wandb.Video(gif_path)  
-        # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
+        prompt = "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees"  
+        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
+        subjects = [
+            "pickup truck", 
+            "dog", 
+            "motorbike", 
+            "bus", 
+        ] 
+        infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
+        assert osp.exists(gif_path) 
+        wandb_log_data[prompt] = wandb.Video(gif_path)  
+        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
 
-        # prompt = "a photo of a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore"  
-        # gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        # subjects = [
-        #     "truck", 
-        #     "jeep", 
-        #     "cat", 
-        #     "horse", 
-        # ] 
+        prompt = "a photo of a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore"  
+        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
+        subjects = [
+            "truck", 
+            "jeep", 
+            "cat", 
+            "horse", 
+        ] 
         # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
         # assert osp.exists(gif_path) 
         # wandb_log_data[prompt] = wandb.Video(gif_path)  

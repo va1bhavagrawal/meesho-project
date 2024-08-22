@@ -83,7 +83,7 @@ TOKEN2ID = {
 } 
 
 # UNIQUE_TOKENS = ["bnha", "sks", "ak", "bk", "ck", "dk", "ek", "fk", "gk"] 
-UNIQUE_TOKENS = ["bnha", "sks", "ak"]   
+UNIQUE_TOKENS = ["bnha", "sks"]  
 
 # DEBUG = False  
 # BS = 4   
@@ -383,8 +383,8 @@ class Infer:
                         if self.text_encoder_bypass: 
                             for j, position in enumerate(unique_token_positions):  
                                 text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[j]]] 
-                    encoder_states[azimuth_idx * len(subjects) + i] = text_embeddings  
 
+                    encoder_states[azimuth_idx * len(subjects) + i] = text_embeddings 
 
 
             # for subject in subjects: 
@@ -429,4 +429,4 @@ if __name__ == "__main__":
     merger = MergedEmbedding(False, 1024, 1024, merged_emb_dim) 
     accelerator = Accelerator() 
     infer = Infer(merged_emb_dim, 908, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", False, None, 4) 
-    infer.do_it("output.gif", "a photo of a SUBJECT on a highway", ["sedan", "truck"], 4, "a", "class", True) 
+    infer.do_it("output.gif", "a photo of a SUBJECT on a highway", ["sedan", "truck"], 4, "0", "zero", True) 

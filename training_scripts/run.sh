@@ -1,4 +1,4 @@
-export RUN_NAME="reborn_extendedmerger" 
+export RUN_NAME="poseonly_subjectinprompt_extendedmerger3072" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
@@ -25,7 +25,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="Y" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
-  --merged_emb_dim=1024 \
+  --merged_emb_dim=3072 \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
@@ -40,4 +40,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
