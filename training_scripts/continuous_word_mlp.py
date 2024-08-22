@@ -61,6 +61,7 @@ class MergedEmbedding(nn.Module):
         self.linear3 = nn.Linear(2048, 2048) 
         self.linear4 = nn.Linear(2048, output_dim)  
         self.skip_conn = skip_conn 
+        self.output_dim = output_dim 
 
         merger_state_dict = self.state_dict() 
         # for name, param in merger_state_dict.items():  
@@ -80,7 +81,7 @@ class MergedEmbedding(nn.Module):
         x = self.linear3(x) 
         x = F.relu(x) 
         if self.skip_conn: 
-            x = self.linear4(x) + appearance_embed  
+            x = self.linear4(x) + (appearance_embed + pose_embed).repeat(self.output_dim // 1024)  
         else: 
             x = self.linear4(x) 
 
