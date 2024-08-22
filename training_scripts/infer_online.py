@@ -94,7 +94,6 @@ UNIQUE_TOKENS = ["bnha", "sks"]
 # NUM_SAMPLES = 18  
 # NUM_COLS = 4  
 
-from datasets import DisentangleDataset 
 
 
 from accelerate import Accelerator
@@ -349,7 +348,7 @@ class Infer:
                         refined_prompt = subject_prompts[i].replace(unique_string, "") 
                     else: 
                         refined_prompt = subject_prompts[i] 
-                    self.accelerator.print(f"{refined_prompt = }")
+                    self.accelerator.print(f"{refined_prompt = }") 
                     tokens = self.tokenizer(
                         refined_prompt, 
                         padding="max_length", 
@@ -377,14 +376,14 @@ class Infer:
                     #         text_encoder_outputs[]
                     # encoder_states[azimuth_idx * len(subjects) + i] = text_encoder_outputs  
 
-
-                    unique_token_positions = [] 
-                    for j in range(self.merged_emb_dim // 1024): 
-                        unique_token_positions.append(list(tokens[0]).index(TOKEN2ID[UNIQUE_TOKENS[j]])) 
                     text_embeddings = self.text_encoder(tokens.to(self.accelerator.device))[0].squeeze() 
-                    if self.text_encoder_bypass: 
-                        for j, position in enumerate(unique_token_positions):  
-                            text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[j]]] 
+                    if pose_type != "0" or appearance_type != "zero":  
+                        unique_token_positions = [] 
+                        for j in range(self.merged_emb_dim // 1024): 
+                            unique_token_positions.append(list(tokens[0]).index(TOKEN2ID[UNIQUE_TOKENS[j]])) 
+                        if self.text_encoder_bypass: 
+                            for j, position in enumerate(unique_token_positions):  
+                                text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[j]]] 
 
 
 
@@ -423,290 +422,11 @@ class Infer:
             shutil.rmtree(self.tmp_dir) 
 
 
-
-
-# if __name__ == "__main__": 
-#     with torch.no_grad(): 
-#         accelerator = Accelerator(
-#             # kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)],  
-#             # find_unused_parameters=True, 
-#             # gradient_accumulation_steps=args.gradient_accumulation_steps,
-#             # mixed_precision=args.mixed_precision,
-#         )
-
-#         ckpt_path = f"../ckpts/multiobject/{WHICH_MODEL}/training_state_{WHICH_STEP}.pth"  
-#         basename_ckpt = osp.basename(ckpt_path) 
-#         lora_path = ckpt_path.replace(basename_ckpt, f"lora_weight_{WHICH_STEP}.safetensors") 
-
-#         accelerator.print(f"{ckpt_path = }")
-#         accelerator.print(f"{lora_path = }")
-
-#         # lora_weights = torch.load(lora_path) 
-#         # print(f"{type(lora_weights) = }")
-#         # print(f"{lora_weights.keys() = }")
-#         # sys.exit(0) 
-
-#         assert osp.exists(ckpt_path) 
-#         assert osp.exists(lora_path), f"{lora_path = }" 
-#         accelerator.print(f"loading stable diffusion checkpoint...") 
-#         # pipeline = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1", torch_dtype=torch.float16).to(accelerator.device)  
-#         pipeline = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1").to(accelerator.device)   
-        
-#         accelerator.print(f"loading finetuned model checkpoint...") 
-#         training_state = torch.load(ckpt_path) 
-#         # print(f"{training_state['unet']['lora'] = }")
-#         # subjects_ = os.listdir("../training_data_vaibhav/prior_imgs_multiobject/") 
-#         # subjects = [" ".join(subject.split("_")) for subject in subjects_] 
-
-#         accelerator.print(f"preparing appearance embeddings...")
-#         # app_embs = {} 
-#         # for subject in subjects:  
-#         #     # initializing using the subject's embedding in the pretrained CLIP text encoder 
-#         #     app_embs[subject] = torch.clone(pipeline.text_encoder.get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
-
-#         # initializing the AppearanceEmbeddings module using the embeddings 
-#         # bnha_embeds = AppearanceEmbeddings(app_embs).to(accelerator.device) 
-#         # retval = bnha_embeds.load_state_dict(training_state["appearance"]["model"]) 
-#         # retval = AppearanceEmbeddings(app_embs).to(accelerator.device).load_state_dict(training_state["appearance"]["model"])  
-#         # print(f"{good = }")
-#         # print(f"{bad = }")
-#         # print(f"{retval = }")
-#         # for name, p in bnha_embeds.named_parameters(): 
-#         #     print(f"{name = }")
-
-#         accelerator.print(f"preparing merger...")
-#         merger = MergedEmbedding().to(accelerator.device) 
-#         merger.load_state_dict(training_state["merger"]["model"]) 
-
-#         mlp = continuous_word_mlp(2, 1024).to(accelerator.device) 
-#         mlp.load_state_dict(training_state["contword"]["model"]) 
-
-#         # print(f"preparing the unet...") 
-#         # unet_before = [torch.clone(p) for p in pipeline.unet.parameters()] 
-#         # unet_lora_params, _ = inject_trainable_lora(
-#         #     pipeline.unet, r=4 
-#         # )
-
-#         # print(f"{training_state['unet']['lora'] = }")
-#         # print(f"{len(training_state['unet']['lora']) = }")
-#         # print(f"{len(list(itertools.chain(*unet_lora_params))) = }")
-#         # for idx, param in enumerate(list(itertools.chain(*unet_lora_params))):  
-#         #     param.fill_(training_state["unet"]["lora"][idx])   
-#         # unet_after = [torch.clone(p) for p in pipeline.unet.parameters()]  
-#         # for p1, p2 in zip(unet_before, unet_after): 
-#         #     assert not torch.allclose(p1, p2) 
-        
-#         accelerator.print(f"patching the pipe with the lora weights...") 
-#         # patch_pipe(
-#         #     pipeline,
-#         #     lora_path, 
-#         #     patch_text="text_encoder" in training_state.keys(),
-#         #     patch_ti=False,
-#         #     patch_unet="unet" in training_state.keys(),
-#         # )
-#         # lora_weights = load_file(lora_path) 
-#         # print(f"{lora_weights = }")
-#         # unet_before = copy.deepcopy([torch.clone(p) for p in pipeline.unet.parameters()])  
-#         # text_encoder_before = [torch.clone(p) for p in pipeline.text_encoder.parameters()] 
-#         patch_pipe(
-#             pipeline, 
-#             lora_path, 
-#             patch_text=True, 
-#             patch_ti=True, 
-#             patch_unet=True, 
-#         )
-#         # unet_after = copy.deepcopy([torch.clone(p) for p in pipeline.unet.parameters()])  
-#         # text_encoder_after = [torch.clone(p) for p in pipeline.text_encoder.parameters()] 
-#         # change = False 
-#         # for p1, p2 in zip(unet_before, unet_after): 
-#         #     if not torch.allclose(p1, p2): 
-#         #         change = True 
-#         #         break 
-#         # assert change 
-#         # for p1, p2 in zip(text_encoder_before, text_encoder_after): 
-#         #     if not torch.allclose(p1, p2): 
-#         #         change = True 
-#         #         break 
-#         # assert change 
-
-
-
-#         inference_types = [
-#             # ("zero", "class"), 
-#             # ("a", "zero"), 
-#             # ("0", "class"), 
-#             ("a", "class"),  
-#         ]
-
-#         for inference_type in inference_types: 
-#             pose_type, appearance_type = inference_type 
-
-#             # prompt = "a photo of a SUBJECT in a field of blooming sunflowers with snowy mountains in the distance." 
-#             # prompt_ = "_".join(prompt.split()) 
-#             subjects = [
-#                 # "bnha pickup truck", 
-#                 # "bnha motorbike", 
-#                 # "bnha jeep", 
-#                 # "bnha sedan", 
-#                 # "bnha dolphin", 
-#                 # "bnha sparrow", 
-#                 # "bnha plane", 
-#                 # "bnha boat", 
-#                 # "bnha ship", 
-#                 "bnha man", 
-#                 "bnha camel", 
-#                 "bnha horse", 
-#                 "bnha cat", 
-#             ]
-
-
-#             # subjects = [
-#             #     "bnha horse", 
-#             #     "bnha cat", 
-#             #     "bnha pickup truck", 
-#             #     "bnha elephant", 
-#             # ] 
-
-
-#             infer = Infer(
-#                 "output.gif", 
-#                 accelerator, 
-#                 pipeline.unet, 
-#                 pipeline.scheduler, 
-#                 pipeline.vae, 
-#                 pipeline.text_encoder, 
-#                 pipeline.tokenizer, 
-#                 mlp,  
-#                 merger, 
-#                 # bnha_embeds,  
-#             )
-
-#             # del pipeline 
-#             # del merger 
-#             # del mlp 
-#             torch.cuda.empty_cache() 
-
-#             # import time 
-#             # time.sleep(100000) 
-
-
-#             n_samples = 24  
-
-
-#             for subject2 in ["camel", "bus"]:  
-#                 infer.gif_name = f"subject_{subject2}_desert_{pose_type}_{appearance_type}.gif" 
-#                 prompt = f"a photo of a SUBJECT and a {subject2} in a desert"  
-#                 infer.do_it(
-#                     prompt,  
-#                     subjects, 
-#                     n_samples, 
-#                     pose_type, 
-#                     appearance_type, 
-#                 )
-#                 torch.cuda.empty_cache() 
-
-
-#             # the highway prompt 
-#             for subject2 in ["motorbike", "bus"]:  
-#                 prompt = f"a photo of a SUBJECT and a {subject2} on a highway"  
-#                 infer.gif_name = f"subject_{subject2}_highway_{pose_type}_{appearance_type}.gif" 
-#                 infer.do_it(
-#                     prompt,  
-#                     subjects, 
-#                     n_samples, 
-#                     pose_type, 
-#                     appearance_type, 
-#                 )
-#                 torch.cuda.empty_cache() 
-
-
-#             for subject2 in ["cat", "dog"]: 
-#                 prompt = f"a photo of a SUBJECT and a {subject2} in a garden"  
-#                 infer.gif_name = f"subject_{subject2}_highway_{pose_type}_{appearance_type}.gif" 
-#                 infer.do_it(
-#                     prompt,  
-#                     subjects, 
-#                     n_samples, 
-#                     pose_type, 
-#                     appearance_type, 
-#                 )
-#                 torch.cuda.empty_cache() 
-
-
-#             # for subject2 in ["truck", "bus", "jeep", "dog"]: 
-#             #     prompt = f"a photo of a SUBJECT and a {subject2} on a beach with towering waves and swaying palm leaves"  
-#             #     infer.gif_name = f"subject_{subject2}_beach_complex_{pose_type}_{appearance_type}.gif" 
-#             #     infer.do_it(
-#             #         prompt,  
-#             #         subjects, 
-#             #         n_samples, 
-#             #         pose_type, 
-#             #         appearance_type, 
-#             #     )
-#             #     torch.cuda.empty_cache() 
-
-
-#             # for subject2 in ["truck", "crab", "man", "dog"]: 
-#             #     prompt = "a photo of a SUBJECT and a horse on a beach"   
-#             #     infer.gif_name = f"subject_{subject2}_beach_{pose_type}_{appearance_type}.gif" 
-#             #     infer.do_it(
-#             #         prompt,  
-#             #         subjects, 
-#             #         n_samples, 
-#             #         pose_type, 
-#             #         appearance_type, 
-#             #     )
-#             #     torch.cuda.empty_cache() 
-
-#             # subjects = [
-#             #     "bnha boat", 
-#             #     "bnha ship", 
-#             #     "bnha dolphin", 
-#             #     "bnha shark", 
-#             #     "bnha fish", 
-#             # ]
-#             # prompt = "a photo of a SUBJECT on a highway"  
-#             # infer.gif_name = f"highway_{pose_type}_{appearance_type}.gif" 
-#             # infer.do_it(
-#             #     prompt,  
-#             #     subjects, 
-#             #     n_samples, 
-#             #     pose_type, 
-#             #     appearance_type, 
-#             # )
-#             # torch.cuda.empty_cache() 
-
-
-#             # subjects = [
-#             #     "bnha suitcase", 
-#             #     "bnha shoe", 
-#             #     "bnha chair", 
-#             # ]
-#             # prompt = "a photo of a SUBJECT on a carpet in a room"  
-#             # infer.gif_name = f"carpet_{pose_type}_{appearance_type}.gif" 
-#             # infer.do_it(
-#             #     prompt,  
-#             #     subjects, 
-#             #     n_samples, 
-#             #     pose_type, 
-#             #     appearance_type, 
-#             # ) 
-#             # torch.cuda.empty_cache() 
-
-
-#             # subjects = [
-#             #     "bnha helicopter", 
-#             #     "bnha sparrow", 
-#             #     "bnha bird",  
-#             #     "bnha plane",  
-#             # ]
-#             # prompt = "a photo of a SUBJECT flying in the sky"  
-#             # infer.gif_name = f"sky_{pose_type}_{appearance_type}.gif" 
-#             # infer.do_it(
-#             #     prompt,  
-#             #     subjects, 
-#             #     n_samples, 
-#             #     pose_type, 
-#             #     appearance_type, 
-#             # )
-#             # torch.cuda.empty_cache() 
+if __name__ == "__main__": 
+    pipeline = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1") 
+    pose_mlp = continuous_word_mlp(2, 1024) 
+    merged_emb_dim = 1024 
+    merger = MergedEmbedding(False, 1024, 1024, merged_emb_dim) 
+    accelerator = Accelerator() 
+    infer = Infer(merged_emb_dim, 908, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", False, None, 4) 
+    infer.do_it("output.gif", "a photo of a SUBJECT on a highway", ["sedan", "truck"], 4, "0", "zero", True) 

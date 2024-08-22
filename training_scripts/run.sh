@@ -1,4 +1,4 @@
-export RUN_NAME="app_subjectinprompt_bypass_nounet_text" 
+export RUN_NAME="reborn_extendedmerger" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
@@ -10,12 +10,11 @@ export VIS_DIR="../multiobject/"
 
 
 accelerate launch --config_file accelerate_config.yaml train.py \
-  --train_unet="N" \
-  --textual_inv="Y" \
-  --train_text_encoder="Y" \
+  --train_unet="Y" \
+  --textual_inv="N" \
+  --train_text_encoder="N" \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
-  --learning_rate_text=5e-5 \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
@@ -24,14 +23,14 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
-  --text_encoder_bypass="Y" \
+  --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
-  --merged_emb_dim=2048 \
-  --with_prior_preservation="N" \
+  --merged_emb_dim=1024 \
+  --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --resolution=512 \
-  --train_batch_size=2 \
+  --train_batch_size=1 \
   --inference_batch_size=4 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
@@ -41,5 +40,4 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

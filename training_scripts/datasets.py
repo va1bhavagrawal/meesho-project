@@ -13,6 +13,8 @@ import glob
 import os 
 import os.path as osp 
 
+from infer_online import UNIQUE_TOKENS 
+
 # class PromptDataset(Dataset):
 #     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
@@ -131,6 +133,12 @@ class DisentangleDataset(Dataset):
         # if index % 5 != 0: 
         # only choosing the controlnet images in this one 
         # if False:  
+    
+        unique_string = "" 
+        for i in range(self.args.merged_emb_dim // 1024): 
+            unique_string = unique_string + f" {UNIQUE_TOKENS[i]}" 
+        unique_string = unique_string.strip() 
+
         assert self.args.use_ref_images or self.args.use_controlnet_images 
         if index % 5 != 0 and self.args.use_ref_images: 
             random_ref_img = random.choice(os.listdir(subject_ref_dir)) 
@@ -143,9 +151,9 @@ class DisentangleDataset(Dataset):
             example["scaler"] = a 
             example["controlnet"] = False 
             if not self.args.include_class_in_prompt: 
-                prompt = f"a photo of a bnha in front of a dark background"  
+                prompt = f"a photo of a {unique_string} in front of a dark background"  
             else: 
-                prompt = f"a photo of a bnha {subject.strip()} in front of a dark background" 
+                prompt = f"a photo of a {unique_string} {subject.strip()} in front of a dark background" 
             example["prompt"] = prompt 
 
             example["prompt_ids"] = self.tokenizer(
@@ -183,10 +191,11 @@ class DisentangleDataset(Dataset):
             # there must be the keyword SUBJECT in the prompt, that can be replaced for the relevant subject 
             assert prompt.find("SUBJECT") != -1 
             if self.args.include_class_in_prompt: 
-                prompt = prompt.replace("SUBJECT", f"bnha {subject.strip()}")   
+                prompt = prompt.replace("SUBJECT", f"{unique_string} {subject.strip()}")   
             else: 
-                prompt = prompt.replace("SUBJECT", "bnha") 
-            assert prompt.find("bnha") != -1 
+                prompt = prompt.replace("SUBJECT", f"{unique_string}") 
+            # assert prompt.find("bnha") != -1 
+            assert prompt.find(unique_string) != -1 
             # assert prompt.find(subject) != -1 
             # we DO NOT want the subject to be present in the prompt text 
             if not self.args.include_class_in_prompt: 
