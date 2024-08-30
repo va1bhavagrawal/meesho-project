@@ -117,12 +117,16 @@ class DisentangleDataset(Dataset):
         example = {} 
 
         # selecting the subject according to the index -- this is not randomized, every subject will get equal representation for sure  
-        subject = self.args.subjects[index % len(self.args.subjects)] 
-        subject_ = "_".join(subject.split()) 
-        subject_ref_dir = osp.join(self.args.instance_data_dir, subject_)
-        assert osp.exists(subject_ref_dir) 
+        # subject = self.args.subjects[index % len(self.args.subjects)] 
+        # subject_ = "_".join(subject.split()) 
+        # subject_ref_dir = osp.join(self.args.instance_data_dir, subject_)
+        # assert osp.exists(subject_ref_dir) 
 
-        example["subject"] = subject 
+        # example["subject"] = subject 
+        subjects_comb_ = self.args.subject_pairs_[index % len(self.args.subjects_combs)] 
+        subjects_ = subjects_comb_.split("__") 
+        subjects = [" ".join(subject_) for subject_ in subjects_] 
+        example["subjects"] = subjects 
 
         # selecting the random view for the chosen subject 
         # random_ref_img = random.choice(os.listdir(subject_ref_dir))  
@@ -134,28 +138,56 @@ class DisentangleDataset(Dataset):
         # only choosing the controlnet images in this one 
         # if False:  
     
-        unique_string = "" 
-        for i in range(self.args.merged_emb_dim // 1024): 
-            unique_string = unique_string + f" {UNIQUE_TOKENS[i]}" 
-        unique_string = unique_string.strip() 
+        unique_strings = []  
+        for asset_idx in range(len(subjects)): 
+            unique_string_subject = "" 
+            for token_idx in range(self.args.merged_emb_dim // 1024): 
+                unique_string_subject = unique_string_subject + f"{UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]} " 
+            unique_string_subject = unique_string_subject.strip() 
+            unique_strings.append(unique_string_subject) 
 
         assert self.args.use_ref_images or self.args.use_controlnet_images 
-        if index % 5 != 0 and self.args.use_ref_images: 
-            random_ref_img = random.choice(os.listdir(subject_ref_dir)) 
-            a, e, r, x, y, _ = random_ref_img.split("__") 
-            a = float(a) 
-            e = float(e) 
-            r = float(r) 
-            x = int(x) 
-            y = int(y) 
-            example["scaler"] = a 
+        if not self.args.use_controlnet_images or (index % 5 != 0): 
             example["controlnet"] = False 
-            if not self.args.include_class_in_prompt: 
-                prompt = f"a photo of a {unique_string} in front of a dark background"  
-            else: 
-                prompt = f"a photo of a {unique_string} {subject.strip()} in front of a dark background" 
-            example["prompt"] = prompt 
+            subjects_comb_ref_dir = osp.join(self.args.instance_data_dir, subjects_comb_) 
+            random_ref_img = random.choice(os.listdir(subjects_comb_ref_dir))  
+            # a, e, r, x, y, _ = random_ref_img.split("__") 
+            # a = float(a) 
+            # e = float(e) 
+            # r = float(r) 
+            # x = int(x) 
+            # y = int(y) 
+            subjects_data = random_ref_img.split("__") 
+            subjects_data = subjects_data[:-1] 
+            all_x = []  
+            all_y = [] 
+            all_z = [] 
+            all_a = [] 
+            assert len(subjects_data) == len(example["subjects"])  
+            for asset_idx in range(len(example["subjects"])): 
+                one_subject_data = subjects_data[asset_idx] 
+                x, y, z, a = one_subject_data.split("_") 
+                all_x.append(float(x)) 
+                all_y.append(float(y)) 
+                all_z.append(float(z)) 
+                all_a.append(float(a)) 
 
+            example["scalers"] = all_a   
+            template_prompt = "a photo of PLACEHOLDER" 
+            placeholder_text = "a SUBJECT0"  
+            for asset_idx in range(1, len(example["subjects"])):  
+                placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx+1}" 
+            template_prompt.replace("PLACEHOLDER", placeholder_text) 
+            if not self.args.include_class_in_prompt: 
+                for asset_idx in range(len(example["subjects"])):    
+                    assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                    template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]}") 
+            else: 
+                for asset_idx in range(len(subjects)): 
+                    assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                    template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subjects[asset_idx]}") 
+
+            example["prompt"] = template_prompt   
             example["prompt_ids"] = self.tokenizer(
                 example["prompt"], 
                 padding="do_not_pad", 
@@ -163,8 +195,8 @@ class DisentangleDataset(Dataset):
                 max_length=self.tokenizer.model_max_length, 
             ).input_ids 
 
-            img_path = osp.join(osp.join(subject_ref_dir, random_ref_img))
-            assert osp.exists(img_path) 
+            img_path = osp.join(osp.join(subjects_comb_ref_dir, random_ref_img)) 
+            assert osp.exists(img_path)  
             img = Image.open(img_path)  
 
         # choosing from the controlnet augmentation 
@@ -172,59 +204,79 @@ class DisentangleDataset(Dataset):
             example["controlnet"] = True  
             # subject_angle_controlnet_dir = osp.join(self.args.controlnet_data_dir, subject_, str(angle))  
 
-            subject_controlnet_dir = osp.join(self.args.controlnet_data_dir, subject_) 
-            avlble_imgs = os.listdir(subject_controlnet_dir)  
-            chosen_img = random.choice(avlble_imgs) 
-            a, e, r, x, y, _ = chosen_img.split("__") 
-            a = float(a) 
-            e = float(e) 
-            r = float(r) 
-            x = int(x) 
-            y = int(y) 
-            example["scaler"] = a 
+            # subject_controlnet_dir = osp.join(self.args.controlnet_data_dir, subject_) 
+            # avlble_imgs = os.listdir(subject_controlnet_dir)  
+            # chosen_img = random.choice(avlble_imgs) 
+            # a, e, r, x, y, _ = chosen_img.split("__") 
+            # a = float(a) 
+            # e = float(e) 
+            # r = float(r) 
+            # x = int(x) 
+            # y = int(y) 
+            # example["scaler"] = a 
 
             # avlble_imgs = os.listdir(subject_angle_controlnet_dir) 
             # chosen_img = random.choice(avlble_imgs) 
 
-            prompt_idx = int(chosen_img.split("__prompt")[-1].split(".jpg")[0])  
-            prompt = self.args.controlnet_prompts[prompt_idx] 
-            # there must be the keyword SUBJECT in the prompt, that can be replaced for the relevant subject 
-            assert prompt.find("SUBJECT") != -1 
-            if self.args.include_class_in_prompt: 
-                prompt = prompt.replace("SUBJECT", f"{unique_string} {subject.strip()}")   
-            else: 
-                prompt = prompt.replace("SUBJECT", f"{unique_string}") 
-            # assert prompt.find("bnha") != -1 
-            assert prompt.find(unique_string) != -1 
-            # assert prompt.find(subject) != -1 
-            # we DO NOT want the subject to be present in the prompt text 
+            subjects_comb_controlnet_dir = osp.join(self.args.controlnet_data_dir, subjects_comb_) 
+            random_controlnet_img = random.choice(os.listdir(subjects_comb_controlnet_dir)) 
+            subjects_data = random_controlnet_img.split("__") 
+            subjects_data = subjects_data[:-1] 
+            whichprompt = subjects_data[-1] 
+            subjects_data = subjects_data[:-1] 
+            all_x = [] 
+            all_y = [] 
+            all_z = [] 
+            all_a = [] 
+            assert len(subjects_data) == len(example["subjects"]) 
+            for asset_idx in range(len(example["subjects"])): 
+                one_subject_data = subjects_data[asset_idx] 
+                x, y, z, a = one_subject_data.split("_") 
+                all_x.append(float(x))
+                all_y.append(float(y)) 
+                all_z.append(float(z)) 
+                all_a.append(float(a)) 
+
+            example["scalers"] = all_a 
+            prompt_idx = int(whichprompt.replace("prompt", "").strip()) 
+            template_prompt = self.args.controlnet_prompts[prompt_idx] 
+            placeholder_text = "a SUBJECT0" 
+            for asset_idx in range(len(example["subjects"])):  
+                placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx+1}"  
+            template_prompt.replace("PLACEHOLDER", placeholder_text) 
             if not self.args.include_class_in_prompt: 
-                assert prompt.find(f" {subject} ") == -1, f"{prompt = }, {subject = }" 
+                for asset_idx in range(len(example["subjects"])): 
+                    assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                    template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subjects[asset_idx]}")  
+            
             else: 
-                assert prompt.find(f" {subject} ") != -1, f"{prompt = }, {subject = }" 
-            example["prompt"] = prompt 
-            example["prompt_ids"] = self.tokenizer(
+                for asset_idx in range(len(subjects)): 
+                    assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                    template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subjects[asset_idx]}") 
+
+            example["prompt"] = template_prompt 
+            example["prompt_ids"] = self.tokenizer( 
                 example["prompt"], 
                 padding="do_not_pad", 
                 truncation=True, 
                 max_length=self.tokenizer.model_max_length, 
             ).input_ids 
 
-            img_path = osp.join(subject_controlnet_dir, chosen_img)
+            img_path = osp.join(subjects_comb_controlnet_dir, random_controlnet_img) 
             assert osp.exists(img_path) 
             img = Image.open(img_path)   
 
-        # print(f"{prompt = }")
-        # print(f"{img_path = }")
-        # in either case, the poseappearance embedding would be necessary 
-        # in either case, the subject name in the prompt would be necessary too 
 
         if not img.mode == "RGB":  
             img = img.convert("RGB") 
         example["img"] = self.image_transforms(img)  
 
+
         if self.args.with_prior_preservation: 
-            subject_class_imgs_path = osp.join(self.args.class_data_dir, subject_)  
+            random_subject_ = random.sample(subjects, 1) 
+            random_subject = " ".join(random_subject_.split("_")) 
+            example["prior_subject"] = random_subject 
+            subject_class_imgs_path = osp.join(self.args.class_data_dir, random_subject)   
             assert len(os.listdir(subject_class_imgs_path)) == 100  
             n_class_images = len(os.listdir(subject_class_imgs_path)) 
             class_img_name = str(index % n_class_images).zfill(3) + ".jpg"  
@@ -232,9 +284,9 @@ class DisentangleDataset(Dataset):
             assert osp.exists(class_img_path), f"{class_img_path = }"
             class_img = Image.open(class_img_path) 
             example["class_img"] = self.image_transforms(class_img) 
-            class_prompt = f"a photo of a {subject}"
+            class_prompt = f"a photo of a {random_subject}" 
             example["class_prompt"] = class_prompt 
-            example["class_prompt_ids"] = self.tokenizer(
+            example["class_prompt_ids"] = self.tokenizer( 
                 example["class_prompt"], 
                 padding="do_not_pad", 
                 truncation=True, 

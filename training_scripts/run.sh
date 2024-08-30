@@ -13,7 +13,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
-  --use_controlnet_images="Y" \
+  --use_controlnet_images="N" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
@@ -40,5 +40,4 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 

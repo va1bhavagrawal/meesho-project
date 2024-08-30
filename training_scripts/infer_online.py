@@ -83,7 +83,17 @@ TOKEN2ID = {
 } 
 
 # UNIQUE_TOKENS = ["bnha", "sks", "ak", "bk", "ck", "dk", "ek", "fk", "gk"] 
-UNIQUE_TOKENS = ["bnha", "sks", "ak"]   
+UNIQUE_TOKENS = {  
+    "0_0": "bnha", 
+    "0_1": "sks", 
+    "0_2": "ak", 
+    "1_0": "bk", 
+    "1_1": "ck", 
+    "1_2": "dk", 
+    "2_0": "ek", 
+    "2_1": "fk", 
+    "2_2": "gk", 
+} 
 
 # DEBUG = False  
 # BS = 4   

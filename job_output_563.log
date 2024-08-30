@@ -1,0 +1,222 @@
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:  43%|████▎     | 3/7 [00:00<00:00, 19.34it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:  29%|██▊       | 2/7 [00:00<00:01,  4.29it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:  29%|██▊       | 2/7 [00:00<00:00,  5.14it/s]Loading pipeline components...:  43%|████▎     | 3/7 [00:00<00:00,  6.44it/s]Loading pipeline components...:  57%|█████▋    | 4/7 [00:02<00:01,  1.63it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:  29%|██▊       | 2/7 [00:04<00:10,  2.15s/it]Loading pipeline components...:  29%|██▊       | 2/7 [00:04<00:10,  2.15s/it]Loading pipeline components...:  14%|█▍        | 1/7 [00:04<00:25,  4.27s/it]Loading pipeline components...:  43%|████▎     | 3/7 [00:04<00:05,  1.40s/it]Loading pipeline components...:  86%|████████▌ | 6/7 [00:04<00:00,  1.20it/s]Loading pipeline components...:  43%|████▎     | 3/7 [00:04<00:07,  1.82s/it]Loading pipeline components...:  86%|████████▌ | 6/7 [00:04<00:00,  1.48it/s]Loading pipeline components...:  43%|████▎     | 3/7 [00:05<00:06,  1.56s/it]Loading pipeline components...:  71%|███████▏  | 5/7 [00:05<00:01,  1.04it/s]Loading pipeline components...:  71%|███████▏  | 5/7 [00:05<00:02,  1.39s/it]Loading pipeline components...:  71%|███████▏  | 5/7 [00:05<00:01,  1.05it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.10it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.20it/s]
+Loading pipeline components...:  86%|████████▌ | 6/7 [00:05<00:00,  1.24it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.20it/s]
+Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.19it/s]
+Loading pipeline components...:  86%|████████▌ | 6/7 [00:05<00:00,  1.47it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.19it/s]
+Loading pipeline components...:  86%|████████▌ | 6/7 [00:06<00:01,  1.12s/it]Loading pipeline components...: 100%|██████████| 7/7 [00:06<00:00,  1.14it/s]
+Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.21it/s]
+Loading pipeline components...:  86%|████████▌ | 6/7 [00:05<00:01,  1.22s/it]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.20it/s]
+Loading pipeline components...:  29%|██▊       | 2/7 [00:03<00:09,  1.90s/it]Loading pipeline components...:  71%|███████▏  | 5/7 [00:04<00:01,  1.45it/s]1 is assigned lion__motorbike :: [2, 3]
+1 is doing lion__motorbike :: 2
+0 is assigned lion__motorbike :: [0, 1]
+0 is doing lion__motorbike :: 0
+3 is assigned lion__motorbike :: [6, 7]
+3 is doing lion__motorbike :: 6
+Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.48it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.28it/s]
+  0%|          | 0/50 [00:00<?, ?it/s]  0%|          | 0/50 [00:00<?, ?it/s]  0%|          | 0/50 [00:00<?, ?it/s]2 is assigned lion__motorbike :: [4, 5]
+2 is doing lion__motorbike :: 4
+  2%|▏         | 1/50 [00:02<02:02,  2.51s/it]  2%|▏         | 1/50 [00:02<02:03,  2.53s/it]  2%|▏         | 1/50 [00:02<02:07,  2.59s/it]  0%|          | 0/50 [00:00<?, ?it/s]4 is assigned lion__motorbike :: [8]
+4 is doing lion__motorbike :: 8
+7 is assigned lion__motorbike :: [11]
+7 is doing lion__motorbike :: 11
+6 is assigned lion__motorbike :: [10]
+6 is doing lion__motorbike :: 10
+  0%|          | 0/50 [00:00<?, ?it/s]  0%|          | 0/50 [00:00<?, ?it/s]5 is assigned lion__motorbike :: [9]
+5 is doing lion__motorbike :: 9
+  0%|          | 0/50 [00:00<?, ?it/s]  4%|▍         | 2/50 [00:04<01:33,  1.95s/it]  4%|▍         | 2/50 [00:04<01:33,  1.96s/it]  4%|▍         | 2/50 [00:04<01:36,  2.01s/it]  0%|          | 0/50 [00:00<?, ?it/s]  2%|▏         | 1/50 [00:02<02:04,  2.54s/it]  2%|▏         | 1/50 [00:02<02:03,  2.52s/it]  2%|▏         | 1/50 [00:02<02:04,  2.54s/it]  2%|▏         | 1/50 [00:02<02:04,  2.54s/it]  6%|▌         | 3/50 [00:06<01:41,  2.17s/it]  6%|▌         | 3/50 [00:06<01:41,  2.16s/it]  6%|▌         | 3/50 [00:06<01:43,  2.21s/it]  4%|▍         | 2/50 [00:04<01:33,  1.95s/it]  2%|▏         | 1/50 [00:02<02:04,  2.55s/it]  4%|▍         | 2/50 [00:04<01:33,  1.95s/it]  4%|▍         | 2/50 [00:04<01:34,  1.96s/it]  4%|▍         | 2/50 [00:04<01:34,  1.97s/it]  4%|▍         | 2/50 [00:04<01:34,  1.96s/it]  8%|▊         | 4/50 [00:08<01:44,  2.27s/it]  8%|▊         | 4/50 [00:08<01:44,  2.26s/it]  8%|▊         | 4/50 [00:09<01:46,  2.31s/it]  6%|▌         | 3/50 [00:06<01:41,  2.15s/it]  6%|▌         | 3/50 [00:06<01:41,  2.16s/it]  6%|▌         | 3/50 [00:06<01:41,  2.17s/it]  6%|▌         | 3/50 [00:06<01:42,  2.18s/it]  6%|▌         | 3/50 [00:06<01:41,  2.16s/it] 10%|█         | 5/50 [00:11<01:44,  2.32s/it] 10%|█         | 5/50 [00:11<01:44,  2.32s/it]  8%|▊         | 4/50 [00:08<01:43,  2.25s/it] 10%|█         | 5/50 [00:11<01:46,  2.37s/it]  8%|▊         | 4/50 [00:08<01:43,  2.26s/it]  8%|▊         | 4/50 [00:08<01:44,  2.27s/it]  8%|▊         | 4/50 [00:08<01:44,  2.28s/it]  8%|▊         | 4/50 [00:08<01:43,  2.25s/it] 12%|█▏        | 6/50 [00:13<01:43,  2.36s/it] 12%|█▏        | 6/50 [00:13<01:43,  2.35s/it] 10%|█         | 5/50 [00:11<01:43,  2.31s/it] 12%|█▏        | 6/50 [00:14<01:45,  2.40s/it] 10%|█         | 5/50 [00:11<01:44,  2.31s/it] 10%|█         | 5/50 [00:11<01:44,  2.32s/it] 10%|█         | 5/50 [00:11<01:45,  2.34s/it] 10%|█         | 5/50 [00:11<01:43,  2.31s/it] 14%|█▍        | 7/50 [00:16<01:42,  2.38s/it] 14%|█▍        | 7/50 [00:16<01:42,  2.38s/it] 12%|█▏        | 6/50 [00:13<01:43,  2.34s/it] 14%|█▍        | 7/50 [00:16<01:44,  2.43s/it] 12%|█▏        | 6/50 [00:13<01:43,  2.35s/it] 12%|█▏        | 6/50 [00:13<01:43,  2.36s/it] 12%|█▏        | 6/50 [00:13<01:44,  2.37s/it] 12%|█▏        | 6/50 [00:13<01:43,  2.34s/it] 16%|█▌        | 8/50 [00:18<01:40,  2.40s/it] 16%|█▌        | 8/50 [00:18<01:40,  2.39s/it] 14%|█▍        | 7/50 [00:16<01:41,  2.37s/it] 16%|█▌        | 8/50 [00:19<01:42,  2.45s/it] 14%|█▍        | 7/50 [00:16<01:42,  2.37s/it] 14%|█▍        | 7/50 [00:16<01:42,  2.38s/it] 14%|█▍        | 7/50 [00:16<01:43,  2.40s/it] 14%|█▍        | 7/50 [00:16<01:41,  2.36s/it] 18%|█▊        | 9/50 [00:21<01:38,  2.41s/it] 18%|█▊        | 9/50 [00:21<01:38,  2.41s/it] 16%|█▌        | 8/50 [00:18<01:40,  2.38s/it] 18%|█▊        | 9/50 [00:21<01:40,  2.46s/it] 16%|█▌        | 8/50 [00:18<01:40,  2.39s/it] 16%|█▌        | 8/50 [00:18<01:40,  2.40s/it] 16%|█▌        | 8/50 [00:18<01:41,  2.41s/it] 16%|█▌        | 8/50 [00:18<01:40,  2.38s/it] 20%|██        | 10/50 [00:23<01:36,  2.42s/it] 20%|██        | 10/50 [00:23<01:36,  2.42s/it] 18%|█▊        | 9/50 [00:20<01:38,  2.40s/it] 20%|██        | 10/50 [00:23<01:38,  2.47s/it] 18%|█▊        | 9/50 [00:20<01:38,  2.40s/it] 18%|█▊        | 9/50 [00:21<01:38,  2.41s/it] 18%|█▊        | 9/50 [00:21<01:39,  2.43s/it] 18%|█▊        | 9/50 [00:20<01:38,  2.39s/it] 22%|██▏       | 11/50 [00:25<01:34,  2.43s/it] 22%|██▏       | 11/50 [00:25<01:34,  2.43s/it] 20%|██        | 10/50 [00:23<01:36,  2.41s/it] 22%|██▏       | 11/50 [00:26<01:36,  2.48s/it] 20%|██        | 10/50 [00:23<01:36,  2.41s/it] 20%|██        | 10/50 [00:23<01:36,  2.42s/it] 20%|██        | 10/50 [00:23<01:37,  2.43s/it] 20%|██        | 10/50 [00:23<01:36,  2.40s/it] 24%|██▍       | 12/50 [00:28<01:32,  2.44s/it] 24%|██▍       | 12/50 [00:28<01:32,  2.44s/it] 22%|██▏       | 11/50 [00:25<01:34,  2.42s/it] 24%|██▍       | 12/50 [00:28<01:34,  2.48s/it] 22%|██▏       | 11/50 [00:25<01:34,  2.42s/it] 22%|██▏       | 11/50 [00:25<01:34,  2.43s/it] 22%|██▏       | 11/50 [00:26<01:35,  2.44s/it] 22%|██▏       | 11/50 [00:25<01:34,  2.41s/it] 26%|██▌       | 13/50 [00:30<01:30,  2.45s/it] 26%|██▌       | 13/50 [00:30<01:30,  2.45s/it] 24%|██▍       | 12/50 [00:28<01:32,  2.43s/it] 26%|██▌       | 13/50 [00:31<01:32,  2.49s/it] 24%|██▍       | 12/50 [00:28<01:32,  2.43s/it] 24%|██▍       | 12/50 [00:28<01:32,  2.43s/it] 24%|██▍       | 12/50 [00:28<01:32,  2.45s/it] 24%|██▍       | 12/50 [00:28<01:31,  2.42s/it] 28%|██▊       | 14/50 [00:33<01:28,  2.45s/it] 28%|██▊       | 14/50 [00:33<01:28,  2.45s/it] 26%|██▌       | 13/50 [00:30<01:30,  2.43s/it] 28%|██▊       | 14/50 [00:33<01:29,  2.49s/it] 26%|██▌       | 13/50 [00:30<01:30,  2.44s/it] 26%|██▌       | 13/50 [00:30<01:30,  2.44s/it] 26%|██▌       | 13/50 [00:31<01:30,  2.45s/it] 26%|██▌       | 13/50 [00:30<01:29,  2.43s/it] 30%|███       | 15/50 [00:35<01:25,  2.46s/it] 30%|███       | 15/50 [00:35<01:26,  2.46s/it] 28%|██▊       | 14/50 [00:33<01:27,  2.44s/it] 30%|███       | 15/50 [00:36<01:27,  2.49s/it] 28%|██▊       | 14/50 [00:33<01:27,  2.44s/it] 28%|██▊       | 14/50 [00:33<01:28,  2.44s/it] 28%|██▊       | 14/50 [00:33<01:28,  2.46s/it] 28%|██▊       | 14/50 [00:33<01:27,  2.43s/it] 32%|███▏      | 16/50 [00:38<01:23,  2.46s/it] 32%|███▏      | 16/50 [00:38<01:23,  2.46s/it] 30%|███       | 15/50 [00:35<01:25,  2.45s/it] 32%|███▏      | 16/50 [00:38<01:24,  2.50s/it] 30%|███       | 15/50 [00:35<01:25,  2.44s/it] 30%|███       | 15/50 [00:35<01:25,  2.45s/it] 30%|███       | 15/50 [00:35<01:26,  2.46s/it] 30%|███       | 15/50 [00:35<01:25,  2.44s/it] 34%|███▍      | 17/50 [00:40<01:21,  2.46s/it] 34%|███▍      | 17/50 [00:40<01:21,  2.46s/it] 32%|███▏      | 16/50 [00:38<01:23,  2.45s/it] 34%|███▍      | 17/50 [00:41<01:22,  2.50s/it] 32%|███▏      | 16/50 [00:38<01:23,  2.45s/it] 32%|███▏      | 16/50 [00:38<01:23,  2.45s/it] 32%|███▏      | 16/50 [00:38<01:23,  2.47s/it] 32%|███▏      | 16/50 [00:38<01:23,  2.44s/it] 36%|███▌      | 18/50 [00:43<01:18,  2.46s/it] 36%|███▌      | 18/50 [00:43<01:18,  2.46s/it] 34%|███▍      | 17/50 [00:40<01:21,  2.46s/it] 36%|███▌      | 18/50 [00:43<01:19,  2.49s/it] 34%|███▍      | 17/50 [00:40<01:20,  2.45s/it] 34%|███▍      | 17/50 [00:40<01:20,  2.45s/it] 34%|███▍      | 17/50 [00:40<01:21,  2.47s/it] 34%|███▍      | 17/50 [00:40<01:20,  2.45s/it] 38%|███▊      | 19/50 [00:45<01:16,  2.46s/it] 38%|███▊      | 19/50 [00:45<01:16,  2.46s/it] 36%|███▌      | 18/50 [00:43<01:18,  2.46s/it] 38%|███▊      | 19/50 [00:46<01:17,  2.49s/it] 36%|███▌      | 18/50 [00:43<01:18,  2.46s/it] 36%|███▌      | 18/50 [00:43<01:18,  2.45s/it] 36%|███▌      | 18/50 [00:43<01:19,  2.48s/it] 36%|███▌      | 18/50 [00:42<01:18,  2.45s/it] 40%|████      | 20/50 [00:48<01:13,  2.46s/it] 40%|████      | 20/50 [00:48<01:13,  2.46s/it] 38%|███▊      | 19/50 [00:45<01:16,  2.47s/it] 40%|████      | 20/50 [00:48<01:14,  2.49s/it] 38%|███▊      | 19/50 [00:45<01:16,  2.46s/it] 38%|███▊      | 19/50 [00:45<01:16,  2.45s/it] 38%|███▊      | 19/50 [00:45<01:16,  2.48s/it] 38%|███▊      | 19/50 [00:45<01:16,  2.46s/it] 42%|████▏     | 21/50 [00:50<01:11,  2.46s/it] 42%|████▏     | 21/50 [00:50<01:11,  2.46s/it] 40%|████      | 20/50 [00:48<01:14,  2.47s/it] 42%|████▏     | 21/50 [00:51<01:12,  2.49s/it] 40%|████      | 20/50 [00:48<01:13,  2.46s/it] 40%|████      | 20/50 [00:48<01:13,  2.45s/it] 40%|████      | 20/50 [00:48<01:14,  2.47s/it] 40%|████      | 20/50 [00:47<01:13,  2.46s/it] 44%|████▍     | 22/50 [00:53<01:08,  2.46s/it] 44%|████▍     | 22/50 [00:53<01:09,  2.47s/it] 42%|████▏     | 21/50 [00:50<01:11,  2.47s/it] 44%|████▍     | 22/50 [00:53<01:09,  2.50s/it] 42%|████▏     | 21/50 [00:50<01:11,  2.46s/it] 42%|████▏     | 21/50 [00:50<01:11,  2.46s/it] 42%|████▏     | 21/50 [00:50<01:11,  2.47s/it] 42%|████▏     | 21/50 [00:50<01:11,  2.45s/it] 46%|████▌     | 23/50 [00:55<01:06,  2.46s/it] 46%|████▌     | 23/50 [00:55<01:06,  2.47s/it] 44%|████▍     | 22/50 [00:52<01:09,  2.47s/it] 46%|████▌     | 23/50 [00:56<01:07,  2.50s/it] 44%|████▍     | 22/50 [00:52<01:08,  2.46s/it] 44%|████▍     | 22/50 [00:52<01:08,  2.46s/it] 44%|████▍     | 22/50 [00:52<01:08,  2.45s/it] 44%|████▍     | 22/50 [00:53<01:09,  2.47s/it] 48%|████▊     | 24/50 [00:57<01:03,  2.46s/it] 48%|████▊     | 24/50 [00:58<01:04,  2.47s/it] 46%|████▌     | 23/50 [00:55<01:06,  2.47s/it] 46%|████▌     | 23/50 [00:55<01:06,  2.46s/it] 48%|████▊     | 24/50 [00:58<01:04,  2.50s/it] 46%|████▌     | 23/50 [00:55<01:06,  2.46s/it] 46%|████▌     | 23/50 [00:55<01:06,  2.45s/it] 46%|████▌     | 23/50 [00:55<01:06,  2.47s/it] 50%|█████     | 25/50 [01:00<01:01,  2.46s/it] 50%|█████     | 25/50 [01:00<01:01,  2.47s/it] 48%|████▊     | 24/50 [00:57<01:04,  2.47s/it] 48%|████▊     | 24/50 [00:57<01:04,  2.46s/it] 50%|█████     | 25/50 [01:01<01:02,  2.50s/it] 48%|████▊     | 24/50 [00:57<01:04,  2.46s/it] 48%|████▊     | 24/50 [00:57<01:03,  2.45s/it] 48%|████▊     | 24/50 [00:58<01:04,  2.47s/it] 52%|█████▏    | 26/50 [01:02<00:59,  2.47s/it] 52%|█████▏    | 26/50 [01:02<00:59,  2.48s/it] 50%|█████     | 25/50 [01:00<01:01,  2.47s/it] 50%|█████     | 25/50 [01:00<01:01,  2.46s/it] 52%|█████▏    | 26/50 [01:03<01:00,  2.50s/it] 50%|█████     | 25/50 [01:00<01:01,  2.47s/it] 50%|█████     | 25/50 [01:00<01:01,  2.45s/it] 50%|█████     | 25/50 [01:00<01:01,  2.48s/it] 54%|█████▍    | 27/50 [01:05<00:56,  2.47s/it] 54%|█████▍    | 27/50 [01:05<00:57,  2.48s/it] 52%|█████▏    | 26/50 [01:02<00:59,  2.47s/it] 52%|█████▏    | 26/50 [01:02<00:59,  2.47s/it] 52%|█████▏    | 26/50 [01:02<00:59,  2.47s/it] 54%|█████▍    | 27/50 [01:06<00:57,  2.51s/it] 52%|█████▏    | 26/50 [01:02<00:58,  2.46s/it] 52%|█████▏    | 26/50 [01:03<00:59,  2.48s/it] 56%|█████▌    | 28/50 [01:07<00:54,  2.47s/it] 56%|█████▌    | 28/50 [01:07<00:54,  2.48s/it] 54%|█████▍    | 27/50 [01:05<00:56,  2.48s/it] 54%|█████▍    | 27/50 [01:05<00:56,  2.47s/it] 54%|█████▍    | 27/50 [01:05<00:56,  2.47s/it] 56%|█████▌    | 28/50 [01:09<00:55,  2.51s/it] 54%|█████▍    | 27/50 [01:05<00:56,  2.46s/it] 54%|█████▍    | 27/50 [01:05<00:57,  2.48s/it] 58%|█████▊    | 29/50 [01:10<00:51,  2.47s/it] 58%|█████▊    | 29/50 [01:10<00:52,  2.49s/it] 56%|█████▌    | 28/50 [01:07<00:54,  2.48s/it] 56%|█████▌    | 28/50 [01:07<00:54,  2.47s/it] 56%|█████▌    | 28/50 [01:07<00:54,  2.47s/it] 58%|█████▊    | 29/50 [01:11<00:52,  2.51s/it] 56%|█████▌    | 28/50 [01:07<00:54,  2.46s/it] 56%|█████▌    | 28/50 [01:08<00:54,  2.48s/it] 60%|██████    | 30/50 [01:12<00:49,  2.47s/it] 60%|██████    | 30/50 [01:12<00:49,  2.49s/it] 58%|█████▊    | 29/50 [01:10<00:52,  2.48s/it] 58%|█████▊    | 29/50 [01:10<00:51,  2.47s/it] 58%|█████▊    | 29/50 [01:10<00:52,  2.48s/it] 60%|██████    | 30/50 [01:14<00:50,  2.51s/it] 58%|█████▊    | 29/50 [01:09<00:51,  2.46s/it] 58%|█████▊    | 29/50 [01:10<00:52,  2.48s/it] 62%|██████▏   | 31/50 [01:15<00:47,  2.47s/it] 62%|██████▏   | 31/50 [01:15<00:47,  2.49s/it] 60%|██████    | 30/50 [01:12<00:49,  2.49s/it] 60%|██████    | 30/50 [01:12<00:49,  2.47s/it] 60%|██████    | 30/50 [01:12<00:49,  2.48s/it] 62%|██████▏   | 31/50 [01:16<00:47,  2.51s/it] 60%|██████    | 30/50 [01:12<00:49,  2.46s/it] 60%|██████    | 30/50 [01:13<00:49,  2.49s/it] 64%|██████▍   | 32/50 [01:17<00:44,  2.48s/it] 64%|██████▍   | 32/50 [01:17<00:44,  2.49s/it] 62%|██████▏   | 31/50 [01:15<00:47,  2.49s/it] 62%|██████▏   | 31/50 [01:15<00:47,  2.48s/it] 62%|██████▏   | 31/50 [01:15<00:47,  2.48s/it] 64%|██████▍   | 32/50 [01:19<00:45,  2.52s/it] 62%|██████▏   | 31/50 [01:14<00:46,  2.47s/it] 62%|██████▏   | 31/50 [01:15<00:47,  2.49s/it] 66%|██████▌   | 33/50 [01:20<00:42,  2.48s/it] 66%|██████▌   | 33/50 [01:20<00:42,  2.50s/it] 64%|██████▍   | 32/50 [01:17<00:44,  2.50s/it] 64%|██████▍   | 32/50 [01:17<00:44,  2.48s/it] 64%|██████▍   | 32/50 [01:17<00:44,  2.48s/it] 66%|██████▌   | 33/50 [01:21<00:42,  2.52s/it] 64%|██████▍   | 32/50 [01:17<00:44,  2.47s/it] 64%|██████▍   | 32/50 [01:18<00:44,  2.49s/it] 68%|██████▊   | 34/50 [01:22<00:39,  2.48s/it] 68%|██████▊   | 34/50 [01:22<00:39,  2.50s/it] 66%|██████▌   | 33/50 [01:20<00:42,  2.50s/it] 66%|██████▌   | 33/50 [01:20<00:42,  2.48s/it] 66%|██████▌   | 33/50 [01:20<00:42,  2.49s/it] 68%|██████▊   | 34/50 [01:24<00:40,  2.52s/it] 66%|██████▌   | 33/50 [01:19<00:41,  2.47s/it] 66%|██████▌   | 33/50 [01:20<00:42,  2.49s/it] 70%|███████   | 35/50 [01:25<00:37,  2.48s/it] 70%|███████   | 35/50 [01:25<00:37,  2.50s/it] 68%|██████▊   | 34/50 [01:22<00:40,  2.50s/it] 68%|██████▊   | 34/50 [01:22<00:39,  2.49s/it] 68%|██████▊   | 34/50 [01:22<00:39,  2.48s/it] 70%|███████   | 35/50 [01:26<00:37,  2.52s/it] 68%|██████▊   | 34/50 [01:22<00:39,  2.47s/it] 68%|██████▊   | 34/50 [01:23<00:39,  2.50s/it] 72%|███████▏  | 36/50 [01:27<00:34,  2.48s/it] 72%|███████▏  | 36/50 [01:27<00:35,  2.50s/it] 70%|███████   | 35/50 [01:25<00:37,  2.50s/it] 70%|███████   | 35/50 [01:25<00:37,  2.49s/it] 70%|███████   | 35/50 [01:25<00:37,  2.49s/it] 70%|███████   | 35/50 [01:24<00:37,  2.47s/it] 72%|███████▏  | 36/50 [01:29<00:35,  2.52s/it] 70%|███████   | 35/50 [01:25<00:37,  2.50s/it] 74%|███████▍  | 37/50 [01:30<00:32,  2.48s/it] 74%|███████▍  | 37/50 [01:30<00:32,  2.50s/it] 72%|███████▏  | 36/50 [01:27<00:35,  2.51s/it] 72%|███████▏  | 36/50 [01:27<00:34,  2.49s/it] 72%|███████▏  | 36/50 [01:27<00:34,  2.49s/it] 72%|███████▏  | 36/50 [01:27<00:34,  2.48s/it] 74%|███████▍  | 37/50 [01:31<00:32,  2.52s/it] 72%|███████▏  | 36/50 [01:28<00:34,  2.50s/it] 76%|███████▌  | 38/50 [01:32<00:29,  2.48s/it] 76%|███████▌  | 38/50 [01:32<00:30,  2.51s/it] 74%|███████▍  | 37/50 [01:30<00:32,  2.51s/it] 74%|███████▍  | 37/50 [01:30<00:32,  2.49s/it] 74%|███████▍  | 37/50 [01:30<00:32,  2.49s/it] 74%|███████▍  | 37/50 [01:29<00:32,  2.48s/it] 76%|███████▌  | 38/50 [01:34<00:30,  2.52s/it] 74%|███████▍  | 37/50 [01:30<00:32,  2.50s/it] 78%|███████▊  | 39/50 [01:35<00:27,  2.48s/it] 78%|███████▊  | 39/50 [01:35<00:27,  2.51s/it] 76%|███████▌  | 38/50 [01:32<00:30,  2.51s/it] 76%|███████▌  | 38/50 [01:32<00:29,  2.49s/it] 76%|███████▌  | 38/50 [01:32<00:29,  2.49s/it] 76%|███████▌  | 38/50 [01:32<00:29,  2.48s/it] 78%|███████▊  | 39/50 [01:36<00:27,  2.52s/it] 76%|███████▌  | 38/50 [01:33<00:30,  2.50s/it] 80%|████████  | 40/50 [01:37<00:24,  2.48s/it] 80%|████████  | 40/50 [01:38<00:25,  2.51s/it] 78%|███████▊  | 39/50 [01:35<00:27,  2.52s/it] 78%|███████▊  | 39/50 [01:35<00:27,  2.49s/it] 78%|███████▊  | 39/50 [01:35<00:27,  2.49s/it] 78%|███████▊  | 39/50 [01:34<00:27,  2.48s/it] 80%|████████  | 40/50 [01:39<00:25,  2.52s/it] 78%|███████▊  | 39/50 [01:35<00:27,  2.50s/it] 82%|████████▏ | 41/50 [01:40<00:22,  2.48s/it] 82%|████████▏ | 41/50 [01:40<00:22,  2.52s/it] 80%|████████  | 40/50 [01:37<00:25,  2.52s/it] 80%|████████  | 40/50 [01:37<00:24,  2.50s/it] 80%|████████  | 40/50 [01:37<00:24,  2.49s/it] 80%|████████  | 40/50 [01:37<00:24,  2.48s/it] 82%|████████▏ | 41/50 [01:41<00:22,  2.52s/it] 80%|████████  | 40/50 [01:38<00:24,  2.50s/it] 84%|████████▍ | 42/50 [01:42<00:19,  2.48s/it] 84%|████████▍ | 42/50 [01:43<00:20,  2.52s/it] 82%|████████▏ | 41/50 [01:40<00:22,  2.52s/it] 82%|████████▏ | 41/50 [01:40<00:22,  2.50s/it] 82%|████████▏ | 41/50 [01:40<00:22,  2.49s/it] 82%|████████▏ | 41/50 [01:39<00:22,  2.49s/it] 84%|████████▍ | 42/50 [01:44<00:20,  2.53s/it] 82%|████████▏ | 41/50 [01:40<00:22,  2.50s/it] 86%|████████▌ | 43/50 [01:45<00:17,  2.48s/it] 86%|████████▌ | 43/50 [01:45<00:17,  2.52s/it] 84%|████████▍ | 42/50 [01:43<00:20,  2.53s/it] 84%|████████▍ | 42/50 [01:42<00:19,  2.50s/it] 84%|████████▍ | 42/50 [01:42<00:19,  2.49s/it] 84%|████████▍ | 42/50 [01:42<00:19,  2.49s/it] 86%|████████▌ | 43/50 [01:46<00:17,  2.53s/it] 84%|████████▍ | 42/50 [01:43<00:19,  2.50s/it] 88%|████████▊ | 44/50 [01:47<00:14,  2.49s/it] 88%|████████▊ | 44/50 [01:48<00:15,  2.52s/it] 86%|████████▌ | 43/50 [01:45<00:17,  2.53s/it] 86%|████████▌ | 43/50 [01:45<00:17,  2.50s/it] 86%|████████▌ | 43/50 [01:45<00:17,  2.50s/it] 86%|████████▌ | 43/50 [01:44<00:17,  2.49s/it] 88%|████████▊ | 44/50 [01:49<00:15,  2.53s/it] 86%|████████▌ | 43/50 [01:45<00:17,  2.50s/it] 90%|█████████ | 45/50 [01:50<00:12,  2.49s/it] 90%|█████████ | 45/50 [01:50<00:12,  2.52s/it] 88%|████████▊ | 44/50 [01:48<00:15,  2.53s/it] 88%|████████▊ | 44/50 [01:47<00:15,  2.50s/it] 88%|████████▊ | 44/50 [01:47<00:14,  2.50s/it] 88%|████████▊ | 44/50 [01:47<00:14,  2.49s/it] 90%|█████████ | 45/50 [01:51<00:12,  2.53s/it] 88%|████████▊ | 44/50 [01:48<00:14,  2.50s/it] 92%|█████████▏| 46/50 [01:52<00:09,  2.49s/it] 92%|█████████▏| 46/50 [01:53<00:10,  2.53s/it] 90%|█████████ | 45/50 [01:50<00:12,  2.53s/it] 90%|█████████ | 45/50 [01:50<00:12,  2.50s/it] 90%|█████████ | 45/50 [01:50<00:12,  2.50s/it] 90%|█████████ | 45/50 [01:49<00:12,  2.49s/it] 92%|█████████▏| 46/50 [01:54<00:10,  2.53s/it] 90%|█████████ | 45/50 [01:50<00:12,  2.50s/it] 94%|█████████▍| 47/50 [01:55<00:07,  2.49s/it] 94%|█████████▍| 47/50 [01:55<00:07,  2.53s/it] 92%|█████████▏| 46/50 [01:53<00:10,  2.53s/it] 92%|█████████▏| 46/50 [01:52<00:10,  2.51s/it] 92%|█████████▏| 46/50 [01:52<00:10,  2.50s/it] 92%|█████████▏| 46/50 [01:52<00:09,  2.49s/it] 92%|█████████▏| 46/50 [01:53<00:10,  2.50s/it] 94%|█████████▍| 47/50 [01:56<00:07,  2.53s/it] 96%|█████████▌| 48/50 [01:57<00:04,  2.49s/it] 96%|█████████▌| 48/50 [01:58<00:05,  2.53s/it] 94%|█████████▍| 47/50 [01:55<00:07,  2.53s/it] 94%|█████████▍| 47/50 [01:55<00:07,  2.51s/it] 94%|█████████▍| 47/50 [01:55<00:07,  2.50s/it] 94%|█████████▍| 47/50 [01:54<00:07,  2.49s/it] 94%|█████████▍| 47/50 [01:55<00:07,  2.50s/it] 96%|█████████▌| 48/50 [01:59<00:05,  2.53s/it] 98%|█████████▊| 49/50 [02:00<00:02,  2.49s/it] 98%|█████████▊| 49/50 [02:00<00:02,  2.53s/it] 96%|█████████▌| 48/50 [01:58<00:05,  2.53s/it] 96%|█████████▌| 48/50 [01:57<00:05,  2.50s/it] 96%|█████████▌| 48/50 [01:57<00:05,  2.51s/it] 96%|█████████▌| 48/50 [01:57<00:04,  2.49s/it] 96%|█████████▌| 48/50 [01:58<00:05,  2.51s/it] 98%|█████████▊| 49/50 [02:02<00:02,  2.53s/it]100%|██████████| 50/50 [02:02<00:00,  2.49s/it]100%|██████████| 50/50 [02:02<00:00,  2.45s/it]
+100%|██████████| 50/50 [02:03<00:00,  2.53s/it]100%|██████████| 50/50 [02:03<00:00,  2.47s/it]
+ 98%|█████████▊| 49/50 [02:00<00:02,  2.53s/it] 98%|█████████▊| 49/50 [02:00<00:02,  2.50s/it] 98%|█████████▊| 49/50 [02:00<00:02,  2.51s/it] 98%|█████████▊| 49/50 [01:59<00:02,  2.49s/it] 98%|█████████▊| 49/50 [02:00<00:02,  2.51s/it]100%|██████████| 50/50 [02:04<00:00,  2.53s/it]100%|██████████| 50/50 [02:04<00:00,  2.49s/it]
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/home/rishubhp/vaibhav/meesho-project/canny_sdxl_2subjects.py", line 292, in <module>
+[rank3]:     output_imgs = pipe(prompts, negative_prompt=["low quality, bad quality, sketches, unrealistic"] * len(prompts), image=canny_imgs, controlnet_conditioning_scale=CONDITIONING_SCALE).images  
+[rank3]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank3]:     return func(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/pipelines/controlnet/pipeline_controlnet_sd_xl.py", line 1566, in __call__
+[rank3]:     image = self.vae.decode(latents, return_dict=False)[0]
+[rank3]:             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/utils/accelerate_utils.py", line 46, in wrapper
+[rank3]:     return method(self, *args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/autoencoders/autoencoder_kl.py", line 321, in decode
+[rank3]:     decoded = self._decode(z).sample
+[rank3]:               ^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/autoencoders/autoencoder_kl.py", line 292, in _decode
+[rank3]:     dec = self.decoder(z)
+[rank3]:           ^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/autoencoders/vae.py", line 337, in forward
+[rank3]:     sample = up_block(sample, latent_embeds)
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 2750, in forward
+[rank3]:     hidden_states = upsampler(hidden_states)
+[rank3]:                     ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/upsampling.py", line 180, in forward
+[rank3]:     hidden_states = self.conv(hidden_states)
+[rank3]:                     ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 458, in forward
+[rank3]:     return self._conv_forward(input, self.weight, self.bias)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 454, in _conv_forward
+[rank3]:     return F.conv2d(input, weight, bias, self.stride,
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 4.00 GiB. GPU 3 has a total capacity of 23.67 GiB of which 2.53 GiB is free. Including non-PyTorch memory, this process has 21.12 GiB memory in use. Of the allocated memory 16.88 GiB is allocated by PyTorch, and 3.99 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+100%|██████████| 50/50 [02:03<00:00,  2.53s/it]100%|██████████| 50/50 [02:03<00:00,  2.46s/it]
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/home/rishubhp/vaibhav/meesho-project/canny_sdxl_2subjects.py", line 292, in <module>
+[rank0]:     output_imgs = pipe(prompts, negative_prompt=["low quality, bad quality, sketches, unrealistic"] * len(prompts), image=canny_imgs, controlnet_conditioning_scale=CONDITIONING_SCALE).images  
+[rank0]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank0]:     return func(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/pipelines/controlnet/pipeline_controlnet_sd_xl.py", line 1566, in __call__
+[rank0]:     image = self.vae.decode(latents, return_dict=False)[0]
+[rank0]:             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/utils/accelerate_utils.py", line 46, in wrapper
+[rank0]:     return method(self, *args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/autoencoders/autoencoder_kl.py", line 321, in decode
+[rank0]:     decoded = self._decode(z).sample
+[rank0]:               ^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/autoencoders/autoencoder_kl.py", line 292, in _decode
+[rank0]:     dec = self.decoder(z)
+[rank0]:           ^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/autoencoders/vae.py", line 337, in forward
+[rank0]:     sample = up_block(sample, latent_embeds)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 2750, in forward
+[rank0]:     hidden_states = upsampler(hidden_states)
+[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/diffusers/models/upsampling.py", line 180, in forward
+[rank0]:     hidden_states = self.conv(hidden_states)
+[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 458, in forward
+[rank0]:     return self._conv_forward(input, self.weight, self.bias)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 454, in _conv_forward
+[rank0]:     return F.conv2d(input, weight, bias, self.stride,
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 4.00 GiB. GPU 0 has a total capacity of 23.67 GiB of which 2.53 GiB is free. Including non-PyTorch memory, this process has 21.12 GiB memory in use. Of the allocated memory 16.88 GiB is allocated by PyTorch, and 3.99 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+100%|██████████| 50/50 [02:02<00:00,  2.50s/it]100%|██████████| 50/50 [02:02<00:00,  2.45s/it]
+100%|██████████| 50/50 [02:02<00:00,  2.51s/it]100%|██████████| 50/50 [02:02<00:00,  2.45s/it]
+100%|██████████| 50/50 [02:02<00:00,  2.49s/it]100%|██████████| 50/50 [02:02<00:00,  2.44s/it]
+W0829 17:37:24.071000 139661866436416 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 3460884 closing signal SIGTERM
+W0829 17:37:24.072000 139661866436416 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 3460885 closing signal SIGTERM
+W0829 17:37:24.073000 139661866436416 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 3460886 closing signal SIGTERM
+W0829 17:37:24.074000 139661866436416 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 3460888 closing signal SIGTERM
+W0829 17:37:24.075000 139661866436416 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 3460889 closing signal SIGTERM
+W0829 17:37:24.075000 139661866436416 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 3460890 closing signal SIGTERM
+W0829 17:37:24.077000 139661866436416 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 3460891 closing signal SIGTERM
+E0829 17:37:25.585000 139661866436416 torch/distributed/elastic/multiprocessing/api.py:833] failed (exitcode: 1) local_rank: 3 (pid: 3460887) of binary: /home/rishubhp/miniconda3/envs/vaibhav/bin/python
+Traceback (most recent call last):
+  File "/home/rishubhp/miniconda3/envs/vaibhav/bin/accelerate", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/accelerate_cli.py", line 48, in main
+    args.func(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/launch.py", line 1097, in launch_command
+    multi_gpu_launcher(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/launch.py", line 734, in multi_gpu_launcher
+    distrib_run.run(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 133, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 264, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+canny_sdxl_2subjects.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2024-08-29_17:37:24
+  host      : cn6.cds.iisc.in
+  rank      : 3 (local_rank: 3)
+  exitcode  : 1 (pid: 3460887)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

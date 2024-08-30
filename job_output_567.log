@@ -1,0 +1,93 @@
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:  14%|█▍        | 1/7 [00:00<00:02,  2.38it/s]Loading pipeline components...:  14%|█▍        | 1/7 [00:00<00:02,  2.39it/s]Loading pipeline components...:  14%|█▍        | 1/7 [00:00<00:02,  2.82it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:  29%|██▊       | 2/7 [00:01<00:03,  1.25it/s]Loading pipeline components...:  43%|████▎     | 3/7 [00:01<00:02,  1.53it/s]Loading pipeline components...:  43%|████▎     | 3/7 [00:02<00:02,  1.56it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:  14%|█▍        | 1/7 [00:03<00:23,  3.88s/it]Loading pipeline components...:  43%|████▎     | 3/7 [00:00<00:00,  6.41it/s]Loading pipeline components...:  43%|████▎     | 3/7 [00:04<00:06,  1.56s/it]Loading pipeline components...:  43%|████▎     | 3/7 [00:04<00:06,  1.73s/it]Loading pipeline components...:  14%|█▍        | 1/7 [00:04<00:24,  4.10s/it]Loading pipeline components...:  43%|████▎     | 3/7 [00:05<00:05,  1.48s/it]Loading pipeline components...:  29%|██▊       | 2/7 [00:04<00:09,  1.91s/it]Loading pipeline components...:  71%|███████▏  | 5/7 [00:05<00:01,  1.22it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.25it/s]
+Loading pipeline components...:  71%|███████▏  | 5/7 [00:05<00:02,  1.29s/it]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.22it/s]
+Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.15it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.19it/s]
+Loading pipeline components...:  71%|███████▏  | 5/7 [00:05<00:02,  1.07s/it]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.25it/s]
+Loading pipeline components...: 100%|██████████| 7/7 [00:06<00:00,  1.28it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:06<00:00,  1.14it/s]
+Loading pipeline components...:  57%|█████▋    | 4/7 [00:05<00:03,  1.11s/it]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  2.01it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:05<00:00,  1.19it/s]
+7 is assigned lion__motorbike :: [12]
+7 is doing lion__motorbike :: 12
+[rank7]: Traceback (most recent call last):
+[rank7]:   File "/home/rishubhp/vaibhav/meesho-project/canny_sdxl_2subjects.py", line 148, in <module>
+[rank7]:     template_prompt = template_prompts[prompt_idx] 
+[rank7]:                       ~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+[rank7]: IndexError: list index out of range
+Loading pipeline components...:  57%|█████▋    | 4/7 [00:04<00:03,  1.13s/it]6 is assigned lion__motorbike :: [12]
+6 is doing lion__motorbike :: 12
+[rank6]: Traceback (most recent call last):
+[rank6]:   File "/home/rishubhp/vaibhav/meesho-project/canny_sdxl_2subjects.py", line 148, in <module>
+[rank6]:     template_prompt = template_prompts[prompt_idx] 
+[rank6]:                       ~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+[rank6]: IndexError: list index out of range
+Loading pipeline components...:  86%|████████▌ | 6/7 [00:04<00:00,  1.09it/s]Loading pipeline components...:  71%|███████▏  | 5/7 [00:05<00:02,  1.14s/it]W0829 17:47:31.132000 140434070497088 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1333445 closing signal SIGTERM
+W0829 17:47:31.132000 140434070497088 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1333446 closing signal SIGTERM
+W0829 17:47:31.132000 140434070497088 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1333447 closing signal SIGTERM
+W0829 17:47:31.133000 140434070497088 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1333448 closing signal SIGTERM
+W0829 17:47:31.133000 140434070497088 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1333449 closing signal SIGTERM
+W0829 17:47:31.133000 140434070497088 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1333450 closing signal SIGTERM
+W0829 17:47:31.133000 140434070497088 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 1333451 closing signal SIGTERM
+E0829 17:47:32.264000 140434070497088 torch/distributed/elastic/multiprocessing/api.py:833] failed (exitcode: 1) local_rank: 7 (pid: 1333452) of binary: /home/rishubhp/miniconda3/envs/vaibhav/bin/python
+Traceback (most recent call last):
+  File "/home/rishubhp/miniconda3/envs/vaibhav/bin/accelerate", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/accelerate_cli.py", line 48, in main
+    args.func(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/launch.py", line 1097, in launch_command
+    multi_gpu_launcher(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/launch.py", line 734, in multi_gpu_launcher
+    distrib_run.run(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 133, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 264, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+canny_sdxl_2subjects.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2024-08-29_17:47:31
+  host      : cn5.cds.iisc.in
+  rank      : 7 (local_rank: 7)
+  exitcode  : 1 (pid: 1333452)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

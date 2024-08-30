@@ -57,7 +57,7 @@ from distutils.util import strtobool
 # }
 from infer_online import TOKEN2ID, UNIQUE_TOKENS  
 
-DEBUG = False  
+DEBUG = True  
 BS = 4            
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
@@ -188,7 +188,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         infer = Infer(args.merged_emb_dim, args.seed, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, None, bs=args.inference_batch_size)  
 
 
-        prompt = "a photo of a SUBJECT in front of a dark background" 
+        prompt = "a photo of SUBJECT0 and SUBJECT1"   
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             "pickup truck", 
@@ -201,7 +201,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
         
 
-        prompt = "a photo of a SUBJECT in a river"  
+        prompt = "a photo of SUBJECT0 and SUBJECT1 in a river"  
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             "boat", 
@@ -214,7 +214,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
 
-        prompt = "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees"  
+        prompt = "a photo of SUBJECT0 and SUBJECT1 on a remote country road, surrounded by rolling hills, vast open fields and tall trees"  
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             "pickup truck", 
@@ -228,7 +228,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
 
-        prompt = "a photo of a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore"  
+        prompt = "a photo of SUBJECT0 and SUBJECT1 on a tropical beach, with palm trees swaying and waves crashing on the shore"  
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             "truck", 
@@ -236,10 +236,10 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             "cat", 
             "horse", 
         ] 
-        # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
-        # assert osp.exists(gif_path) 
-        # wandb_log_data[prompt] = wandb.Video(gif_path)  
-        # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
+        infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
+        assert osp.exists(gif_path) 
+        wandb_log_data[prompt] = wandb.Video(gif_path)  
+        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
 
 
         # prompt = "a photo of a SUBJECT in a desert"  
@@ -971,22 +971,23 @@ def main(args):
     def collate_fn(examples):
         is_controlnet = [example["controlnet"] for example in examples] 
         prompt_ids = [example["prompt_ids"] for example in examples] 
-        subjects = [example["subject"] for example in examples] 
         prompts = [example["prompt"] for example in examples] 
+        subjects = [example["subjects"] for example in examples] 
         pixel_values = []
         for example in examples:
             pixel_values.append(example["img"])
 
         """Adding the scaler of the embedding into the batch"""
-        scalers = torch.Tensor([example["scaler"] for example in examples])
+        scalers = [example["scalers"] for example in examples] 
 
         if args.with_prior_preservation:
             prompt_ids += [example["class_prompt_ids"] for example in examples]
             pixel_values += [example["class_img"] for example in examples]
             prompts += [example["class_prompt"] for example in examples] 
+            prior_subjects = [example["prior_subject"] for example in examples] 
 
         pixel_values = torch.stack(pixel_values)
-        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float() 
 
         prompt_ids = tokenizer.pad(
             {"input_ids": prompt_ids},
@@ -1002,6 +1003,7 @@ def main(args):
             "subjects": subjects, 
             "controlnet": is_controlnet, 
             "prompts": prompts, 
+            "prior_subjects": prior_subjects, 
         }
 
         return batch 
@@ -1264,19 +1266,23 @@ def main(args):
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
-            for i in range(args.merged_emb_dim // 1024):  
-                accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[i]]] = merged_emb[batch_idx][i * 1024 : (i+1) * 1024]  
+            for asset_idx in range(len(batch["subjects"])):  
+                for token_idx in range(args.merged_emb_dim // 1024):  
+                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = merged_emb[batch_idx][token_idx * 1024 : (token_idx+1) * 1024]   
 
-            # now must add a skip connection for the bnha token  
-            # bnha_idx = list(batch_item).index(TOKEN2ID["bnha"]) 
-            # assert batch_item[bnha_idx] == TOKEN2ID["bnha"] 
-            unique_token_positions = [] 
-            for i in range(args.merged_emb_dim // 1024): 
-                unique_token_positions.append(list(batch_item).index(TOKEN2ID[UNIQUE_TOKENS[i]])) 
             text_embeddings = text_encoder(batch_item.unsqueeze(0))[0].squeeze() 
+
             if args.text_encoder_bypass: 
-                for i, position in enumerate(unique_token_positions): 
-                    text_embeddings[position] = text_embeddings[position] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[i]]] 
+                unique_token_positions = {}  
+                for asset_idx in range(len(batch["subjects"])): 
+                    for token_idx in range(args.merged_emb_dim // 1024): 
+                        unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                        assert unique_token in list(batch_item)  
+                        unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
+                        unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
+
+                for unique_token_name, position in enumerate(unique_token_positions.items()): 
+                    text_embeddings[position] = text_embeddings[position] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]]  
 
             encoder_hidden_states.append(text_embeddings)  
 
@@ -1316,9 +1322,7 @@ def main(args):
 
             # Compute instance loss
             loss = (
-                F.mse_loss(model_pred.float(), target.float(), reduction="none")
-                .mean([1, 2, 3])
-                .mean()
+                F.mse_loss(model_pred.float(), target.float(), reduction="mean")
             )
             losses.append(loss.detach()) 
 
