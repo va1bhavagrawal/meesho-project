@@ -781,7 +781,7 @@ def main(args):
     for subject_comb_ in subjects_combs_: 
         img_files = os.listdir(osp.join(args.instance_data_dir, subject_comb_)) 
         img_files = [img_file for img_file in img_files if img_file.find("jpg") != -1] 
-        args.n_ref_imgs[subject_comb_] = len() 
+        args.n_ref_imgs[subject_comb_] = len(img_files)  
 
     assert args.merged_emb_dim % 1024 == 0 
 
