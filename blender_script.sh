@@ -1,0 +1,1 @@
+blender --background --python blender_script.py -- --object_path './obja_resized/pickup_truck.glb' --num_renders 30 --output_dir ./azimuth_elevation_radius_8objects/pickup_truck --engine BLENDER_EEVEE  

@@ -95,16 +95,6 @@ UNIQUE_TOKENS = {
     "2_2": "gk", 
 } 
 
-# DEBUG = False  
-# BS = 4   
-# # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
-# # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
-# VLOG_STEPS = [0, 5000, 10000, 15000, 20000, 30000, 40000, 50000, 60000, 70000]
-# SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
-# NUM_SAMPLES = 18  
-# NUM_COLS = 4  
-
-
 
 from accelerate import Accelerator
 from accelerate import DistributedDataParallelKwargs 
@@ -153,9 +143,6 @@ class EncoderStatesDataset(Dataset):
         assert len(encoder_states) == len(save_paths) 
         self.encoder_states = encoder_states 
         self.save_paths = save_paths 
-        for save_path in self.save_paths: 
-            # print(f"making sure that {save_path} exists!")
-            os.makedirs(osp.dirname(save_path), exist_ok=True) 
 
 
     def __len__(self): 
@@ -180,9 +167,8 @@ def collate_fn(examples):
 
 
 class Infer: 
-    def __init__(self, merged_emb_dim, seed, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, bs=8):   
+    def __init__(self, merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, bs=8):   
         self.merged_emb_dim = merged_emb_dim 
-        self.seed = seed  
         self.accelerator = accelerator 
         self.unet = unet 
         self.text_encoder = text_encoder  
@@ -225,7 +211,8 @@ class Infer:
         # encoder_states = torch.stack(encoder_states).to(self.accelerator.device) 
         B = encoder_states.shape[0] 
         assert encoder_states.shape == (B, 77, 1024) 
-        set_seed(self.seed) 
+        if self.seed is not None: 
+            set_seed(self.seed) 
         latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device).repeat(B, 1, 1, 1)  
         self.scheduler.set_timesteps(50)
         for t in self.scheduler.timesteps:
@@ -286,130 +273,110 @@ class Infer:
             # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
 
-    def do_it(self, gif_path, prompt, subjects, n_samples, pose_type, appearance_type, include_class_in_prompt=False):    
+    def do_it(self, seed, gif_path, prompt, all_subjects_data, include_class_in_prompt=None):    
         with torch.no_grad(): 
+            self.seed = seed 
             self.gif_path = gif_path 
-            encoder_states = torch.zeros((n_samples * len(subjects), 77, 1024)) 
-            normalized_azimuths = np.arange(n_samples) / n_samples 
-            
-            save_paths = [] 
-            elevation = 0 
-            radius = 2.0 
-            for azimuth_idx, azimuth in enumerate(normalized_azimuths):  
-                self.accelerator.print(f"{azimuth = }")
-                sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(azimuth)), torch.cos(2 * torch.pi * torch.tensor(azimuth))]).to(self.accelerator.device)  
-                mlp_embs = self.mlp(sincos.unsqueeze(0).repeat(len(subjects), 1))    
-                if pose_type == "0": 
-                    mlp_embs = torch.zeros_like(mlp_embs).to(self.accelerator.device) 
-                # aer = torch.tensor([azimuth, elevation, radius] * 2).to(self.accelerator.device).float()  
-                # assert torch.all(aer[0] <= 1)  
-                # assert torch.all(aer[1] <= 1) 
-                # assert torch.all(aer[3] <= 1) 
-                # assert torch.all(aer[4] <= 1) 
-                # assert aer[0] == aer[3] 
-                # assert aer[1] == aer[4] 
-                # assert aer[2] == aer[5] 
-                # aer[0:3] = torch.sin(2 * torch.pi * aer[0:3]) 
-                # aer[3:6] = torch.cos(2 * torch.pi * aer[3:6]) 
-                # mlp_embs = mlp(aer.unsqueeze(0).repeat(len(subjects), 1)) 
-                subject_prompts = [] 
-                bnha_embs = [] 
-                for subject_idx, subject in enumerate(subjects):  
-                    assert f"SUBJECT" in prompt 
-                    subject_ = "_".join(subject.split()) 
+            all_encoder_states = [] 
+            all_save_paths = [] 
 
-                    assert "bnha" not in subject 
-                    assert "sks" not in subject 
+            for gif_subject_data in all_subjects_data:  
+                subjects = [] 
+                for subject_data in gif_subject_data: 
+                    subjects.append("_".join(subject_data["subject"].split()))  
+                subjects_string = "__".join(subjects) 
 
-                    # subject_without_bnha = subject.replace("bnha", "").strip()  
-                    unique_string = "" 
-                    for i in range(self.merged_emb_dim // 1024): 
-                        unique_string = unique_string + UNIQUE_TOKENS[i] + " " 
-                    unique_string = unique_string.strip() 
-                    if not include_class_in_prompt: 
-                        subject_prompt = prompt.replace(f"SUBJECT", unique_string)  
-                    else: 
-                        subject_prompt = prompt.replace(f"SUBJECT", f"{unique_string} {subject}")   
-                    # self.accelerator.print(f"{subject_prompt = }")
+                unique_strings = []  
+                for asset_idx in range(len(gif_subject_data)): 
+                    unique_string_subject = "" 
+                    for token_idx in range(self.merged_emb_dim // 1024): 
+                        unique_string_subject = unique_string_subject + f"{UNIQUE_TOKENS[f'{asset_idx}_{token_idx}']} " 
+                    unique_string_subject = unique_string_subject.strip() 
+                    unique_strings.append(unique_string_subject) 
 
-                    if appearance_type == "learnt": 
-                        assert self.bnha_embeds is not None 
-                        bnha_embs.append(getattr(self.accelerator.unwrap_model(self.bnha_embeds), subject))  
-                    elif appearance_type == "class": 
-                        bnha_embs.append(self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
-                    elif appearance_type == "zero": 
-                        bnha_embs.append(torch.zeros((1024, )).to(self.accelerator.device)) 
-                    else: 
-                        print(f"{appearance_type = }") 
-                        assert False 
+                n_samples = len(gif_subject_data[0]["normalized_azimuths"])  
 
-                    assert subject_prompt.find(unique_string) != -1 
-                    subject_prompts.append(subject_prompt) 
-                    save_paths.append(osp.join(self.tmp_dir, subject_, f"{str(azimuth_idx).zfill(3)}.jpg")) 
+                mlp_embs_video = [] 
+                bnha_embs_video = [] 
+
+                for sample_idx in range(n_samples): 
+                    mlp_embs_frame = [] 
+                    bnha_embs_frame = [] 
+                    for subject_data in gif_subject_data:  
+                        normalized_azimuth = subject_data["normalized_azimuths"][sample_idx] 
+                        sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(self.accelerator.device)  
+
+                        if "pose_type" in subject_data.keys() and subject_data["pose_type"] == "0": 
+                            mlp_emb = torch.zeros((1024, )).to(self.accelerator.device) 
+                        else: 
+                            mlp_emb = self.mlp(sincos.unsqueeze(0)).squeeze()  
+
+                        if "appearance_type" in subject_data.keys() and subject_data["appearance_type"] != "class":  
+                            if subject_data["appearance_type"] == "zero": 
+                                bnha_emb = torch.zeros((1024, )).to(self.accelerator.device)  
+                            elif subject_data["appearance_type"] == "learnt":  
+                                bnha_emb = getattr(self.accelerator.unwrap_model(self.bnha_embeds), subject_data["subject"])  
+                        else: 
+                            bnha_emb = self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_data["subject"]]] 
+
+                        mlp_embs_frame.append(mlp_emb) 
+                        bnha_embs_frame.append(bnha_emb)  
+
+                    mlp_embs_video.append(torch.stack(mlp_embs_frame, 0)) 
+                    bnha_embs_video.append(torch.stack(bnha_embs_frame, 0))  
+
+                mlp_embs_video = torch.stack(mlp_embs_video, 0) 
+                bnha_embs_video = torch.stack(bnha_embs_video, 0)  
+                merged_embs_video = self.merger(mlp_embs_video, bnha_embs_video) 
+
+                placeholder_text = "a SUBJECT0 " 
+                for asset_idx in range(1, len(gif_subject_data)):  
+                    placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} " 
+                placeholder_text = placeholder_text.strip() 
+                assert prompt.find("PLACEHOLDER") != -1 
+                template_prompt = prompt.replace("PLACEHOLDER", placeholder_text) 
+
+                assert (include_class_in_prompt is not None) or "include_class_in_prompt" in subject_data.keys()  
+                include_class_in_prompt_here = include_class_in_prompt if include_class_in_prompt is not None else subject_data["include_class_in_prompt"]  
+
+                if not include_class_in_prompt_here: 
+                    for asset_idx, subject_data in enumerate(gif_subject_data): 
+                        assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]}")   
+                else: 
+                    for asset_idx, subject_data in enumerate(gif_subject_data):  
+                        assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subject_data['subject']}") 
+
+                print(f"{template_prompt}") 
+                prompt_ids = self.tokenizer(
+                    template_prompt, 
+                    padding="max_length", 
+                    max_length=self.tokenizer.model_max_length,
+                    truncation=True, 
+                    return_tensors="pt"
+                ).input_ids.to(self.accelerator.device)  
+
+                for sample_idx in range(n_samples): 
+                    for asset_idx, subject_data in enumerate(gif_subject_data): 
+                        for token_idx in range(self.merged_emb_dim // 1024): 
+                            self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = merged_embs_video[sample_idx][asset_idx]  
+                    text_embeddings = self.text_encoder(prompt_ids)[0].squeeze() 
+                    all_encoder_states.append(text_embeddings) 
+                    all_save_paths.append(osp.join(self.tmp_dir, subjects_string, f"{str(sample_idx).zfill(3)}.jpg")) 
                     
-                bnha_embs = torch.stack((bnha_embs), 0) 
-                merged_embs = self.merger(mlp_embs, bnha_embs) 
-
-                assert len(subject_prompts) == len(merged_embs) 
-                # assert len(save_paths) == len(merged_embs) 
-
-                for i in range(merged_embs.shape[0]): 
-                    if pose_type == "0" and appearance_type == "zero": 
-                        refined_prompt = subject_prompts[i].replace(unique_string, "") 
-                    else: 
-                        refined_prompt = subject_prompts[i] 
-                    self.accelerator.print(f"{refined_prompt = }") 
-                    tokens = self.tokenizer(
-                        refined_prompt, 
-                        padding="max_length", 
-                        max_length=self.tokenizer.model_max_length,
-                        truncation=True, 
-                        return_tensors="pt"
-                    ).input_ids 
-
-                    # self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] = merged_embs[i]  
-                    for j in range(self.merged_emb_dim // 1024):  
-                        self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[j]]] = merged_embs[i][j * 1024 : (j+1) * 1024]  
-
-                    if pose_type != "0" or appearance_type != "zero": 
-                        for j in range(self.merged_emb_dim // 1024): 
-                            assert TOKEN2ID[UNIQUE_TOKENS[j]] in tokens 
-
-                    # bnha_idx = list(tokens[0]).index(TOKEN2ID["bnha"])  
-                    # assert tokens[0][bnha_idx] == TOKEN2ID["bnha"] 
-                    # text_encoder_outputs = self.text_encoder(tokens.to(self.accelerator.device))[0].squeeze()   
-                    # if self.text_encoder_bypass: 
-                    #     text_encoder_outputs[bnha_idx] = text_encoder_outputs[bnha_idx] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID["bnha"]] 
-                    # unique_positions 
-                    # if self.text_encoder_bypass: 
-                    #     for i in range(self.merged_emb_dim // 1024): 
-                    #         text_encoder_outputs[]
-
-                    text_embeddings = self.text_encoder(tokens.to(self.accelerator.device))[0].squeeze() 
-                    if pose_type != "0" or appearance_type != "zero":  
-                        unique_token_positions = [] 
-                        for j in range(self.merged_emb_dim // 1024): 
-                            unique_token_positions.append(list(tokens[0]).index(TOKEN2ID[UNIQUE_TOKENS[j]])) 
-                        if self.text_encoder_bypass: 
-                            for j, position in enumerate(unique_token_positions):  
-                                text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[j]]] 
-                    encoder_states[azimuth_idx * len(subjects) + i] = text_embeddings  
-
-
-
-            # for subject in subjects: 
-            #     subject_ = "_".join(subject.split()) 
-            #     os.makedirs(osp.join(self.tmp_dir, subject_)) 
-            #     for azimuth_idx in range(n_samples): 
-            #         save_path = osp.join(self.tmp_dir, subject_, f"{azimuth_idx.zfill(3)}.jpg") 
-            #         save_paths.append(save_path) 
 
             self.accelerator.wait_for_everyone() 
             self.accelerator.print(f"every thread finished generating the encoder hidden states...") 
 
-            dataset = EncoderStatesDataset(encoder_states, save_paths)  
+            if self.accelerator.is_main_process: 
+                for save_path in all_save_paths: 
+                    os.makedirs(osp.dirname(save_path), exist_ok=True)   
+            self.accelerator.wait_for_everyone() 
 
-            dataloader = DataLoader(dataset, batch_size=self.bs, collate_fn=collate_fn)   
+            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths)  
+
+            dataloader = DataLoader(dataset, batch_size=self.bs, collate_fn=collate_fn)  
             dataloader = self.accelerator.prepare(dataloader)  
             # dataloader = DataLoader(dataset, batch_size=self.bs)  
 
@@ -424,12 +391,12 @@ class Infer:
 
             if self.accelerator.is_main_process: 
                 # collect_generated_images(subjects, self.tmp_dir, prompt, "pose+app", self.gif_name)  
-                collect_generated_images(subjects, self.tmp_dir, prompt, self.gif_path)  
+                collect_generated_images(self.tmp_dir, prompt, self.gif_path)  
             self.accelerator.wait_for_everyone() 
 
-        if self.accelerator.is_main_process: 
-            print(f"removing {self.tmp_dir}") 
-            shutil.rmtree(self.tmp_dir) 
+            if self.accelerator.is_main_process: 
+                print(f"removing {self.tmp_dir}") 
+                shutil.rmtree(self.tmp_dir) 
 
 
 if __name__ == "__main__": 

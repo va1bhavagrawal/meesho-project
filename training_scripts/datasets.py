@@ -123,9 +123,10 @@ class DisentangleDataset(Dataset):
         # assert osp.exists(subject_ref_dir) 
 
         # example["subject"] = subject 
-        subjects_comb_ = self.args.subject_pairs_[index % len(self.args.subjects_combs)] 
+        subjects_combs_ = sorted(os.listdir(self.args.instance_data_dir))  
+        subjects_comb_ = subjects_combs_[index % len(self.args.subjects_combs)] 
         subjects_ = subjects_comb_.split("__") 
-        subjects = [" ".join(subject_) for subject_ in subjects_] 
+        subjects = [" ".join(subject_.split("_")) for subject_ in subjects_] 
         example["subjects"] = subjects 
 
         # selecting the random view for the chosen subject 
@@ -142,7 +143,7 @@ class DisentangleDataset(Dataset):
         for asset_idx in range(len(subjects)): 
             unique_string_subject = "" 
             for token_idx in range(self.args.merged_emb_dim // 1024): 
-                unique_string_subject = unique_string_subject + f"{UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]} " 
+                unique_string_subject = unique_string_subject + f"{UNIQUE_TOKENS[f'{asset_idx}_{token_idx}']} " 
             unique_string_subject = unique_string_subject.strip() 
             unique_strings.append(unique_string_subject) 
 
@@ -150,7 +151,9 @@ class DisentangleDataset(Dataset):
         if not self.args.use_controlnet_images or (index % 5 != 0): 
             example["controlnet"] = False 
             subjects_comb_ref_dir = osp.join(self.args.instance_data_dir, subjects_comb_) 
-            random_ref_img = random.choice(os.listdir(subjects_comb_ref_dir))  
+            imgs_list = os.listdir(subjects_comb_ref_dir) 
+            imgs_list = [img_name for img_name in imgs_list if img_name.find("jpg") != -1 or img_name.find("png") != -1] 
+            random_ref_img = random.choice(imgs_list)   
             # a, e, r, x, y, _ = random_ref_img.split("__") 
             # a = float(a) 
             # e = float(e) 
@@ -174,10 +177,11 @@ class DisentangleDataset(Dataset):
 
             example["scalers"] = all_a   
             template_prompt = "a photo of PLACEHOLDER" 
-            placeholder_text = "a SUBJECT0"  
+            placeholder_text = "a SUBJECT0 "  
             for asset_idx in range(1, len(example["subjects"])):  
-                placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx+1}" 
-            template_prompt.replace("PLACEHOLDER", placeholder_text) 
+                placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} " 
+            placeholder_text = placeholder_text.strip() 
+            template_prompt = template_prompt.replace("PLACEHOLDER", placeholder_text) 
             if not self.args.include_class_in_prompt: 
                 for asset_idx in range(len(example["subjects"])):    
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
@@ -219,7 +223,9 @@ class DisentangleDataset(Dataset):
             # chosen_img = random.choice(avlble_imgs) 
 
             subjects_comb_controlnet_dir = osp.join(self.args.controlnet_data_dir, subjects_comb_) 
-            random_controlnet_img = random.choice(os.listdir(subjects_comb_controlnet_dir)) 
+            imgs_list = os.listdir(subjects_comb_controlnet_dir)  
+            imgs_list = [img_name for img_name in imgs_list if img_name.find("jpg") != -1 or img_name.find("png") != -1] 
+            random_controlnet_img = random.choice(imgs_list)     
             subjects_data = random_controlnet_img.split("__") 
             subjects_data = subjects_data[:-1] 
             whichprompt = subjects_data[-1] 
@@ -240,15 +246,15 @@ class DisentangleDataset(Dataset):
             example["scalers"] = all_a 
             prompt_idx = int(whichprompt.replace("prompt", "").strip()) 
             template_prompt = self.args.controlnet_prompts[prompt_idx] 
-            placeholder_text = "a SUBJECT0" 
-            for asset_idx in range(len(example["subjects"])):  
-                placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx+1}"  
+            placeholder_text = "a SUBJECT0 " 
+            for asset_idx in range(1, len(example["subjects"])):  
+                placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} "  
+            placeholder_text = placeholder_text.strip() 
             template_prompt.replace("PLACEHOLDER", placeholder_text) 
             if not self.args.include_class_in_prompt: 
                 for asset_idx in range(len(example["subjects"])): 
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
                     template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subjects[asset_idx]}")  
-            
             else: 
                 for asset_idx in range(len(subjects)): 
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
@@ -273,11 +279,11 @@ class DisentangleDataset(Dataset):
 
 
         if self.args.with_prior_preservation: 
-            random_subject_ = random.sample(subjects, 1) 
+            random_subject_ = random.choice(subjects_)  
             random_subject = " ".join(random_subject_.split("_")) 
             example["prior_subject"] = random_subject 
-            subject_class_imgs_path = osp.join(self.args.class_data_dir, random_subject)   
-            assert len(os.listdir(subject_class_imgs_path)) == 100  
+            subject_class_imgs_path = osp.join(self.args.class_data_dir, random_subject_)   
+            assert len(os.listdir(subject_class_imgs_path)) == 100, f"{len(os.listdir(subject_class_imgs_path)) = }"  
             n_class_images = len(os.listdir(subject_class_imgs_path)) 
             class_img_name = str(index % n_class_images).zfill(3) + ".jpg"  
             class_img_path = osp.join(subject_class_imgs_path, class_img_name) 
@@ -294,4 +300,5 @@ class DisentangleDataset(Dataset):
             ).input_ids 
             # print(f"{class_prompt = }") 
 
+        assert len(example["subjects"]) == len(example["scalers"]) 
         return example 

@@ -1,11 +1,11 @@
-export RUN_NAME="poseonly_nosubjectinprompt_extendedmerger3072_poseappskip" 
+export RUN_NAME="plain" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_scales_large/ref_imgs_multiobject" 
-export CONTROLNET_DATA_DIR="../training_data_scales_large/controlnet_imgs_multiobject"
+export INSTANCE_DIR="../training_data_2subjects/ref_imgs" 
+export CONTROLNET_DATA_DIR="../training_data_2subjects/controlnet_imgs"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_scales_large/prior_imgs_multiobject"
-export CONTROLNET_PROMPTS_FILE="../prompts/prompts_0508.txt" 
+export CLASS_DATA_DIR="../training_data_2subjects/prior_imgs" 
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
 
@@ -22,10 +22,10 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="N" \
-  --text_encoder_bypass="Y" \
-  --appearance_skip_connection="Y" \
-  --merged_emb_dim=3072 \
+  --include_class_in_prompt="Y" \
+  --text_encoder_bypass="N" \
+  --appearance_skip_connection="N" \
+  --merged_emb_dim=1024 \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \

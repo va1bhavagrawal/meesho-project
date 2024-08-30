@@ -81,7 +81,7 @@ class MergedEmbedding(nn.Module):
         x = self.linear3(x) 
         x = F.relu(x) 
         if self.skip_conn: 
-            x = self.linear4(x) + (appearance_embed + pose_embed).repeat(1, self.output_dim // 1024)  
+            x = self.linear4(x) + appearance_embed.repeat(1, 1, self.output_dim // 1024)  
         else: 
             x = self.linear4(x) 
 

@@ -66,7 +66,7 @@ def create_image_with_captions(image_rows, captions):
             # Create a blank image for the caption
             caption_img = np.ones((caption_height, images_resized_rows[0][0].shape[1], 3), dtype=np.uint8) * 255
             # Put the caption text on the blank image
-            cv2.putText(caption_img, caption, (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(caption_img, caption, (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA) 
             caption_images_row.append(caption_img)
         caption_images.append(caption_images_row)
 
@@ -127,33 +127,31 @@ def create_gif(images, save_path, duration=1):
     return 
 
 
-def collect_generated_images(subjects, vis_dir, prompt, save_path):  
+def collect_generated_images(vis_dir, prompt, save_path):  
     # stores all the videos for this particular prompt on wandb  
     template_prompt_videos = {} 
 
     # collecting results of type 1 inference 
     # prompts_dataset = prompts_dataset1 
     # template_prompt_videos["type1"] = {} 
-    for subject in sorted(subjects):  
+    for subjects_string in sorted(os.listdir(vis_dir)): 
 
         # save_path_global = osp.join(vis_dir) 
 
         # subject_prompt = prompt.replace("SUBJECT", subject)   
         # prompt_ = "_".join(subject_prompt.split()) 
         # prompt_path = osp.join(save_path_global, prompt_) 
-        subject_ = "_".join(subject.split()) 
-        imgs_path = osp.join(vis_dir, subject_) 
-        img_names = os.listdir(imgs_path)    
+        imgs_path = osp.join(vis_dir, subjects_string) 
+        img_names = os.listdir(imgs_path)  
         img_names = [img_name for img_name in img_names if img_name.find(f"jpg") != -1] 
         img_names = sorted(img_names) 
 
         # assert "bnha" in subject 
 
         # template_prompt_videos["type1"][keyname] = [] 
-        template_prompt_videos[subject] = [] 
+        template_prompt_videos[subjects_string] = [] 
         # assert len(img_names) == prompts_dataset.num_samples, f"{len(img_names) = }, {prompts_dataset.num_samples = }" 
         for img_name in img_names: 
-            # prompt_path has a BUG 
             # print(f"for {subject} i am using {prompt_path = } and {img_name = }") 
             img_path = osp.join(imgs_path, img_name) 
             got_image = False 
@@ -167,11 +165,11 @@ def collect_generated_images(subjects, vis_dir, prompt, save_path):
             #     if got_image: 
             #         break 
             img = Image.open(img_path) 
-            template_prompt_videos[subject].append(img) 
+            template_prompt_videos[subjects_string].append(img) 
 
 
         # concatenate all the images for this template prompt 
-        all_concat_imgs = [] 
+    all_concat_imgs = [] 
         # save_path_global = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}")  
         # for idx in range(prompts_dataset.num_samples): 
         #     images = [] 
@@ -185,14 +183,13 @@ def collect_generated_images(subjects, vis_dir, prompt, save_path):
         # for typename in list(template_prompt_videos.keys()): 
         images_row = [] 
         captions_row = [] 
-        for subject in list(template_prompt_videos.keys()): 
-            images_row.append(template_prompt_videos[subject][idx]) 
-            captions_row.append(subject) 
-        images.append(images_row) 
+        for subjects_string in list(template_prompt_videos.keys()): 
+            images_row.append(template_prompt_videos[subjects_string][idx]) 
+            captions_row.append(subjects_string)  
+        images.append(images_row)  
         captions.append(captions_row) 
 
         concat_img = create_image_with_captions(images, captions)  
-        concat_img = create_image_with_captions([[concat_img]], [["---"]]) 
         concat_img = create_image_with_captions([[concat_img]], [[f"{prompt}"]]) 
         all_concat_imgs.append(concat_img) 
 
