@@ -6,6 +6,5 @@
 #SBATCH --mem=128G 
 #SBATCH --gres=gpu:4             
 #SBATCH --partition=short 
-#SBATCH -w cn4 
 
 ./run.sh 
