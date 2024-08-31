@@ -1546,7 +1546,6 @@ def main(args):
 
                 # mlp 
                 mlp_grad_norm = [torch.linalg.norm(param.grad) for param in continuous_word_model.parameters() if param.grad is not None]
-                assert len(mlp_grad_norm) == num_assets_in_batch 
                 if len(mlp_grad_norm) == 0:
                     mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
                 else:

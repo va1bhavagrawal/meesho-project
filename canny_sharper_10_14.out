@@ -1,8 +1,1 @@
-/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
-  @torch.library.impl_abstract("xformers_flash::flash_fwd")
-/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
-  @torch.library.impl_abstract("xformers_flash::flash_bwd")
-/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/huggingface_hub/file_download.py:1150: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
-  warnings.warn(
-Keyword arguments {'device': 'cuda:0'} are not expected by StableDiffusionControlNetPipeline and will be ignored.
-slurmstepd: error: *** JOB 299 ON cn3 CANCELLED AT 2024-08-20T23:47:15 ***
+slurmstepd: error: *** JOB 579 ON cn6 CANCELLED AT 2024-08-31T05:29:46 ***
