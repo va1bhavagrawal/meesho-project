@@ -1360,7 +1360,7 @@ def main(args):
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
-            for asset_idx in range(len(batch["subjects"])):  
+            for asset_idx in range(len(batch["subjects"][batch_idx])):   
                 for token_idx in range(args.merged_emb_dim // 1024):  
                     accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024]   
 
@@ -1368,7 +1368,7 @@ def main(args):
 
             if args.text_encoder_bypass: 
                 unique_token_positions = {}  
-                for asset_idx in range(len(batch["subjects"])): 
+                for asset_idx in range(len(batch["subjects"][batch_idx])):  
                     for token_idx in range(args.merged_emb_dim // 1024): 
                         unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
                         assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
