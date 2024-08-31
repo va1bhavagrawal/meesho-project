@@ -62,7 +62,7 @@ BS = 4
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = [4]     
+VLOG_STEPS = [15000, 31000]  
 for vlog_step in range(50000, 210000, 50000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
@@ -295,11 +295,11 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             [
                 {
                     "subject": "bus", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,   
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
                     "subject": "motorbike", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,    
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
@@ -432,6 +432,13 @@ def parse_args(input_args=None):
         help="A folder containing the training data of instance images.",
     )
     parser.add_argument(
+        "--instance_data_dir_singlesub",
+        type=str,
+        default=None,
+        required=True,
+        help="A folder containing the training data of instance images of single subject",
+    )
+    parser.add_argument(
         "--controlnet_data_dir",
         type=str,
         default=None,
@@ -507,7 +514,7 @@ def parse_args(input_args=None):
         help="The output format of the model predicitions and checkpoints.",
     )
     parser.add_argument(
-        "--seed", type=int, default=1709, help="A seed for reproducible training."
+        "--seed", type=int, default=1510, help="A seed for reproducible training."
     )
     parser.add_argument(
         "--resolution",
@@ -627,13 +634,13 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=-1,
+        default=30000,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=200000,
+        default=170000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -984,6 +991,15 @@ def main(args):
     if args.textual_inv: 
         # the appearance embeddings 
         bnha_embeds = {} 
+        args.subjects = [
+            "pickup truck", 
+            "jeep", 
+            "motorbike", 
+            "bus", 
+            "lion", 
+            "elephant", 
+            "horse", 
+        ] 
         for subject in args.subjects:  
             # initializing using the subject's embedding in the pretrained CLIP text encoder 
             bnha_embeds[subject] = torch.clone(text_encoder.get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
@@ -1038,7 +1054,16 @@ def main(args):
     train_dataset = DisentangleDataset(
         args=args,
         tokenizer=tokenizer, 
-    )
+        ref_imgs_dir=args.instance_data_dir, 
+        num_steps=args.stage2_steps, 
+    ) 
+
+    train_dataset_singlesub = DisentangleDataset(
+        args=args, 
+        tokenizer=tokenizer, 
+        ref_imgs_dir=args.instance_data_dir_singlesub, 
+        num_steps=args.stage1_steps, 
+    ) 
 
     """
     ADOBE CONFIDENTIAL
@@ -1101,6 +1126,14 @@ def main(args):
         num_workers=accelerator.num_processes * 2,
     )
 
+    train_dataloader_singlesub = torch.utils.data.DataLoader(
+        train_dataset_singlesub,
+        batch_size=args.train_batch_size, 
+        shuffle=True,
+        collate_fn=collate_fn,
+        num_workers=accelerator.num_processes * 2, 
+    ) 
+
     """
     ADOBE CONFIDENTIAL
     Copyright 2024 Adobe
@@ -1121,7 +1154,7 @@ def main(args):
     # print("The current continuous MLP: {}".format(continuous_word_model))
     
     
-    unet, text_encoder, merger, continuous_word_model, train_dataloader = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader)  
+    unet, text_encoder, merger, continuous_word_model, train_dataloader, train_dataloader_singlesub = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader, train_dataloader_singlesub)   
     # optimizers_ = [] 
     optimizers_ = {} 
     for name, optimizer in optimizers.items(): 
@@ -1200,12 +1233,20 @@ def main(args):
             shutil.rmtree(f"vis") 
         os.makedirs("vis")  
 
-    for step, batch in enumerate(train_dataloader): 
+    train_dataloader_iter = iter(train_dataloader) 
+    train_dataloader_singlesub_iter = iter(train_dataloader_singlesub) 
+    for step in range(args.max_train_steps): 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
         #         steps_per_angle[angle] += 1 
         #     else:
         #         steps_per_angle[angle] = 1 
+        if global_step > args.stage1_steps: 
+            MAX_SUBJECTS_PER_EXAMPLE = 2 
+            batch = next(train_dataloader_iter)  
+        else: 
+            MAX_SUBJECTS_PER_EXAMPLE = 1  
+            batch = next(train_dataloader_singlesub_iter) 
         if DEBUG: 
             assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight, input_embeddings) 
 
@@ -1304,7 +1345,8 @@ def main(args):
 
         else: 
             progress_bar.set_description(f"stage 1: ")
-            mlp_emb = torch.zeros(B, 1024) 
+            # mlp_emb = torch.zeros(B, 1024) 
+            mlp_emb = torch.zeros((B, MAX_SUBJECTS_PER_EXAMPLE, 1024)).to(accelerator.device)  
 
         num_assets_in_batch = 0 
         for batch_idx in range(B): 
@@ -1340,6 +1382,8 @@ def main(args):
                     bnha_emb[batch_idx][asset_idx] = torch.clone(input_embeddings)[TOKEN2ID[subject]]  
             # bnha_emb = torch.stack(bnha_emb) 
 
+        # print(f"{bnha_emb.shape = }")
+        # print(f"{mlp_emb.shape = }")
         # merging the appearance and pose embeddings 
         merged_emb = merger(mlp_emb, bnha_emb)  
         merged_emb_norm = torch.linalg.norm(merged_emb)  
@@ -1462,7 +1506,7 @@ def main(args):
                 bad_mlp_params = [(n, p) for (n, p) in continuous_word_model.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
                 # assert not ((len(bad_mlp_params) < len(list(continuous_word_model.parameters()))) ^ (global_step > args.stage1_steps))  
                 # assert not ((len(bad_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
-                if global_step > 1: 
+                if global_step > args.stage1_steps + 2:  
                     # print(f"{len(bad_mlp_params) = }, {len(list(continuous_word_model.parameters())) = }")  
                     # assert len(bad_mlp_params) < len(list(continuous_word_model.parameters()))  
                     assert len(bad_mlp_params) == 0  

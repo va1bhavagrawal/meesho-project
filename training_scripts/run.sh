@@ -1,17 +1,18 @@
-export RUN_NAME="plain_1subject" 
+export RUN_NAME="heir_app" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_1subject/ref_imgs" 
-export CONTROLNET_DATA_DIR="../training_data_1subject/controlnet_imgs"
+export INSTANCE_DIR="../training_data_2subjects/ref_imgs" 
+export INSTANCE_DIR_SINGLESUB="../training_data_2subjects/ref_imgs_singlesub" 
+export CONTROLNET_DATA_DIR="../training_data_2subjects/controlnet_imgs"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_1subject/prior_imgs" 
+export CLASS_DATA_DIR="../training_data_2subjects/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
 
 accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
-  --textual_inv="N" \
+  --textual_inv="Y" \
   --train_text_encoder="N" \
   --use_controlnet_images="N" \
   --use_ref_images="Y" \
@@ -37,6 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir=$CONTROLNET_DATA_DIR \
   --instance_data_dir=$INSTANCE_DIR \
+  --instance_data_dir_singlesub=$INSTANCE_DIR_SINGLESUB \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
