@@ -1,10 +1,10 @@
-export RUN_NAME="plain_2subjects" 
+export RUN_NAME="plain_1subject" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_2subjects/ref_imgs" 
-export CONTROLNET_DATA_DIR="../training_data_2subjects/controlnet_imgs"
+export INSTANCE_DIR="../training_data_1subject/ref_imgs" 
+export CONTROLNET_DATA_DIR="../training_data_1subject/controlnet_imgs"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_2subjects/prior_imgs" 
+export CLASS_DATA_DIR="../training_data_1subject/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
