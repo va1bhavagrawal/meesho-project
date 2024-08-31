@@ -23,3 +23,5 @@ training_scripts/__pycache__
 training_scripts/*.gif 
 training_scripts/*.jpg  
 training_scripts/*.log 
+waste/ 
+obja* 

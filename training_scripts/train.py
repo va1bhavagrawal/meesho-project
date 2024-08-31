@@ -57,9 +57,8 @@ from distutils.util import strtobool
 # }
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
-MAX_SUBJECTS_PER_EXAMPLE = 2 
 DEBUG = False  
-BS = 4  
+BS = 1  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -76,9 +75,9 @@ for save_step in range(10000, 210000, 10000):
 print(f"{VLOG_STEPS = }")
 print(f"{SAVE_STEPS = }")
 
-NUM_SAMPLES = 12   
+NUM_SAMPLES = 12  
 
-from datasets import DisentangleDataset 
+from datasets import DisentangleDataset, MAX_SUBJECTS_PER_EXAMPLE  
 
 
 from accelerate import Accelerator
@@ -202,7 +201,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "subject": "pickup truck", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
-            ], 
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
                     "subject": "sedan", 
@@ -212,7 +211,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "subject": "pickup truck", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
-            ], 
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
                     "subject": "horse", 
@@ -222,7 +221,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "subject": "jeep", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,   
                 }
-            ]
+            ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
         infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)   
         assert osp.exists(gif_path) 
@@ -242,27 +241,27 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "subject": "ship", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
-            ], 
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "boat", 
+                    "subject": "dolphin", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
                     "subject": "boat", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
-            ], 
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "boat", 
+                    "subject": "ship", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 }, 
                 {
                     "subject": "fish", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,   
                 }
-            ]
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ] 
         infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)  
         assert osp.exists(gif_path) 
@@ -282,7 +281,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "subject": "jeep", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
-            ], 
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
                     "subject": "dog", 
@@ -292,7 +291,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "subject": "cat", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
-            ], 
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
                     "subject": "bus", 
@@ -302,7 +301,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "subject": "motorbike", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }
-            ]
+            ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
         infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)  
         assert osp.exists(gif_path) 
@@ -1297,8 +1296,8 @@ def main(args):
             p = torch.Tensor(scalers_padded / (2 * math.pi)) 
             p = p.unsqueeze(-1) 
             p = p.repeat(1, 1, 2)  
-            p[..., 0] = torch.sin(2 * torch.pi * p[:, 0]) 
-            p[..., 1] = torch.cos(2 * torch.pi * p[:, 1]) 
+            p[..., 0] = torch.sin(2 * torch.pi * p[..., 0]) 
+            p[..., 1] = torch.cos(2 * torch.pi * p[..., 1]) 
 
             # getting the embeddings from the mlp
             mlp_emb = continuous_word_model(p) 
@@ -1314,7 +1313,7 @@ def main(args):
         # appearance embeddings
         # textual inversion is used, then the embeddings are initialized with their classes  
         # else it is initialized with the default value for bnha 
-        bnha_emb = torch.zeros((len(batch["subjects"]), 2, 1024)) 
+        bnha_emb = torch.zeros((len(batch["subjects"]), MAX_SUBJECTS_PER_EXAMPLE, 1024)) 
         if args.textual_inv: 
             # assert False 
             # bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  

@@ -15,6 +15,8 @@ import os.path as osp
 
 from infer_online import UNIQUE_TOKENS 
 
+MAX_SUBJECTS_PER_EXAMPLE = 1   
+
 # class PromptDataset(Dataset):
 #     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
@@ -167,6 +169,7 @@ class DisentangleDataset(Dataset):
             all_z = [] 
             all_a = [] 
             assert len(subjects_data) == len(example["subjects"])  
+            assert len(subjects_data) <= MAX_SUBJECTS_PER_EXAMPLE 
             for asset_idx in range(len(example["subjects"])): 
                 one_subject_data = subjects_data[asset_idx] 
                 x, y, z, a = one_subject_data.split("_") 
