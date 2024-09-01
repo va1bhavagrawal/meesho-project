@@ -31,6 +31,8 @@ import textwrap
 from infer_online import Infer  
 from distutils.util import strtobool 
 
+import pickle 
+
 # from metrics import MetricEvaluator 
 
 
@@ -880,6 +882,9 @@ def main(args):
             subfolder="tokenizer",
             revision=args.revision,
         )
+
+    with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
+        pickle.dump(args.__dict__, f) 
 
     # Load models and create wrapper for stable diffusion
     text_encoder = CLIPTextModel.from_pretrained(

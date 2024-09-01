@@ -1,4 +1,4 @@
-export RUN_NAME="merged_normalized" 
+export RUN_NAME="merged" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_2subjects/ref_imgs"  
@@ -24,7 +24,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="N" \
-  --normalize_merged_embedding="Y" \
+  --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="Y" \
   --merged_emb_dim=1024 \

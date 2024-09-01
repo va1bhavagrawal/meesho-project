@@ -71,6 +71,7 @@ TOKEN2ID = {
     "man": 786, 
     "camel": 21914, 
     "dog": 1929,  
+    "pickup": 15382, 
 
     # unque tokens 
     "bk": 14083, 
@@ -364,6 +365,23 @@ class Infer:
                     text_embeddings = self.text_encoder(prompt_ids)[0].squeeze() 
                     all_encoder_states.append(text_embeddings) 
                     all_save_paths.append(osp.join(self.tmp_dir, subjects_string, f"{str(sample_idx).zfill(3)}.jpg")) 
+
+                    if self.text_encoder_bypass: 
+                        unique_token_positions = {} 
+                        for asset_idx, subject_data in enumerate(gif_subject_data): 
+                            for token_idx in range(self.merged_emb_dim // 1024): 
+                                unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                                assert TOKEN2ID[unique_token] in prompt_ids 
+                                # print(f"{list(prompt_ids) = }") 
+                                # print(f"{TOKEN2ID[unique_token] = }") 
+                                # print(f"{TOKEN2ID[unique_token] = }")
+                                # print(f"{prompt_ids = }")
+                                assert len(prompt_ids) == 1 
+                                unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
+                                unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
+
+                        for unique_token_name, position in unique_token_positions.items(): 
+                            text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]] 
                     
 
             self.accelerator.wait_for_everyone() 
