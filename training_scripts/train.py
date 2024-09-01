@@ -883,6 +883,8 @@ def main(args):
             revision=args.revision,
         )
 
+    accelerator.wait_for_everyone() 
+
     with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
         pickle.dump(args.__dict__, f) 
 
