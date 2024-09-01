@@ -1068,7 +1068,7 @@ def main(args):
         args=args, 
         tokenizer=tokenizer, 
         ref_imgs_dir=args.instance_data_dir_singlesub, 
-        num_steps=args.stage1_steps, 
+        num_steps=args.stage2_steps, 
     ) 
 
     """
