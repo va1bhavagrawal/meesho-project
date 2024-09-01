@@ -58,11 +58,11 @@ from distutils.util import strtobool
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
 DEBUG = False  
-BS = 4   
+BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = [15000, 31000]  
+VLOG_STEPS = [15000, 30000]  
 for vlog_step in range(50000, 210000, 50000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
@@ -460,6 +460,12 @@ def parse_args(input_args=None):
         help="whether to include the class name in the prompt, aka the subject in prompt approach!",
     )
     parser.add_argument(
+        "--normalize_merged_embedding", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to normalize the merged embedding, would normalize even when include_class_in_prompt is True", 
+    )
+    parser.add_argument(
         "--use_ref_images", 
         type=lambda x : bool(strtobool(x)),  
         required=True, 
@@ -634,13 +640,13 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=30000,
+        default=-1,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=170000,
+        default=200000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -1241,12 +1247,12 @@ def main(args):
         #         steps_per_angle[angle] += 1 
         #     else:
         #         steps_per_angle[angle] = 1 
-        if global_step > args.stage1_steps: 
+        if False:  
             MAX_SUBJECTS_PER_EXAMPLE = 2 
             batch = next(train_dataloader_iter)  
         else: 
             MAX_SUBJECTS_PER_EXAMPLE = 1  
-            batch = next(train_dataloader_singlesub_iter) 
+            batch = next(train_dataloader_singlesub_iter)  
         if DEBUG: 
             assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight, input_embeddings) 
 
@@ -1382,12 +1388,30 @@ def main(args):
                     bnha_emb[batch_idx][asset_idx] = torch.clone(input_embeddings)[TOKEN2ID[subject]]  
             # bnha_emb = torch.stack(bnha_emb) 
 
-        # print(f"{bnha_emb.shape = }")
-        # print(f"{mlp_emb.shape = }")
-        # merging the appearance and pose embeddings 
+
         merged_emb = merger(mlp_emb, bnha_emb)  
         merged_emb_norm = torch.linalg.norm(merged_emb)  
         assert merged_emb.shape[0] == B 
+
+        # print(f"{bnha_emb.shape = }")
+        # print(f"{mlp_emb.shape = }")
+        # merging the appearance and pose embeddings 
+        # normalizing the merged embeddings 
+        # with torch.no_grad(): 
+        #     if args.normalize_merged_embedding: 
+        #         for batch_idx in range(B): 
+        #             for asset_idx in range(len(batch["subjects"][batch_idx])): 
+        #                 subject = batch["subjects"][batch_idx][asset_idx] 
+        #                 merged_vec = merged_emb[batch_idx][asset_idx]  
+        #                 for token_idx in range(args.merged_emb_dim // 1024):  
+        #                     merged_vec_slice = merged_vec[token_idx * 1024 : (token_idx+1) * 1024]  
+        #                     merged_vec_slice_norm = torch.linalg.norm(merged_vec_slice)  
+        #                     org_emb_norm = torch.linalg.norm(input_embeddings[TOKEN2ID[subject]]) 
+        #                     # merged_vec_slice = merged_vec_slice * org_emb_norm / merged_vec_slice_norm 
+        #                     merged_vec_slice = merged_vec_slice * 2.0  
+        #                     # replacing back!
+        #                     merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024] = merged_vec_slice 
+
 
         pose_emb_norm = torch.linalg.norm(mlp_emb) * num_assets_in_batch / (MAX_SUBJECTS_PER_EXAMPLE * B)   
 
@@ -1404,9 +1428,14 @@ def main(args):
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
-            for asset_idx in range(len(batch["subjects"][batch_idx])):   
+            for asset_idx, subject in enumerate(batch["subjects"][batch_idx]):   
                 for token_idx in range(args.merged_emb_dim // 1024):  
-                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024]   
+                    replacement_emb = merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024]   
+                    if args.normalize_merged_embedding: 
+                        replacement_emb_norm = torch.linalg.norm(replacement_emb) 
+                        org_emb_norm = torch.linalg.norm(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
+                        replacement_emb = replacement_emb * org_emb_norm / replacement_emb_norm 
+                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = replacement_emb  
 
             text_embeddings = text_encoder(batch_item.unsqueeze(0))[0].squeeze() 
 
@@ -1801,7 +1830,7 @@ def main(args):
 
                 change = False 
                 for p_diff in merger_after: 
-                    if torch.sum(p_diff): 
+                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
                         change = True 
                         break 
                 assert change 

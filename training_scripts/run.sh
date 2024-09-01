@@ -1,7 +1,7 @@
-export RUN_NAME="heir_app" 
+export RUN_NAME="merged_normalized" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="../training_data_2subjects/ref_imgs" 
+export INSTANCE_DIR="../training_data_2subjects/ref_imgs"  
 export INSTANCE_DIR_SINGLESUB="../training_data_2subjects/ref_imgs_singlesub" 
 export CONTROLNET_DATA_DIR="../training_data_2subjects/controlnet_imgs"
 export OUTPUT_DIR="../ckpts/multiobject/"
@@ -12,7 +12,7 @@ export VIS_DIR="../multiobject/"
 
 accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
-  --textual_inv="Y" \
+  --textual_inv="N" \
   --train_text_encoder="N" \
   --use_controlnet_images="N" \
   --use_ref_images="Y" \
@@ -23,9 +23,10 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="Y" \
+  --include_class_in_prompt="N" \
+  --normalize_merged_embedding="Y" \
   --text_encoder_bypass="N" \
-  --appearance_skip_connection="N" \
+  --appearance_skip_connection="Y" \
   --merged_emb_dim=1024 \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
