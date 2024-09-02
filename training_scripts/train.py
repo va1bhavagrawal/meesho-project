@@ -64,14 +64,14 @@ BS = 4
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = [15000, 30000]  
-for vlog_step in range(50000, 210000, 50000): 
+VLOG_STEPS = []  
+for vlog_step in range(50000, 310000, 50000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 # SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
 SAVE_STEPS = [500, 1000, 5000] 
-for save_step in range(10000, 210000, 10000): 
+for save_step in range(10000, 310000, 10000): 
     SAVE_STEPS = SAVE_STEPS + [save_step] 
 
 print(f"{VLOG_STEPS = }")
@@ -167,8 +167,10 @@ strictly forbidden unless prior written permission is obtained from Adobe.
 #     return 
 
 
-def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, bnha_embeds, input_embeddings_safe): 
+def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, bnha_embeds, input_embeddings_safe, max_subjects_per_example): 
     # making a copy of the text encoder because this will be changed during the inference process 
+    MAX_SUBJECTS_PER_EXAMPLE = max_subjects_per_example 
+    # print(f"passing {MAX_SUBJECTS_PER_EXAMPLE = }")
     with torch.no_grad(): 
         if accelerator.is_main_process: 
             os.makedirs(args.vis_dir, exist_ok=True) 
@@ -200,17 +202,17 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
-                    "subject": "pickup truck", 
+                    "subject": "jeep", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "sedan", 
+                    "subject": "elephant", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
-                    "subject": "pickup truck", 
+                    "subject": "jeep", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
@@ -220,7 +222,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
-                    "subject": "jeep", 
+                    "subject": "bus", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
@@ -230,6 +232,35 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
         
+
+        prompt = "a photo of PLACEHOLDER"   
+        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
+        subjects = [
+            [
+                {
+                    "subject": "pickup truck", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                }, 
+                
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "jeep", 
+                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "motorbike", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                }, 
+            ][:MAX_SUBJECTS_PER_EXAMPLE], 
+        ] 
+        infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)   
+        assert osp.exists(gif_path) 
+        wandb_log_data[prompt] = wandb.Video(gif_path)  
+        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
+
 
         prompt = "a photo of PLACEHOLDER in a river"  
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
@@ -642,7 +673,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=-1,
+        default=100000,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
@@ -1064,17 +1095,17 @@ def main(args):
     )
 
     # defining the dataset 
-    train_dataset = DisentangleDataset(
+    train_dataset_stage1 = DisentangleDataset(
         args=args,
         tokenizer=tokenizer, 
-        ref_imgs_dir=args.instance_data_dir, 
-        num_steps=args.stage2_steps, 
+        ref_imgs_dirs=[args.instance_data_dir_singlesub], 
+        num_steps=args.stage1_steps, 
     ) 
 
-    train_dataset_singlesub = DisentangleDataset(
+    train_dataset_stage2 = DisentangleDataset(
         args=args, 
         tokenizer=tokenizer, 
-        ref_imgs_dir=args.instance_data_dir_singlesub, 
+        ref_imgs_dirs=[args.instance_data_dir_singlesub, args.instance_data_dir],  
         num_steps=args.stage2_steps, 
     ) 
 
@@ -1131,16 +1162,16 @@ def main(args):
         return batch 
     """end Adobe CONFIDENTIAL"""
 
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
+    train_dataloader_stage1 = torch.utils.data.DataLoader(
+        train_dataset_stage1,
         batch_size=args.train_batch_size,
         shuffle=True,
         collate_fn=collate_fn,
         num_workers=accelerator.num_processes * 2,
     )
 
-    train_dataloader_singlesub = torch.utils.data.DataLoader(
-        train_dataset_singlesub,
+    train_dataloader_stage2 = torch.utils.data.DataLoader(
+        train_dataset_stage2,
         batch_size=args.train_batch_size, 
         shuffle=True,
         collate_fn=collate_fn,
@@ -1167,7 +1198,7 @@ def main(args):
     # print("The current continuous MLP: {}".format(continuous_word_model))
     
     
-    unet, text_encoder, merger, continuous_word_model, train_dataloader, train_dataloader_singlesub = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader, train_dataloader_singlesub)   
+    unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
     # optimizers_ = [] 
     optimizers_ = {} 
     for name, optimizer in optimizers.items(): 
@@ -1246,20 +1277,21 @@ def main(args):
             shutil.rmtree(f"vis") 
         os.makedirs("vis")  
 
-    train_dataloader_iter = iter(train_dataloader) 
-    train_dataloader_singlesub_iter = iter(train_dataloader_singlesub) 
+    train_dataloader_stage1_iter = iter(train_dataloader_stage1) 
+    train_dataloader_stage2_iter = iter(train_dataloader_stage2) 
     for step in range(args.max_train_steps): 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
         #         steps_per_angle[angle] += 1 
         #     else:
         #         steps_per_angle[angle] = 1 
-        if False:  
-            MAX_SUBJECTS_PER_EXAMPLE = 2 
-            batch = next(train_dataloader_iter)  
-        else: 
+        if global_step <= args.stage1_steps:  
             MAX_SUBJECTS_PER_EXAMPLE = 1  
-            batch = next(train_dataloader_singlesub_iter)  
+            batch = next(train_dataloader_stage1_iter)  
+        else: 
+            MAX_SUBJECTS_PER_EXAMPLE = 2   
+            batch = next(train_dataloader_stage2_iter)  
+
         if DEBUG: 
             assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight, input_embeddings) 
 
@@ -1271,6 +1303,7 @@ def main(args):
                 accelerator.print(f"{key}: {value.shape}") 
             else:
                 accelerator.print(f"{key}: {value}") 
+        accelerator.print(f"{MAX_SUBJECTS_PER_EXAMPLE = }") 
 
             # making some checks on the dataloader outputs in case of DEBUG mode 
             # if DEBUG: 
@@ -1341,8 +1374,9 @@ def main(args):
         """
 
         # if we are in stage 2 of training, only then do we need to compute the pose embedding, otherwise it is zero 
-        if global_step > args.stage1_steps: 
-            progress_bar.set_description(f"stage 2: ")
+        # if global_step > args.stage1_steps: 
+        if True: 
+            # progress_bar.set_description(f"stage 2: ")
             scalers_padded = torch.zeros((len(batch["scalers"]), MAX_SUBJECTS_PER_EXAMPLE))  
             for batch_idx in range(len(batch["scalers"])): 
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
@@ -1816,12 +1850,12 @@ def main(args):
                 assert not torch.any(torch.isnan(p)) 
 
             with torch.no_grad(): 
-                merger_after = copy.deepcopy([p for p in merger.parameters()]) 
-                mlp_after = copy.deepcopy([p for p in continuous_word_model.parameters()])  
-                unet_after = copy.deepcopy([p for p in unet.parameters()]) 
-                text_encoder_after = copy.deepcopy([p for p in text_encoder.parameters()]) 
+                merger_after = [p for p in merger.parameters()]  
+                mlp_after = [p for p in continuous_word_model.parameters()]  
+                unet_after = [p for p in unet.parameters()]  
+                text_encoder_after = [p for p in text_encoder.parameters()]  
                 if args.textual_inv: 
-                    bnha_after = copy.deepcopy([p for p in bnha_embeds.parameters()]) 
+                    bnha_after = [p for p in bnha_embeds.parameters()]  
 
                 merger_after = [p1 - p2 for p1, p2 in zip(merger_before, merger_after)] 
                 del merger_before 
@@ -1842,12 +1876,12 @@ def main(args):
                         break 
                 assert change 
 
-                change = False 
-                for p_diff in mlp_after:  
-                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
-                        change = True 
-                        break 
-                assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
+                # change = False 
+                # for p_diff in mlp_after:  
+                #     if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
+                #         change = True 
+                #         break 
+                # assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
 
                 change = False 
                 for p_diff in unet_after:  
@@ -1912,7 +1946,8 @@ def main(args):
             #     set_seed(args.seed + accelerator.process_index) 
             # elif (DEBUG or args.wandb) and args.online_inference: 
             # ONLY PERFORMING CLASS INFERENCE HERE!  
-            wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, None, input_embeddings) 
+            print(f"just before infer function call, {MAX_SUBJECTS_PER_EXAMPLE = }")
+            wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, None, input_embeddings, MAX_SUBJECTS_PER_EXAMPLE) 
             force_wandb_log = True 
             set_seed(args.seed + accelerator.process_index) 
 

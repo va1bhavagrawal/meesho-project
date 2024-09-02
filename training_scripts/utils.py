@@ -4,6 +4,8 @@ from PIL import Image
 import datetime
 import os 
 import os.path as osp 
+import math 
+
 
 # def create_image_with_captions(images, captions):
 #     # Load images
@@ -118,6 +120,7 @@ def create_gif(images, save_path, duration=1):
     # bytes_io = BytesIO()
     # frames[0].save(bytes_io, save_all=True, append_images=frames[1:], duration=1000/fps, loop=loop, 
                 #    disposal=2, optimize=True, subrectangles=True)
+    os.makedirs(osp.dirname(save_path), exist_ok=True) 
     frames[0].save(save_path, save_all=True, append_images=frames[1:], loop=0, duration=int(duration * 1000))
     
     # gif_bytes = bytes_io.getvalue()
@@ -177,7 +180,8 @@ def collect_generated_images(vis_dir, prompt, save_path):
         #         images.append(template_prompt_videos[subject][idx]) 
         #     concat_img = create_image_with_captions(images, sorted(prompts_dataset.subjects))  
         #     all_concat_imgs.append(concat_img) 
-    for idx in range(len(list(template_prompt_videos.values())[0])): 
+    num_samples = len(list(template_prompt_videos.values())[0]) 
+    for idx in range(num_samples): 
         images = [] 
         captions = [] 
         # for typename in list(template_prompt_videos.keys()): 
@@ -190,7 +194,7 @@ def collect_generated_images(vis_dir, prompt, save_path):
         captions.append(captions_row) 
 
         concat_img = create_image_with_captions(images, captions)  
-        concat_img = create_image_with_captions([[concat_img]], [[f"{prompt}"]]) 
+        concat_img = create_image_with_captions([[concat_img]], [[f"{prompt}, azimuth = {(idx * 2 * math.pi) / num_samples}"]]) 
         all_concat_imgs.append(concat_img) 
 
 

@@ -33,10 +33,12 @@ from lora_diffusion import patch_pipe
 # from metrics import MetricEvaluator 
 from safetensors.torch import load_file
 
-# WHICH_MODEL = "__nosubject_zeroinit_notext_moresteps"  
-# WHICH_STEP = 110000  
+WHICH_MODEL = "merged"  
+WHICH_STEP = 200000  
 # WHICH_MODEL = "__freezeapp_large"   
 # WHICH_STEP = 110000  
+MAX_SUBJECTS_PER_EXAMPLE = 1 
+NUM_SAMPLES = 18 
 
 TOKEN2ID = {
     "sks": 48136, 
@@ -274,7 +276,7 @@ class Infer:
             # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
 
-    def do_it(self, seed, gif_path, prompt, all_subjects_data, include_class_in_prompt=None):    
+    def do_it(self, seed, gif_path, prompt, all_subjects_data, include_class_in_prompt=None, normalize_merged_embedding=None):     
         with torch.no_grad(): 
             self.seed = seed 
             self.gif_path = gif_path 
@@ -360,8 +362,15 @@ class Infer:
 
                 for sample_idx in range(n_samples): 
                     for asset_idx, subject_data in enumerate(gif_subject_data): 
+                        subject = subject_data["subject"] 
                         for token_idx in range(self.merged_emb_dim // 1024): 
-                            self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = merged_embs_video[sample_idx][asset_idx]  
+                            replacement_emb = merged_embs_video[sample_idx][asset_idx]  
+                            if normalize_merged_embedding: 
+                                print(f"normalizing the merged embedding!") 
+                                replacement_emb_norm = torch.linalg.norm(replacement_emb) 
+                                org_emb_norm = torch.linalg.norm(self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
+                                replacement_emb = replacement_emb * org_emb_norm / replacement_emb_norm 
+                            self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = replacement_emb  
                     text_embeddings = self.text_encoder(prompt_ids)[0].squeeze() 
                     all_encoder_states.append(text_embeddings) 
                     all_save_paths.append(osp.join(self.tmp_dir, subjects_string, f"{str(sample_idx).zfill(3)}.jpg")) 
@@ -421,7 +430,96 @@ if __name__ == "__main__":
     pipeline = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1") 
     pose_mlp = continuous_word_mlp(2, 1024) 
     merged_emb_dim = 1024 
-    merger = MergedEmbedding(False, 1024, 1024, merged_emb_dim) 
+    merger = MergedEmbedding(True, 1024, 1024, merged_emb_dim) 
+
+    training_state_path = osp.join(f"../ckpts/multiobject/", f"__{WHICH_MODEL}", f"training_state_{WHICH_STEP}.pth") 
+    assert osp.exists(training_state_path), f"{training_state_path = }"  
+    lora_weight_path = training_state_path.replace(f"training_state", "lora_weight") 
+    lora_weight_path = lora_weight_path.replace(f"pth", "safetensors") 
+    assert osp.exists(lora_weight_path), f"{lora_weight_path = }"  
+    training_state = torch.load(training_state_path) 
+
+    patch_pipe( 
+        pipeline, 
+        lora_weight_path,  
+        patch_text=True, 
+        patch_ti=True, 
+        patch_unet=True, 
+    ) 
+    pose_mlp.load_state_dict(training_state["contword"]["model"]) 
+    merger.load_state_dict(training_state["merger"]["model"]) 
+
     accelerator = Accelerator() 
-    infer = Infer(merged_emb_dim, 908, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", False, None, 4) 
-    infer.do_it("output.gif", "a photo of a SUBJECT on a highway", ["sedan", "truck"], 4, "a", "class", True) 
+
+    all_subjects = [
+        "pickup truck", 
+        "jeep", 
+        "bus", 
+        "motorbike", 
+        "lion", 
+        "horse", 
+        "elephant", 
+    ] 
+    init_embeddings = {} 
+    for subject in all_subjects: 
+        init_embeddings[subject] = torch.zeros((1024, )) 
+
+    # appearance_embeds = AppearanceEmbeddings(init_embeddings) 
+    # appearance_embeds.load_state_dict(training_state["appearance"]["model"]) 
+
+    subjects = [
+        [
+            {
+                "subject": "bus", 
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "appearance_type": "class", 
+            }, 
+            {
+                "subject": "pickup truck", 
+                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
+            }
+        ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        [
+            {
+                "subject": "motorbike", 
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "appearance_type": "class", 
+            }, 
+            {
+                "subject": "pickup truck", 
+                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
+            }
+        ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        [
+            {
+                "subject": "jeep", 
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "appearance_type": "class", 
+            }, 
+            {
+                "subject": "jeep", 
+                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
+            }
+        ][:MAX_SUBJECTS_PER_EXAMPLE], 
+        # [
+        #     {
+        #         "subject": "horse", 
+        #     }, 
+        #     {
+        #         "subject": "elephant", 
+        #     }
+        # ][:MAX_SUBJECTS_PER_EXAMPLE], 
+        # [
+        #     {
+        #         "subject": "bus", 
+        #     }, 
+        #     {
+        #         "subject": "jeep",  
+        #     }
+        # ][:MAX_SUBJECTS_PER_EXAMPLE], 
+    ]
+
+    infer = Infer(merged_emb_dim, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", False, None, 6) 
+    prompt = "a photo of PLACEHOLDER in a dark studio with lights"     
+    seed = random.randint(0, 170904) 
+    infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, False, False)  

@@ -15,7 +15,7 @@ import os.path as osp
 
 from infer_online import UNIQUE_TOKENS 
 
-MAX_SUBJECTS_PER_EXAMPLE = 1  
+MAX_SUBJECTS_PER_EXAMPLE = 2  
 
 # class PromptDataset(Dataset):
 #     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
@@ -86,16 +86,18 @@ class DisentangleDataset(Dataset):
         self,
         args, 
         tokenizer,
-        ref_imgs_dir, 
+        ref_imgs_dirs, 
         num_steps, 
     ): 
         self.args = args 
         # controlnet prompts are provided as a list, not as a filepath.
         self.tokenizer = tokenizer 
-        self.ref_imgs_dir = ref_imgs_dir 
+        # self.ref_imgs_dir = ref_imgs_dir 
         self.num_steps = num_steps 
 
         img_transforms = []
+
+        self.ref_imgs_dirs = ref_imgs_dirs  
 
         if args.resize:
             img_transforms.append(
@@ -113,6 +115,13 @@ class DisentangleDataset(Dataset):
         self.image_transforms = transforms.Compose(
             [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
         )
+
+        self.subjects_combs_ = {}  
+        for ref_imgs_dir in ref_imgs_dirs: 
+            self.subjects_combs_[ref_imgs_dir] = [] 
+            subjects_combs_dir = os.listdir(ref_imgs_dir) 
+            for subjects_comb_ in subjects_combs_dir: 
+                self.subjects_combs_[ref_imgs_dir].append(subjects_comb_)  
 
 
     def __len__(self):
@@ -144,13 +153,13 @@ class DisentangleDataset(Dataset):
         #     subjects = [single_subject] 
         #     example["subjects"] = subjects  
 
-        subjects_combs_ = sorted(os.listdir(self.ref_imgs_dir))  
-        # print(f"{subjects_combs_ = }")
-        subjects_comb_ = subjects_combs_[index % len(subjects_combs_)]   
-        # print(f"{subjects_comb_ = }") 
-        subjects_ = subjects_comb_.split("__") 
-        subjects = [" ".join(subject_.split("_")) for subject_ in subjects_] 
-        example["subjects"] = subjects 
+        # subjects_combs_ = sorted(os.listdir(self.ref_imgs_dir))  
+        # # print(f"{subjects_combs_ = }")
+        # subjects_comb_ = subjects_combs_[index % len(subjects_combs_)]   
+        # # print(f"{subjects_comb_ = }") 
+        # subjects_ = subjects_comb_.split("__") 
+        # subjects = [" ".join(subject_.split("_")) for subject_ in subjects_] 
+        # example["subjects"] = subjects 
 
 
         # selecting the random view for the chosen subject 
@@ -162,6 +171,18 @@ class DisentangleDataset(Dataset):
         # if index % 5 != 0: 
         # only choosing the controlnet images in this one 
         # if False:  
+
+        used_ref_imgs_dir = None 
+        used_ref_imgs_dir = self.ref_imgs_dirs[index % len(self.ref_imgs_dirs)]   
+
+        subjects_combs_ = sorted(os.listdir(used_ref_imgs_dir))   
+        # print(f"{subjects_combs_ = }")
+        subjects_comb_ = subjects_combs_[index % len(subjects_combs_)]   
+        # print(f"{subjects_comb_ = }") 
+        subjects_ = subjects_comb_.split("__") 
+        subjects = [" ".join(subject_.split("_")) for subject_ in subjects_] 
+        example["subjects"] = subjects 
+
     
         unique_strings = []  
         for asset_idx in range(len(subjects)): 
@@ -180,7 +201,7 @@ class DisentangleDataset(Dataset):
             #     subjects_comb_ref_dir = osp.join(self.args.instance_data_dir_singlesub, subjects_comb_) 
             # else: 
             #     assert False 
-            subjects_comb_ref_dir = osp.join(self.ref_imgs_dir, subjects_comb_) 
+            subjects_comb_ref_dir = osp.join(used_ref_imgs_dir, subjects_comb_) 
             imgs_list = os.listdir(subjects_comb_ref_dir) 
             imgs_list = [img_name for img_name in imgs_list if img_name.find("jpg") != -1 or img_name.find("png") != -1] 
             random_ref_img = random.choice(imgs_list)   

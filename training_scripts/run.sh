@@ -1,4 +1,5 @@
-export RUN_NAME="merged" 
+export RUN_NAME="staged_training" 
+# export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR="../training_data_2subjects/ref_imgs"  
@@ -23,10 +24,10 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="N" \
+  --include_class_in_prompt="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
-  --appearance_skip_connection="Y" \
+  --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
@@ -43,5 +44,4 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
