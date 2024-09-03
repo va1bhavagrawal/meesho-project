@@ -60,7 +60,7 @@ import pickle
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
 DEBUG = False  
-BS = 4  
+BS = 3  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -227,13 +227,13 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)   
+        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
         
 
-        prompt = "a photo of PLACEHOLDER"   
+        prompt = "a photo of PLACEHOLDER."   
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             [
@@ -256,7 +256,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)   
+        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -296,7 +296,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ] 
-        infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)  
+        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -336,7 +336,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)  
+        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -1156,8 +1156,9 @@ def main(args):
             "subjects": subjects, 
             "controlnet": is_controlnet, 
             "prompts": prompts, 
-            "prior_subjects": prior_subjects, 
         }
+        if args.with_prior_preservation: 
+            batch["prior_subjects"] = prior_subjects  
 
         return batch 
     """end Adobe CONFIDENTIAL"""

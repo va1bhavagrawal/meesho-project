@@ -8,4 +8,7 @@
 #SBATCH --partition=short 
 #SBATCH -w cn4 
 
-./run.sh 
+./run.sh &  
+./run2.sh & 
+
+wait 

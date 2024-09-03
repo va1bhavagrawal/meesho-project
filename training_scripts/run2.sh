@@ -1,4 +1,4 @@
-export RUN_NAME="merged_norm_0.1prior" 
+export RUN_NAME="merged_norm_noprior" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -29,13 +29,12 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="Y" \
   --merged_emb_dim=1024 \
-  --with_prior_preservation="Y" \
+  --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
-  --prior_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
   --pretrained_model_name_or_path=$MODEL_NAME  \
