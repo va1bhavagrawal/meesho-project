@@ -33,6 +33,8 @@ from distutils.util import strtobool
 
 import pickle 
 
+from safetensors.torch import load_file 
+
 # from metrics import MetricEvaluator 
 
 
@@ -59,19 +61,19 @@ import pickle
 # }
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
-DEBUG = False  
-BS = 4   
+DEBUG = True  
+BS = 3    
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = []  
-for vlog_step in range(50000, 310000, 50000): 
+VLOG_STEPS = [33, 15000, 30000]  
+for vlog_step in range(50000, 210000, 50000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 # SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
-SAVE_STEPS = [500, 1000, 5000] 
-for save_step in range(10000, 310000, 10000): 
+SAVE_STEPS = [32, 500, 1000, 5000] 
+for save_step in range(10000, 210000, 10000): 
     SAVE_STEPS = SAVE_STEPS + [save_step] 
 
 print(f"{VLOG_STEPS = }")
@@ -98,6 +100,7 @@ from huggingface_hub import HfFolder, Repository, whoami
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
+from lora_diffusion import patch_pipe 
 from lora_diffusion_utils import (
     extract_lora_ups_down,
     inject_trainable_lora,
@@ -167,10 +170,8 @@ strictly forbidden unless prior written permission is obtained from Adobe.
 #     return 
 
 
-def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, bnha_embeds, input_embeddings_safe, max_subjects_per_example): 
+def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, text_encoder, mlp, merger, bnha_embeds, input_embeddings_safe): 
     # making a copy of the text encoder because this will be changed during the inference process 
-    MAX_SUBJECTS_PER_EXAMPLE = max_subjects_per_example 
-    # print(f"passing {MAX_SUBJECTS_PER_EXAMPLE = }")
     with torch.no_grad(): 
         if accelerator.is_main_process: 
             os.makedirs(args.vis_dir, exist_ok=True) 
@@ -202,17 +203,17 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
-                    "subject": "jeep", 
+                    "subject": "pickup truck", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "elephant", 
+                    "subject": "sedan", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
-                    "subject": "jeep", 
+                    "subject": "pickup truck", 
                     "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
@@ -222,45 +223,16 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
-                    "subject": "bus", 
+                    "subject": "jeep", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)   
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
         
-
-        prompt = "a photo of PLACEHOLDER."   
-        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        subjects = [
-            [
-                {
-                    "subject": "pickup truck", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-                
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "jeep", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "motorbike", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-            ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        ] 
-        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
-        assert osp.exists(gif_path) 
-        wandb_log_data[prompt] = wandb.Video(gif_path)  
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
 
         prompt = "a photo of PLACEHOLDER in a river"  
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
@@ -296,7 +268,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ] 
-        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)  
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -336,7 +308,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(None, gif_path, prompt, subjects, args.include_class_in_prompt)  
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -673,7 +645,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=100000,
+        default=-1,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
@@ -746,22 +718,10 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
-        "--local_rank",
-        type=int,
-        default=-1,
-        help="For distributed training: local_rank",
-    )
-    parser.add_argument(
-        "--resume_unet",
+        "--resume_training_state",
         type=str,
         default=None,
-        help=("File path for unet lora to resume training."),
-    )
-    parser.add_argument(
-        "--resume_text_encoder",
-        type=str,
-        default=None,
-        help=("File path for text encoder lora to resume training."),
+        help="training state to resume from",
     )
     parser.add_argument(
         "--resize",
@@ -781,9 +741,9 @@ def parse_args(input_args=None):
     else:
         args = parser.parse_args()
 
-    env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
-    if env_local_rank != -1 and env_local_rank != args.local_rank:
-        args.local_rank = env_local_rank
+    # env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
+    # if env_local_rank != -1 and env_local_rank != args.local_rank:
+        # args.local_rank = env_local_rank
 
     # if args.with_prior_preservation:
     #     if args.class_data_dir is None:
@@ -936,10 +896,82 @@ def main(args):
         revision=args.revision,
     )
     unet.requires_grad_(False)
-    if args.train_unet: 
-        unet_lora_params, _ = inject_trainable_lora(
-            unet, r=args.lora_rank, loras=args.resume_unet
+    text_encoder.requires_grad_(False) 
+
+    if args.resume_training_state is not None: 
+        print(f"resuming from {args.resume_training_state}")
+        assert osp.exists(args.resume_training_state) 
+        resume_training_state = torch.load(args.resume_training_state) 
+        resume_lora_path = args.resume_training_state.replace(f"training_state", f"lora_weight") 
+        resume_lora_path = resume_lora_path.replace(f"pth", f"safetensors") 
+        # lora_weights = load_file(resume_lora_path) 
+        # lora_weights = torch.load(resume_lora_path)
+        # for key, value in lora_weights.items(): 
+        #     print(f"{key = }")
+        print(f"resuming from {resume_lora_path}")
+        # sys.exit(0) 
+        pipeline = StableDiffusionPipeline.from_pretrained(
+            args.pretrained_model_name_or_path, 
+            unet=unet,  
+            text_encoder=text_encoder, 
+            vae=vae, 
         )
+        patch_pipe( 
+            pipeline, 
+            resume_lora_path,  
+            patch_text=True, 
+            patch_ti=True, 
+            patch_unet=True, 
+        ) 
+
+        if args.train_unet: 
+            unet_lora_params = [] 
+            for n, p in unet.named_parameters(): 
+                if n.find("lora") != -1:  
+                    assert p.requires_grad, f"{n = }" 
+                    unet_lora_params.append(p) 
+                else: 
+                    assert not p.requires_grad, f"{n = }" 
+        
+        if args.train_text_encoder: 
+            text_encoder_lora_params = [] 
+            for n, p in text_encoder.named_parameters(): 
+                if n.find("lora") != -1:  
+                    assert p.requires_grad, f"{n = }" 
+                    unet_lora_params.append(p) 
+                else: 
+                    assert not p.requires_grad, f"{n = }" 
+
+        opt_state = resume_training_state['unet']['optimizer'] 
+        # for key, value in opt_state.items(): 
+        #     print(f"{key}: ")
+        # for key, value in opt_state["state"].items(): 
+        #     accelerator.print(f"{key}: ")
+        # accelerator.print(f"{opt_state['param_groups'] = }") 
+        print(f"{len(unet_lora_params) = }") 
+        sys.exit(0) 
+
+        # print(f"{retval = }")
+        # for n, p in text_encoder.named_parameters(): 
+        #     if p.requires_grad: 
+        #         # we want only the lora parameters to be trainable! 
+        #         assert n.find("lora") != -1 
+        #         print(f"{n} requires_grad!") 
+        # sys.exit(0) 
+
+    if not args.resume_training_state and args.train_unet: 
+    # if args.train_unet: 
+        unet_lora_params, _ = inject_trainable_lora(
+            unet, r=args.lora_rank  
+        )
+        print(f"IDHAR AAYAA THAA MAIN!") 
+
+        # print(f"{type(unet_lora_params) = }") 
+        print(f"{len(list(itertools.chain(*unet_lora_params))) = }")  
+        # sys.exit(0) 
+
+        # sys.exit(0) 
+        # unet_lora_params = list(itertools.chain(*unet_lora_params)) 
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -950,12 +982,14 @@ def main(args):
     text_encoder.requires_grad_(False)
 
     # injecting trainable lora in text encoder 
-    if args.train_text_encoder:
+    # if args.train_text_encoder:
+    if not args.resume_training_state and args.train_text_encoder:
         text_encoder_lora_params, _ = inject_trainable_lora(
             text_encoder,
             target_replace_module=["CLIPAttention"],
             r=args.lora_rank,
         )
+        # text_encoder_lora_params = list(itertools.chain(*text_encoder_lora_params)) 
         # for _up, _down in extract_lora_ups_down(
         #     text_encoder, target_replace_module=["CLIPAttention"]
         # ):
@@ -964,6 +998,21 @@ def main(args):
         #         "Before training: text encoder First Layer lora down", _down.weight.data
         #     )
         #     break
+
+    # THIS METHOD DOES NOT WORK 
+    # pipeline = StableDiffusionPipeline.from_pretrained(
+    #     args.pretrained_model_name_or_path, 
+    #     unet=unet,  
+    #     text_encoder=text_encoder, 
+    #     vae=vae, 
+    # )
+    # patch_pipe( 
+    #     pipeline, 
+    #     resume_lora_path,  
+    #     patch_text=True, 
+    #     patch_ti=True, 
+    #     patch_unet=True, 
+    # ) 
 
     if args.use_xformers:
         set_use_memory_efficient_attention_xformers(unet, True)
@@ -1011,24 +1060,33 @@ def main(args):
     # )
     optimizers = {}  
     if args.train_unet: 
+        print(f"JUST IN TIME CHECK: {len(list(itertools.chain(*unet_lora_params))) = }")  
         optimizer_unet = optimizer_class(
             itertools.chain(*unet_lora_params), 
+            # unet_lora_params, 
             lr=args.learning_rate,
             betas=(args.adam_beta1, args.adam_beta2),
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
+        accelerator.print(f"{optimizer_unet.state_dict()['param_groups'] = }") 
+        # sys.exit(0) 
+        # if args.resume_training_state: 
+        #     optimizer_unet.load_state_dict(resume_training_state["unet"]["optimizer"]) 
         # optimizers.append(optimizer_unet) 
         optimizers["unet"] = optimizer_unet 
 
     if args.train_text_encoder: 
         optimizer_text_encoder = optimizer_class(
             itertools.chain(*text_encoder_lora_params),  
+            # text_encoder_lora_params, 
             lr=args.learning_rate_text,
             betas=(args.adam_beta1, args.adam_beta2),
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
+        # if args.resume_training_state: 
+        #     optimizer_text_encoder.load_state_dict(resume_training_state["text_encoder"]["optimizer"]) 
         # optimizers.append(optimizer_text_encoder) 
         optimizers["text_encoder"] = optimizer_text_encoder 
 
@@ -1050,6 +1108,8 @@ def main(args):
 
         # initializing the AppearanceEmbeddings module using the embeddings 
         bnha_embeds = AppearanceEmbeddings(bnha_embeds).to(accelerator.device) 
+        if args.resume_training_state is not None: 
+            continuous_word_model.load_state_dict(resume_training_state["appearance"]["model"]) 
 
         # an optimizer for the appearance embeddings 
         optimizer_bnha = optimizer_class(
@@ -1060,11 +1120,15 @@ def main(args):
             eps=args.adam_epsilon,
         )
         # optimizers.append(optimizer_bnha) 
+        if args.resume_training_state: 
+            optimizer_bnha.load_state_dict(resume_training_state["appearance"]["optimizer"]) 
         optimizers["appearance"] = optimizer_bnha 
 
 
     pos_size = 2
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
+    if args.resume_training_state is not None: 
+        continuous_word_model.load_state_dict(resume_training_state["contword"]["model"]) 
     optimizer_mlp = optimizer_class(
         continuous_word_model.parameters(),  
         lr=args.learning_rate_mlp,
@@ -1072,12 +1136,16 @@ def main(args):
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
     )
+    if args.resume_training_state: 
+        optimizer_mlp.load_state_dict(resume_training_state["contword"]["optimizer"]) 
     # optimizers.append(optimizer_mlp)  
     optimizers["contword"] = optimizer_mlp 
 
 
     # the merged token formulation 
     merger = MergedEmbedding(args.appearance_skip_connection, pose_dim=1024, appearance_dim=1024, output_dim=args.merged_emb_dim)    
+    if args.resume_training_state is not None: 
+        merger.load_state_dict(resume_training_state["merger"]["model"]) 
     # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
     optimizer_merger = optimizer_class(
         merger.parameters(),  
@@ -1087,6 +1155,8 @@ def main(args):
         eps=args.adam_epsilon,
     )
     # optimizers.append(optimizer_merger) 
+    if args.resume_training_state: 
+        optimizer_merger.load_state_dict(resume_training_state["merger"]["optimizer"]) 
     optimizers["merger"] = optimizer_merger 
 
 
@@ -1095,17 +1165,17 @@ def main(args):
     )
 
     # defining the dataset 
-    train_dataset_stage1 = DisentangleDataset(
+    train_dataset = DisentangleDataset(
         args=args,
         tokenizer=tokenizer, 
-        ref_imgs_dirs=[args.instance_data_dir_singlesub], 
-        num_steps=args.stage1_steps, 
+        ref_imgs_dir=args.instance_data_dir, 
+        num_steps=args.stage2_steps, 
     ) 
 
-    train_dataset_stage2 = DisentangleDataset(
+    train_dataset_singlesub = DisentangleDataset(
         args=args, 
         tokenizer=tokenizer, 
-        ref_imgs_dirs=[args.instance_data_dir_singlesub, args.instance_data_dir],  
+        ref_imgs_dir=args.instance_data_dir_singlesub, 
         num_steps=args.stage2_steps, 
     ) 
 
@@ -1156,23 +1226,22 @@ def main(args):
             "subjects": subjects, 
             "controlnet": is_controlnet, 
             "prompts": prompts, 
+            "prior_subjects": prior_subjects, 
         }
-        if args.with_prior_preservation: 
-            batch["prior_subjects"] = prior_subjects  
 
         return batch 
     """end Adobe CONFIDENTIAL"""
 
-    train_dataloader_stage1 = torch.utils.data.DataLoader(
-        train_dataset_stage1,
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset,
         batch_size=args.train_batch_size,
         shuffle=True,
         collate_fn=collate_fn,
         num_workers=accelerator.num_processes * 2,
     )
 
-    train_dataloader_stage2 = torch.utils.data.DataLoader(
-        train_dataset_stage2,
+    train_dataloader_singlesub = torch.utils.data.DataLoader(
+        train_dataset_singlesub,
         batch_size=args.train_batch_size, 
         shuffle=True,
         collate_fn=collate_fn,
@@ -1199,7 +1268,7 @@ def main(args):
     # print("The current continuous MLP: {}".format(continuous_word_model))
     
     
-    unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
+    unet, text_encoder, merger, continuous_word_model, train_dataloader, train_dataloader_singlesub = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader, train_dataloader_singlesub)   
     # optimizers_ = [] 
     optimizers_ = {} 
     for name, optimizer in optimizers.items(): 
@@ -1278,21 +1347,20 @@ def main(args):
             shutil.rmtree(f"vis") 
         os.makedirs("vis")  
 
-    train_dataloader_stage1_iter = iter(train_dataloader_stage1) 
-    train_dataloader_stage2_iter = iter(train_dataloader_stage2) 
+    train_dataloader_iter = iter(train_dataloader) 
+    train_dataloader_singlesub_iter = iter(train_dataloader_singlesub) 
     for step in range(args.max_train_steps): 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
         #         steps_per_angle[angle] += 1 
         #     else:
         #         steps_per_angle[angle] = 1 
-        if global_step <= args.stage1_steps:  
-            MAX_SUBJECTS_PER_EXAMPLE = 1  
-            batch = next(train_dataloader_stage1_iter)  
+        if False:  
+            MAX_SUBJECTS_PER_EXAMPLE = 2 
+            batch = next(train_dataloader_iter)  
         else: 
-            MAX_SUBJECTS_PER_EXAMPLE = 2   
-            batch = next(train_dataloader_stage2_iter)  
-
+            MAX_SUBJECTS_PER_EXAMPLE = 1  
+            batch = next(train_dataloader_singlesub_iter)  
         if DEBUG: 
             assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight, input_embeddings) 
 
@@ -1304,7 +1372,6 @@ def main(args):
                 accelerator.print(f"{key}: {value.shape}") 
             else:
                 accelerator.print(f"{key}: {value}") 
-        accelerator.print(f"{MAX_SUBJECTS_PER_EXAMPLE = }") 
 
             # making some checks on the dataloader outputs in case of DEBUG mode 
             # if DEBUG: 
@@ -1375,9 +1442,8 @@ def main(args):
         """
 
         # if we are in stage 2 of training, only then do we need to compute the pose embedding, otherwise it is zero 
-        # if global_step > args.stage1_steps: 
-        if True: 
-            # progress_bar.set_description(f"stage 2: ")
+        if global_step > args.stage1_steps: 
+            progress_bar.set_description(f"stage 2: ")
             scalers_padded = torch.zeros((len(batch["scalers"]), MAX_SUBJECTS_PER_EXAMPLE))  
             for batch_idx in range(len(batch["scalers"])): 
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
@@ -1470,20 +1536,14 @@ def main(args):
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
-            example_merged_emb = merged_emb[batch_idx] 
             for asset_idx, subject in enumerate(batch["subjects"][batch_idx]):   
                 for token_idx in range(args.merged_emb_dim // 1024):  
-                    # replacement_emb = torch.clone(merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024])  
+                    replacement_emb = merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024]   
                     if args.normalize_merged_embedding: 
-                        replacement_mask = torch.ones_like(example_merged_emb, requires_grad=False)      
-                        replacement_emb_norm = torch.linalg.norm(example_merged_emb[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]).detach()   
-                        org_emb_norm = torch.linalg.norm(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
-                        replacement_mask[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] = org_emb_norm / replacement_emb_norm  
-                        assert example_merged_emb.shape == replacement_mask.shape  
-                        assert torch.allclose(torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]), org_emb_norm, atol=1e-3), f"{torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]) = }, {org_emb_norm = }" 
-                        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
-                    else: 
-                        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
+                        replacement_emb_norm = torch.linalg.norm(replacement_emb) 
+                        org_emb_norm = torch.linalg.norm(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
+                        replacement_emb = replacement_emb * org_emb_norm / replacement_emb_norm 
+                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = replacement_emb  
 
             text_embeddings = text_encoder(batch_item.unsqueeze(0))[0].squeeze() 
 
@@ -1859,7 +1919,7 @@ def main(args):
             with torch.no_grad(): 
                 merger_after = [p for p in merger.parameters()]  
                 mlp_after = [p for p in continuous_word_model.parameters()]  
-                unet_after = [p for p in unet.parameters()]  
+                unet_after = [p for p in unet.parameters()] 
                 text_encoder_after = [p for p in text_encoder.parameters()]  
                 if args.textual_inv: 
                     bnha_after = [p for p in bnha_embeds.parameters()]  
@@ -1883,12 +1943,12 @@ def main(args):
                         break 
                 assert change 
 
-                # change = False 
-                # for p_diff in mlp_after:  
-                #     if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
-                #         change = True 
-                #         break 
-                # assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
+                change = False 
+                for p_diff in mlp_after:  
+                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):   
+                        change = True 
+                        break 
+                assert not (change ^ (global_step > args.stage1_steps)), f"{change = }, {global_step = }, {args.stage1_steps = }" 
 
                 change = False 
                 for p_diff in unet_after:  
@@ -1953,8 +2013,7 @@ def main(args):
             #     set_seed(args.seed + accelerator.process_index) 
             # elif (DEBUG or args.wandb) and args.online_inference: 
             # ONLY PERFORMING CLASS INFERENCE HERE!  
-            print(f"just before infer function call, {MAX_SUBJECTS_PER_EXAMPLE = }")
-            wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, None, input_embeddings, MAX_SUBJECTS_PER_EXAMPLE) 
+            wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, None, input_embeddings) 
             force_wandb_log = True 
             set_seed(args.seed + accelerator.process_index) 
 
@@ -2260,7 +2319,8 @@ def main(args):
         if args.output_format == "safe" or args.output_format == "both":
             loras = {}
             if args.train_unet: 
-                loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+                # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+                loras["unet"] = pipeline.unet   
             
             print("Cross Attention is also updated!")
             
@@ -2268,7 +2328,8 @@ def main(args):
             # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
             
             if args.train_text_encoder:
-                loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+                # loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+                loras["text_encoder"] = pipeline.text_encoder  
 
             if loras != {}: 
                 save_safeloras(loras, args.output_dir + "/lora_weight.safetensors")
