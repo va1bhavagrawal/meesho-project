@@ -65,14 +65,15 @@ BS = 4
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
 VLOG_STEPS = []  
-for vlog_step in range(50000, 310000, 50000): 
+for vlog_step in range(50000, 510000, 50000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 # SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
-SAVE_STEPS = [500, 1000, 5000] 
-for save_step in range(10000, 310000, 10000): 
+SAVE_STEPS = [500, 1000, 5000, 150500, 151000, 152000, 155000]  
+for save_step in range(10000, 510000, 10000): 
     SAVE_STEPS = SAVE_STEPS + [save_step] 
+SAVE_STEPS = sorted(SAVE_STEPS) 
 
 print(f"{VLOG_STEPS = }")
 print(f"{SAVE_STEPS = }")
@@ -458,27 +459,33 @@ def parse_args(input_args=None):
         help="Pretrained tokenizer name or path if not the same as model_name",
     )
     parser.add_argument(
-        "--instance_data_dir",
+        "--instance_data_dir_1subject",
         type=str,
         default=None,
         required=True,
         help="A folder containing the training data of instance images.",
     )
     parser.add_argument(
-        "--instance_data_dir_singlesub",
+        "--instance_data_dir_2subjects",
         type=str,
         default=None,
         required=True,
         help="A folder containing the training data of instance images of single subject",
     )
     parser.add_argument(
-        "--controlnet_data_dir",
+        "--controlnet_data_dir_1subject",
         type=str,
         default=None,
         required=True,
         help="A folder containing the training data of from controlnet.",
     )
-    
+    parser.add_argument(
+        "--controlnet_data_dir_2subjects",
+        type=str,
+        default=None,
+        required=True,
+        help="A folder containing the training data of from controlnet.",
+    )
     parser.add_argument(
         "--class_data_dir",
         type=str,
@@ -673,13 +680,13 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=100000,
+        default=150000,
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=200000,
+        default=350000,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -815,16 +822,26 @@ def parse_args(input_args=None):
 def main(args): 
 
     # subjects_ are the folders in the instance directory 
-    subjects_combs_ = sorted(os.listdir(args.instance_data_dir))  
-    args.subjects_combs = [" ".join(subjects_comb.split("__")) for subjects_comb in subjects_combs_]  
+    subjects_combs_1subject = sorted(os.listdir(args.instance_data_dir_1subject))  
+    # args.subjects_combs_1subject = [" ".join(subjects_comb.split("__")) for subjects_comb in subjects_combs_1subject]  
+    args.subjects_combs_1subject = subjects_combs_1subject 
+
+    subjects_combs_2subjects = sorted(os.listdir(args.instance_data_dir_2subjects))  
+    # args.subjects_combs_2subjects = [" ".join(subjects_comb.split("__")) for subjects_comb in subjects_combs_2subjects]  
+    args.subjects_combs_2subjects = subjects_combs_2subjects  
 
     # defining the output directory to store checkpoints 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
 
     # storing the number of reference images per subject 
     args.n_ref_imgs = {} 
-    for subject_comb_ in subjects_combs_: 
-        img_files = os.listdir(osp.join(args.instance_data_dir, subject_comb_)) 
+    for subject_comb_ in args.subjects_combs_1subject: 
+        img_files = os.listdir(osp.join(args.instance_data_dir_1subject, subject_comb_)) 
+        img_files = [img_file for img_file in img_files if img_file.find("jpg") != -1] 
+        args.n_ref_imgs[subject_comb_] = len(img_files)  
+
+    for subject_comb_ in args.subjects_combs_2subjects: 
+        img_files = os.listdir(osp.join(args.instance_data_dir_2subjects, subject_comb_)) 
         img_files = [img_file for img_file in img_files if img_file.find("jpg") != -1] 
         args.n_ref_imgs[subject_comb_] = len(img_files)  
 
@@ -1096,16 +1113,18 @@ def main(args):
 
     # defining the dataset 
     train_dataset_stage1 = DisentangleDataset(
-        args=args,
+        args=args, 
         tokenizer=tokenizer, 
-        ref_imgs_dirs=[args.instance_data_dir_singlesub], 
+        ref_imgs_dirs=[args.instance_data_dir_1subject], 
+        controlnet_imgs_dirs=[args.controlnet_data_dir_1subject], 
         num_steps=args.stage1_steps, 
     ) 
 
     train_dataset_stage2 = DisentangleDataset(
         args=args, 
         tokenizer=tokenizer, 
-        ref_imgs_dirs=[args.instance_data_dir_singlesub, args.instance_data_dir],  
+        ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
+        controlnet_imgs_dirs=[args.controlnet_data_dir_1subject, args.controlnet_data_dir_2subjects],  
         num_steps=args.stage2_steps, 
     ) 
 
@@ -2303,7 +2322,6 @@ if __name__ == "__main__":
     prompts_file = open(args.controlnet_prompts_file)
     for line in prompts_file.readlines():
         prompt = str(line)
-        prompt = "a photo of " + prompt 
         controlnet_prompts.append(prompt)
     args.controlnet_prompts = controlnet_prompts 
     main(args)

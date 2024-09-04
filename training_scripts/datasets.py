@@ -87,6 +87,7 @@ class DisentangleDataset(Dataset):
         args, 
         tokenizer,
         ref_imgs_dirs, 
+        controlnet_imgs_dirs, 
         num_steps, 
     ): 
         self.args = args 
@@ -98,6 +99,7 @@ class DisentangleDataset(Dataset):
         img_transforms = []
 
         self.ref_imgs_dirs = ref_imgs_dirs  
+        self.controlnet_imgs_dirs = controlnet_imgs_dirs 
 
         if args.resize:
             img_transforms.append(
@@ -116,12 +118,19 @@ class DisentangleDataset(Dataset):
             [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
         )
 
-        self.subjects_combs_ = {}  
+        self.subjects_combs_ref = {}  
         for ref_imgs_dir in ref_imgs_dirs: 
-            self.subjects_combs_[ref_imgs_dir] = [] 
-            subjects_combs_dir = os.listdir(ref_imgs_dir) 
-            for subjects_comb_ in subjects_combs_dir: 
-                self.subjects_combs_[ref_imgs_dir].append(subjects_comb_)  
+            self.subjects_combs_ref[ref_imgs_dir] = [] 
+            subjects_combs_ = os.listdir(ref_imgs_dir) 
+            for subjects_comb_ in subjects_combs_: 
+                self.subjects_combs_ref[ref_imgs_dir].append(subjects_comb_)  
+
+        self.subjects_combs_controlnet = {}  
+        for controlnet_imgs_dir in controlnet_imgs_dirs: 
+            self.subjects_combs_controlnet[controlnet_imgs_dir] = [] 
+            subjects_combs_ = os.listdir(controlnet_imgs_dir) 
+            for subjects_comb_ in subjects_combs_: 
+                self.subjects_combs_controlnet[controlnet_imgs_dir].append(subjects_comb_)  
 
 
     def __len__(self):
@@ -172,8 +181,9 @@ class DisentangleDataset(Dataset):
         # only choosing the controlnet images in this one 
         # if False:  
 
-        used_ref_imgs_dir = None 
+        # deciding the subject combination must be deterministic and not random 
         used_ref_imgs_dir = self.ref_imgs_dirs[index % len(self.ref_imgs_dirs)]   
+        used_controlnet_imgs_dir = self.controlnet_imgs_dirs[index % len(self.controlnet_imgs_dirs)]  
 
         subjects_combs_ = sorted(os.listdir(used_ref_imgs_dir))   
         # print(f"{subjects_combs_ = }")
@@ -193,7 +203,7 @@ class DisentangleDataset(Dataset):
             unique_strings.append(unique_string_subject) 
 
         assert self.args.use_ref_images or self.args.use_controlnet_images 
-        if not self.args.use_controlnet_images or (index % 5 != 0): 
+        if not self.args.use_controlnet_images or (self.args.use_ref_images and index % 5 != 0): 
             example["controlnet"] = False 
             # if len(example["subjects"]) == 2: 
             #     subjects_comb_ref_dir = osp.join(self.args.instance_data_dir, subjects_comb_) 
@@ -274,7 +284,7 @@ class DisentangleDataset(Dataset):
             # avlble_imgs = os.listdir(subject_angle_controlnet_dir) 
             # chosen_img = random.choice(avlble_imgs) 
 
-            subjects_comb_controlnet_dir = osp.join(self.args.controlnet_data_dir, subjects_comb_) 
+            subjects_comb_controlnet_dir = osp.join(used_controlnet_imgs_dir, subjects_comb_) 
             imgs_list = os.listdir(subjects_comb_controlnet_dir)  
             imgs_list = [img_name for img_name in imgs_list if img_name.find("jpg") != -1 or img_name.find("png") != -1] 
             random_controlnet_img = random.choice(imgs_list)     
@@ -286,7 +296,7 @@ class DisentangleDataset(Dataset):
             all_y = [] 
             all_z = [] 
             all_a = [] 
-            assert len(subjects_data) == len(example["subjects"]) 
+            assert len(subjects_data) == len(example["subjects"]), f"{used_controlnet_imgs_dir = }, {used_ref_imgs_dir = }" 
             for asset_idx in range(len(example["subjects"])): 
                 one_subject_data = subjects_data[asset_idx] 
                 x, y, z, a = one_subject_data.split("_") 
@@ -302,7 +312,7 @@ class DisentangleDataset(Dataset):
             for asset_idx in range(1, len(example["subjects"])):  
                 placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} "  
             placeholder_text = placeholder_text.strip() 
-            template_prompt.replace("PLACEHOLDER", placeholder_text) 
+            template_prompt = template_prompt.replace("PLACEHOLDER", placeholder_text) 
             if not self.args.include_class_in_prompt: 
                 for asset_idx in range(len(example["subjects"])): 
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
