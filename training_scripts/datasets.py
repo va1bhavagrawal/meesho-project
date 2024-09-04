@@ -118,19 +118,25 @@ class DisentangleDataset(Dataset):
             [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
         )
 
-        self.subjects_combs_ref = {}  
-        for ref_imgs_dir in ref_imgs_dirs: 
-            self.subjects_combs_ref[ref_imgs_dir] = [] 
-            subjects_combs_ = os.listdir(ref_imgs_dir) 
-            for subjects_comb_ in subjects_combs_: 
-                self.subjects_combs_ref[ref_imgs_dir].append(subjects_comb_)  
+        if self.args.use_ref_images: 
+            self.subjects_combs_ref = {}  
+            for ref_imgs_dir in ref_imgs_dirs: 
+                if not osp.exists(ref_imgs_dir): 
+                    continue 
+                self.subjects_combs_ref[ref_imgs_dir] = [] 
+                subjects_combs_ = os.listdir(ref_imgs_dir) 
+                for subjects_comb_ in subjects_combs_: 
+                    self.subjects_combs_ref[ref_imgs_dir].append(subjects_comb_)  
 
-        self.subjects_combs_controlnet = {}  
-        for controlnet_imgs_dir in controlnet_imgs_dirs: 
-            self.subjects_combs_controlnet[controlnet_imgs_dir] = [] 
-            subjects_combs_ = os.listdir(controlnet_imgs_dir) 
-            for subjects_comb_ in subjects_combs_: 
-                self.subjects_combs_controlnet[controlnet_imgs_dir].append(subjects_comb_)  
+        if self.args.use_controlnet_images: 
+            self.subjects_combs_controlnet = {}  
+            for controlnet_imgs_dir in controlnet_imgs_dirs: 
+                if not osp.exists(controlnet_imgs_dir): 
+                    continue 
+                self.subjects_combs_controlnet[controlnet_imgs_dir] = [] 
+                subjects_combs_ = os.listdir(controlnet_imgs_dir) 
+                for subjects_comb_ in subjects_combs_: 
+                    self.subjects_combs_controlnet[controlnet_imgs_dir].append(subjects_comb_)  
 
 
     def __len__(self):
@@ -182,8 +188,11 @@ class DisentangleDataset(Dataset):
         # if False:  
 
         # deciding the subject combination must be deterministic and not random 
-        used_ref_imgs_dir = self.ref_imgs_dirs[index % len(self.ref_imgs_dirs)]   
-        used_controlnet_imgs_dir = self.controlnet_imgs_dirs[index % len(self.controlnet_imgs_dirs)]  
+        if self.args.use_ref_images: 
+            used_ref_imgs_dir = self.ref_imgs_dirs[index % len(self.ref_imgs_dirs)]   
+
+        if self.args.use_controlnet_images: 
+            used_controlnet_imgs_dir = self.controlnet_imgs_dirs[index % len(self.controlnet_imgs_dirs)]  
 
         subjects_combs_ = sorted(os.listdir(used_ref_imgs_dir))   
         # print(f"{subjects_combs_ = }")

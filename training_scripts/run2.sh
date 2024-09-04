@@ -12,7 +12,7 @@ export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt"
 export VIS_DIR="../multiobject/"  
 
 
-accelerate launch --config_file accelerate_config.yaml train.py \
+accelerate launch --config_file accelerate_config2.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
@@ -25,7 +25,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="Y" \
+  --include_class_in_prompt="N" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \

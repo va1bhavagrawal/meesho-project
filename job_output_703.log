@@ -1,0 +1,37 @@
+slurmstepd: error: *** JOB 703 ON cn3 CANCELLED AT 2024-09-04T03:27:54 ***
+W0904 03:27:54.175000 140067067549504 torch/distributed/elastic/agent/server/api.py:688] Received 15 death signal, shutting down workers
+W0904 03:27:54.178000 140067067549504 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 794515 closing signal SIGTERM
+W0904 03:27:54.178000 140067067549504 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 794516 closing signal SIGTERM
+W0904 03:27:54.178000 140067067549504 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 794517 closing signal SIGTERM
+W0904 03:27:54.178000 140067067549504 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 794518 closing signal SIGTERM
+W0904 03:27:54.179000 140067067549504 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 794519 closing signal SIGTERM
+W0904 03:27:54.179000 140067067549504 torch/distributed/elastic/multiprocessing/api.py:858] Sending process 794520 closing signal SIGTERM
+Traceback (most recent call last):
+  File "/home/rishubhp/miniconda3/envs/vaibhav/bin/accelerate", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/accelerate_cli.py", line 48, in main
+    args.func(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/launch.py", line 1097, in launch_command
+    multi_gpu_launcher(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/accelerate/commands/launch.py", line 734, in multi_gpu_launcher
+    distrib_run.run(args)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 133, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 255, in launch_agent
+    result = agent.run()
+             ^^^^^^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/elastic/metrics/api.py", line 124, in wrapper
+    result = f(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/elastic/agent/server/api.py", line 680, in run
+    result = self._invoke_run(role)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/elastic/agent/server/api.py", line 835, in _invoke_run
+    time.sleep(monitor_interval)
+  File "/home/rishubhp/miniconda3/envs/vaibhav/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 79, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 794449 got signal: 15

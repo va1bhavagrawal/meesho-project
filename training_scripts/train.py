@@ -686,7 +686,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=350000,
+        default=0,
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -821,29 +821,33 @@ def parse_args(input_args=None):
 
 def main(args): 
 
-    # subjects_ are the folders in the instance directory 
-    subjects_combs_1subject = sorted(os.listdir(args.instance_data_dir_1subject))  
-    # args.subjects_combs_1subject = [" ".join(subjects_comb.split("__")) for subjects_comb in subjects_combs_1subject]  
-    args.subjects_combs_1subject = subjects_combs_1subject 
+    if osp.exists(args.instance_data_dir_1subject): 
+        # subjects_ are the folders in the instance directory 
+        subjects_combs_1subject = sorted(os.listdir(args.instance_data_dir_1subject))  
+        # args.subjects_combs_1subject = [" ".join(subjects_comb.split("__")) for subjects_comb in subjects_combs_1subject]  
+        args.subjects_combs_1subject = subjects_combs_1subject 
 
-    subjects_combs_2subjects = sorted(os.listdir(args.instance_data_dir_2subjects))  
-    # args.subjects_combs_2subjects = [" ".join(subjects_comb.split("__")) for subjects_comb in subjects_combs_2subjects]  
-    args.subjects_combs_2subjects = subjects_combs_2subjects  
+    if osp.exists(args.instance_data_dir_2subjects): 
+        subjects_combs_2subjects = sorted(os.listdir(args.instance_data_dir_2subjects))  
+        # args.subjects_combs_2subjects = [" ".join(subjects_comb.split("__")) for subjects_comb in subjects_combs_2subjects]  
+        args.subjects_combs_2subjects = subjects_combs_2subjects  
 
     # defining the output directory to store checkpoints 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
 
     # storing the number of reference images per subject 
     args.n_ref_imgs = {} 
-    for subject_comb_ in args.subjects_combs_1subject: 
-        img_files = os.listdir(osp.join(args.instance_data_dir_1subject, subject_comb_)) 
-        img_files = [img_file for img_file in img_files if img_file.find("jpg") != -1] 
-        args.n_ref_imgs[subject_comb_] = len(img_files)  
+    if osp.exists(args.instance_data_dir_1subject): 
+        for subject_comb_ in args.subjects_combs_1subject: 
+            img_files = os.listdir(osp.join(args.instance_data_dir_1subject, subject_comb_)) 
+            img_files = [img_file for img_file in img_files if img_file.find("jpg") != -1] 
+            args.n_ref_imgs[subject_comb_] = len(img_files)  
 
-    for subject_comb_ in args.subjects_combs_2subjects: 
-        img_files = os.listdir(osp.join(args.instance_data_dir_2subjects, subject_comb_)) 
-        img_files = [img_file for img_file in img_files if img_file.find("jpg") != -1] 
-        args.n_ref_imgs[subject_comb_] = len(img_files)  
+    if osp.exists(args.instance_data_dir_2subjects): 
+        for subject_comb_ in args.subjects_combs_2subjects: 
+            img_files = os.listdir(osp.join(args.instance_data_dir_2subjects, subject_comb_)) 
+            img_files = [img_file for img_file in img_files if img_file.find("jpg") != -1] 
+            args.n_ref_imgs[subject_comb_] = len(img_files)  
 
     assert args.merged_emb_dim % 1024 == 0 
 
