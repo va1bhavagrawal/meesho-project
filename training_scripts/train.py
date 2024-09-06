@@ -99,7 +99,7 @@ from huggingface_hub import HfFolder, Repository, whoami
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from lora_diffusion_utils import (
+from lora_diffusion import (
     extract_lora_ups_down,
     inject_trainable_lora,
     safetensors_available,
@@ -257,7 +257,9 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+
+        the_common_seed = get_common_seed() 
+        infer.do_it(the_common_seed, gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -297,7 +299,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ] 
-        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(the_common_seed, gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -337,7 +339,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(the_common_seed, gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -538,7 +540,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--prior_loss_weight",
         type=float,
-        default=1.0,
+        required=True, 
         help="The weight of prior preservation loss.",
     )
     parser.add_argument(
@@ -680,13 +682,13 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--stage1_steps",
         type=int,
-        default=150000,
+        required=True, 
         help="Number of steps for stage 1 training", 
     )
     parser.add_argument(
         "--stage2_steps",
         type=int,
-        default=0,
+        required=True, 
         help="Number of steps for stage 2 training", 
     )
     parser.add_argument(
@@ -759,17 +761,23 @@ def parse_args(input_args=None):
         help="For distributed training: local_rank",
     )
     parser.add_argument(
-        "--resume_unet",
+        "--resume_training_state",
         type=str,
         default=None,
         help=("File path for unet lora to resume training."),
     )
-    parser.add_argument(
-        "--resume_text_encoder",
-        type=str,
-        default=None,
-        help=("File path for text encoder lora to resume training."),
-    )
+    # parser.add_argument(
+    #     "--resume_unet",
+    #     type=str,
+    #     default=None,
+    #     help=("File path for unet lora to resume training."),
+    # )
+    # parser.add_argument(
+    #     "--resume_text_encoder",
+    #     type=str,
+    #     default=None,
+    #     help=("File path for text encoder lora to resume training."),
+    # )
     parser.add_argument(
         "--resize",
         type=bool,
@@ -937,8 +945,13 @@ def main(args):
 
     accelerator.wait_for_everyone() 
 
-    with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
-        pickle.dump(args.__dict__, f) 
+    if args.resume_training_state is not None: 
+        assert osp.exists(args.resume_training_state) 
+        training_state_ckpt = torch.load(args.resume_training_state) 
+
+    if accelerator.is_main_process: 
+        with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
+            pickle.dump(args.__dict__, f) 
 
     # Load models and create wrapper for stable diffusion
     text_encoder = CLIPTextModel.from_pretrained(
@@ -959,8 +972,32 @@ def main(args):
     unet.requires_grad_(False)
     if args.train_unet: 
         unet_lora_params, _ = inject_trainable_lora(
-            unet, r=args.lora_rank, loras=args.resume_unet
+            unet, r=args.lora_rank  
         )
+        
+        # sanity checks 
+        n_lora_params_state_dict = 0 
+        for name, param in unet.state_dict().items(): 
+            if name.find("lora") != -1: 
+                n_lora_params_state_dict += 1 
+
+        assert n_lora_params_state_dict == len(unet_lora_params) 
+        # print(f"{n_lora_params_state_dict = }")
+        # print(f"{len(unet_lora_params) = }") 
+        # sys.exit(0) 
+
+        if args.resume_training_state: 
+            # with torch.no_grad(): 
+            unet_state_dict = unet.state_dict() 
+            lora_state_dict = training_state_ckpt["unet"]["lora"] 
+            for name, param in unet_state_dict.items(): 
+                if name.find("lora") == -1: 
+                    assert name not in lora_state_dict.keys() 
+                    continue 
+                assert name in lora_state_dict.keys() 
+                unet_state_dict[name] = lora_state_dict[name]  
+            unet.load_state_dict(unet_state_dict) 
+
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -968,7 +1005,7 @@ def main(args):
     #     break
 
     vae.requires_grad_(False)
-    text_encoder.requires_grad_(False)
+    text_encoder.requires_grad_(False) 
 
     # injecting trainable lora in text encoder 
     if args.train_text_encoder:
@@ -985,6 +1022,25 @@ def main(args):
         #         "Before training: text encoder First Layer lora down", _down.weight.data
         #     )
         #     break
+
+        # sanity checks 
+        n_lora_params_state_dict = 0 
+        for name, param in text_encoder.state_dict(): 
+            if name.find("lora") != -1: 
+                n_lora_params_state_dict += 1 
+        assert n_lora_params_state_dict == len(text_encoder_lora_params) 
+
+        if args.resume_training_state: 
+            text_encoder_state_dict = text_encoder.state_dict() 
+            lora_state_dict = training_state_ckpt["text_encoder"]["lora"] 
+            for name, param in text_encoder_state_dict.items():  
+                if name.find("lora") == -1: 
+                    assert name not in lora_state_dict 
+                    continue 
+                assert name in lora_state_dict  
+                text_encoder_state_dict[name] = lora_state_dict[name]  
+            text_encoder.load_state_dict(text_encoder_state_dict) 
+
 
     if args.use_xformers:
         set_use_memory_efficient_attention_xformers(unet, True)
@@ -1039,6 +1095,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
+        if args.resume_training_state: 
+            optimizer_unet.load_state_dict(training_state_ckpt["unet"]["optimizer"]) 
         # optimizers.append(optimizer_unet) 
         optimizers["unet"] = optimizer_unet 
 
@@ -1050,6 +1108,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
+        if args.resume_training_state: 
+            optimizer_text_encoder.load_state_dict(training_state_ckpt["text_encoder"]["optimizer"]) 
         # optimizers.append(optimizer_text_encoder) 
         optimizers["text_encoder"] = optimizer_text_encoder 
 
@@ -1072,6 +1132,9 @@ def main(args):
         # initializing the AppearanceEmbeddings module using the embeddings 
         bnha_embeds = AppearanceEmbeddings(bnha_embeds).to(accelerator.device) 
 
+        if args.resume_training_state: 
+            bnha_embeds.load_state_dict(training_state_ckpt["appearance"]["model"]) 
+
         # an optimizer for the appearance embeddings 
         optimizer_bnha = optimizer_class(
             bnha_embeds.parameters(),  
@@ -1080,12 +1143,17 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
+
+        if args.resume_training_state: 
+            optimizer_bnha.load_state_dict(training_state["appearance"]["optimizer"]) 
         # optimizers.append(optimizer_bnha) 
         optimizers["appearance"] = optimizer_bnha 
 
 
     pos_size = 2
     continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
+    if args.resume_training_state: 
+        continuous_word_model.load_state_dict(training_state_ckpt["contword"]["model"]) 
     optimizer_mlp = optimizer_class(
         continuous_word_model.parameters(),  
         lr=args.learning_rate_mlp,
@@ -1093,12 +1161,16 @@ def main(args):
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
     )
+    if args.resume_training_state: 
+        optimizer_mlp.load_state_dict(training_state_ckpt["contword"]["optimizer"]) 
     # optimizers.append(optimizer_mlp)  
     optimizers["contword"] = optimizer_mlp 
 
 
     # the merged token formulation 
     merger = MergedEmbedding(args.appearance_skip_connection, pose_dim=1024, appearance_dim=1024, output_dim=args.merged_emb_dim)    
+    if args.resume_training_state: 
+        merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
     # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
     optimizer_merger = optimizer_class(
         merger.parameters(),  
@@ -1107,6 +1179,8 @@ def main(args):
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
     )
+    if args.resume_training_state: 
+        optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
     # optimizers.append(optimizer_merger) 
     optimizers["merger"] = optimizer_merger 
 
@@ -1275,6 +1349,8 @@ def main(args):
     
     if args.train_unet: 
         unet.train()
+    if args.train_text_encoder: 
+        text_encoder.train() 
     """
     ADOBE CONFIDENTIAL
     Copyright 2024 Adobe
@@ -1309,6 +1385,15 @@ def main(args):
         #         steps_per_angle[angle] += 1 
         #     else:
         #         steps_per_angle[angle] = 1 
+        if args.resume_training_state: 
+            if global_step <= training_state_ckpt["global_step"]:  
+                global_step += BS  
+                if args.wandb: 
+                    wandb_log_data = {} 
+                    for _ in range(accelerator.num_processes): 
+                        wandb.log(wandb_log_data) 
+                continue 
+
         if global_step <= args.stage1_steps:  
             MAX_SUBJECTS_PER_EXAMPLE = 1  
             batch = next(train_dataloader_stage1_iter)  
@@ -2112,11 +2197,27 @@ def main(args):
                     #     training_state[name]["optimizer"] = optimizer.state_dict() 
                     #     training_state[name]["parameters"] =  
 
+                    training_state["global_step"] = global_step 
+
                     training_state["appearance"] = {} 
                     training_state["contword"] = {} 
                     training_state["merger"] = {} 
                     training_state["text_encoder"] = {} 
                     training_state["unet"] = {} 
+
+                    if args.train_unet: 
+                        unet_lora_state_dict = {} 
+                        for name, param in accelerator.unwrap_model(unet).state_dict().items(): 
+                            if name.find(f"lora") == -1: 
+                                continue 
+                            unet_lora_state_dict[name] = param 
+
+                    if args.train_text_encoder: 
+                        text_encoder_lora_state_dict = {} 
+                        for name, param in accelerator.unwrap_model(text_encoder).state_dict().items(): 
+                            if name.find(f"lora") == -1: 
+                                continue 
+                            text_encoder_lora_state_dict[name] = param 
 
                     training_state["merger"]["optimizer"] = optimizers["merger"].state_dict() 
                     training_state["merger"]["model"] = accelerator.unwrap_model(merger).state_dict() 
@@ -2131,12 +2232,14 @@ def main(args):
                     if args.train_unet: 
                         training_state["unet"]["optimizer"] = optimizers["unet"].state_dict() 
                         training_state["unet"]["model"] = args.pretrained_model_name_or_path  
-                        training_state["unet"]["lora"] = list(itertools.chain(*unet_lora_params)) 
+                        # training_state["unet"]["lora"] = list(itertools.chain(*unet_lora_params)) 
+                        training_state["unet"]["lora"] = unet_lora_state_dict  
 
                     if args.train_text_encoder: 
                         training_state["text_encoder"]["optimizer"] = optimizers["text_encoder"].state_dict() 
                         training_state["text_encoder"]["model"] = args.pretrained_model_name_or_path  
-                        training_state["text_encoder"]["lora"] = list(itertools.chain(*text_encoder_lora_params)) 
+                        # training_state["text_encoder"]["lora"] = list(itertools.chain(*text_encoder_lora_params)) 
+                        training_state["text_encoder"]["lora"] = text_encoder_lora_state_dict  
 
                     save_dir = osp.join(args.output_dir, f"training_state_{global_step}.pth")
                     torch.save(training_state, save_dir)   
@@ -2325,7 +2428,7 @@ if __name__ == "__main__":
     controlnet_prompts = []
     prompts_file = open(args.controlnet_prompts_file)
     for line in prompts_file.readlines():
-        prompt = str(line)
+        prompt = str(line).strip() 
         controlnet_prompts.append(prompt)
     args.controlnet_prompts = controlnet_prompts 
     main(args)

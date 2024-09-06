@@ -115,7 +115,7 @@ from huggingface_hub import HfFolder, Repository, whoami
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from lora_diffusion_utils import (
+from lora_diffusion import (
     extract_lora_ups_down,
     inject_trainable_lora,
     safetensors_available,
