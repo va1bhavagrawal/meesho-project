@@ -11,7 +11,7 @@ export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_0409/controlnet_imgs
 export OUTPUT_DIR="/ssd_scratch/cvit/vaibhav/ckpts/multiobject/"
 export CLASS_DATA_DIR="../training_data_2subjects_0409/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
-export VIS_DIR="../multiobject/"  
+export VIS_DIR="/ssd_scratch/cvit/vaibhav/multiobject/"  
 
 
 accelerate launch --config_file accelerate_config.yaml train.py \
