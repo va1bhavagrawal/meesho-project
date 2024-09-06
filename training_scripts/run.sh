@@ -12,7 +12,6 @@ export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt"
 export VIS_DIR="../multiobject/"  
 
 
-  # --resume_training_state="../ckpts/multiobject/__debug/training_state_15.pth" \
 accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
@@ -52,3 +51,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --online_inference \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
+
+  # --resume_training_state="../ckpts/multiobject/__controlnet+ref2/training_state_500.pth" \

@@ -1386,11 +1386,12 @@ def main(args):
         #     else:
         #         steps_per_angle[angle] = 1 
         if args.resume_training_state: 
-            if global_step <= training_state_ckpt["global_step"]:  
+            if global_step < training_state_ckpt["global_step"]:  
                 global_step += BS  
-                if args.wandb: 
+                ddp_step += 1 
+                if accelerator.is_main_process and args.wandb: 
                     wandb_log_data = {} 
-                    for _ in range(accelerator.num_processes): 
+                    for _ in range(BS):  
                         wandb.log(wandb_log_data) 
                 continue 
 
@@ -2316,7 +2317,7 @@ def main(args):
         # mean along the zeroth dimension would give the actual losses 
         losses = losses.unsqueeze(0) 
         gathered_losses = torch.mean(accelerator.gather(losses), dim=0) 
-        if args.wandb and ddp_step % args.log_every == 0:
+        if args.wandb and (ddp_step + 1) % args.log_every == 0: 
             # wandb_log_data["loss"] = gathered_loss
             wandb_log_data["corrected_mse_loss"] = gathered_losses[0]   
             if args.with_prior_preservation: 
@@ -2324,7 +2325,7 @@ def main(args):
 
         if args.wandb: 
             # finally logging!
-            if accelerator.is_main_process and (force_wandb_log or ddp_step % args.log_every == 0): 
+            if accelerator.is_main_process and (force_wandb_log or (ddp_step + 1) % args.log_every == 0): 
                 for step in range(global_step - BS, global_step - 1): 
                     wandb.log({
                         "global_step": step, 
