@@ -25,3 +25,4 @@ training_scripts/*.jpg
 training_scripts/*.log 
 waste/ 
 obja* 
+2obj* 

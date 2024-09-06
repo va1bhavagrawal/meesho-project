@@ -2035,7 +2035,7 @@ def main(args):
         # since we have stepped, time to log weight norms!
 
         global_step += accelerator.num_processes * args.train_batch_size  
-        ddp_step += 1 
+        # ddp_step += 1 
 
         if args.online_inference and len(VLOG_STEPS) > 0 and global_step >= VLOG_STEPS[0]:  
             step = VLOG_STEPS[0] 
@@ -2326,24 +2326,26 @@ def main(args):
         if args.wandb: 
             # finally logging!
             if accelerator.is_main_process and (force_wandb_log or (ddp_step + 1) % args.log_every == 0): 
-                for step in range(global_step - BS, global_step - 1): 
+                for logging_step in range(global_step - BS, global_step - 1): 
                     wandb.log({
-                        "global_step": step, 
+                        "global_step": logging_step, 
                     })
                 wandb_log_data["global_step"] = global_step 
                 wandb.log(wandb_log_data) 
 
             # hack to make sure that the wandb step and the global_step are in sync 
             elif accelerator.is_main_process: 
-                for step in range(global_step - BS, global_step): 
+                for logging_step in range(global_step - BS, global_step): 
                     wandb.log({
-                        "global_step": step, 
+                        "global_step": logging_step, 
                     })
+
+        ddp_step += 1 
 
         logs = {"loss": gathered_loss.item()} 
 
         progress_bar.set_postfix(**logs)
-        accelerator.log(logs, step=global_step)
+        # accelerator.log(logs, step=global_step)
 
         if global_step >= args.max_train_steps:
             break
