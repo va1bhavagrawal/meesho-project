@@ -1,5 +1,5 @@
-# export RUN_NAME="controlnet+ref2" 
-export RUN_NAME="debug" 
+export RUN_NAME="controlnet+ref2" 
+# export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_0409/ref_imgs_1subject"  
@@ -50,4 +50,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
