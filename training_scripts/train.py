@@ -194,7 +194,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         infer = Infer(args.merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, None, bs=args.inference_batch_size)  
 
 
-        prompt = "a photo of PLACEHOLDER"   
+        prompt = "a photo of PLACEHOLDER in the streets of Venice with the sun setting in the background"   
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             [
@@ -214,7 +214,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
                 {
                     "subject": "jeep", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
+                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 0.5,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -224,7 +224,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
                 {
                     "subject": "bus", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,   
+                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 1.0,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
@@ -234,7 +234,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
         
 
-        prompt = "a photo of PLACEHOLDER."   
+        prompt = "a photo of PLACEHOLDER in front of the Leaning Tower of Pisa in Italy."   
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             [
@@ -247,7 +247,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             [
                 {
                     "subject": "jeep", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -285,7 +285,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
                 {
                     "subject": "boat", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
+                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 0.5,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -295,7 +295,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
                 {
                     "subject": "fish", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,   
+                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 1.0,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ] 
@@ -310,7 +310,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         subjects = [
             [
                 {
-                    "subject": "jeep", 
+                    "subject": "sedan", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
@@ -325,17 +325,17 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
                 {
                     "subject": "cat", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
+                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 0.5,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "bus", 
+                    "subject": "sedan", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
-                    "subject": "motorbike", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES) + 0.5,    
+                    "subject": "tractor", 
+                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 1.0,    
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
@@ -1327,8 +1327,12 @@ def main(args):
     Dissemination of this information or reproduction of this material is 
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
-    continuous_word_model.to(accelerator.device, dtype=weight_dtype)
+    continuous_word_model.to(accelerator.device)  
     """End Adobe CONFIDENTIAL"""
+
+    for name, param in unet.state_dict().items(): 
+        if name.find("lora") == -1: 
+            param.to(accelerator.device, dtype=weight_dtype) 
     
     if not args.train_text_encoder:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
@@ -1430,7 +1434,7 @@ def main(args):
             wandb_log_data = {}
             force_wandb_log = False 
         # Convert images to latent space
-        vae.to(accelerator.device, dtype=weight_dtype)
+        vae.to(accelerator.device, dtype=weight_dtype)  
 
         if DEBUG and accelerator.is_main_process: 
             for batch_idx, img_t in enumerate(batch["pixel_values"]): 
@@ -1448,8 +1452,8 @@ def main(args):
                 plt.close() 
 
         latents = vae.encode(
-            batch["pixel_values"].to(dtype=weight_dtype)
-        ).latent_dist.sample()
+            batch["pixel_values"].to(accelerator.device, dtype=vae.dtype)  
+        ).latent_dist.sample() 
         latents = latents * 0.18215
         if args.ada: 
             vae = vae.to(torch.device(f"cpu")) 
@@ -1848,21 +1852,21 @@ def main(args):
                     curr += 1
 
         # gradient clipping 
-        if accelerator.sync_gradients:
-            params_to_clip = [] 
-            parmas_to_clip = params_to_clip + list(itertools.chain(continuous_word_model.parameters())) + list(itertools.chain(merger.parameters()))  
-            if args.train_unet: 
-                params_to_clip = parmas_to_clip + list(itertools.chain(unet.parameters()))  
-            if args.train_text_encoder: 
-                params_to_clip = parmas_to_clip + list(itertools.chain(text_encoder.parameters()))  
-            if args.textual_inv: 
-                params_to_clip = params_to_clip + list(itertools.chain(bnha_embeds.parameters())) 
-            # params_to_clip = (
-            #     itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
-            #     if args.train_text_encoder
-            #     else itertools.chain(unet.parameters(), continuous_word_model.parameters())
-            # )
-            accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+        # if accelerator.sync_gradients:
+        #     params_to_clip = [] 
+        #     parmas_to_clip = params_to_clip + list(itertools.chain(continuous_word_model.parameters())) + list(itertools.chain(merger.parameters()))  
+        #     if args.train_unet: 
+        #         params_to_clip = parmas_to_clip + list(itertools.chain(unet.parameters()))  
+        #     if args.train_text_encoder: 
+        #         params_to_clip = parmas_to_clip + list(itertools.chain(text_encoder.parameters()))  
+        #     if args.textual_inv: 
+        #         params_to_clip = params_to_clip + list(itertools.chain(bnha_embeds.parameters())) 
+        #     # params_to_clip = (
+        #     #     itertools.chain(unet.parameters(), text_encoder.parameters(), continuous_word_model.parameters())
+        #     #     if args.train_text_encoder
+        #     #     else itertools.chain(unet.parameters(), continuous_word_model.parameters())
+        #     # )
+        #     accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
         if DEBUG: 
             with torch.no_grad(): 
                 merger_before = copy.deepcopy([p for p in merger.parameters()]) 
@@ -2066,6 +2070,7 @@ def main(args):
             wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, None, input_embeddings, MAX_SUBJECTS_PER_EXAMPLE) 
             force_wandb_log = True 
             set_seed(args.seed + accelerator.process_index) 
+            torch.cuda.empty_cache() 
 
             if DEBUG: 
                 for p_, p in zip(unet_params_safe, unet.parameters()): 

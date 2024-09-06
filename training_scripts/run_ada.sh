@@ -1,57 +1,58 @@
-export SUBJECT="pickup truck"
-export FILE_ID="multiobject"
-export RUN_NAME="notext_1e-3all"   
+export RUN_NAME="staged_training_fp16" 
+# export RUN_NAME="debug" 
 
 export HF_HOME="/ssd_scratch/cvit/vaibhav/"
 
-rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav*.zip 
-rm -rf /ssd_scratch/cvit/vaibhav/training_data_vaibhav  
-scp -r user@10.4.16.102:/data3/vaibhav/training_data_vaibhav_singleobject.zip /ssd_scratch/cvit/vaibhav/
-cd /ssd_scratch/cvit/vaibhav/ 
-unzip training_data_vaibhav_singleobject.zip  
-cd - 
-
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/ref_imgs_$FILE_ID"
-export CONTROLNET_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/controlnet_imgs_$FILE_ID"
-export OUTPUT_DIR="/ssd_scratch/cvit/vaibhav/ckpts/$FILE_ID/"
-export CLASS_DATA_DIR="/ssd_scratch/cvit/vaibhav/training_data_vaibhav/prior_imgs_$FILE_ID"
-export CONTROLNET_PROMPTS_FILE="../prompts/prompts_nature.txt" 
-export VIS_DIR="/ssd_scratch/cvit/vaibhav/$FILE_ID/"  
+export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_0409/ref_imgs_1subject"  
+export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_0409/ref_imgs_2subjects" 
+export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_0409/controlnet_imgs_1subject"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_0409/controlnet_imgs_2subjects"
+export OUTPUT_DIR="/ssd_scratch/cvit/vaibhav/ckpts/multiobject/"
+export CLASS_DATA_DIR="../training_data_2subjects_0409/prior_imgs" 
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
+export VIS_DIR="../multiobject/"  
 
-# export CUDA_VISIBLE_DEVICES=1
-
-# PROMPT="a photo of a $SUBJECT" 
-# python3 make_prior.py --file_id="$FILE_ID" --prompt="$PROMPT" 
-
-# python3 train_wingpose.py \
 
 accelerate launch --config_file accelerate_config.yaml train.py \
-  --pretrained_model_name_or_path=$MODEL_NAME  \
-  --controlnet_data_dir=$CONTROLNET_DATA_DIR \
-  --instance_data_dir=$INSTANCE_DIR \
-  --output_dir=$OUTPUT_DIR \
-  --vis_dir=$VIS_DIR \
-  --instance_prompt="Continuous MLP Training" \
-  --train_unet \
-  --textual_inv \
-  --resolution=512 \
-  --train_batch_size=1 \
-  --inference_batch_size=2 \
-  --ada \
-  --gradient_accumulation_steps=1 \
+  --train_unet="Y" \
+  --textual_inv="N" \
+  --train_text_encoder="N" \
+  --use_controlnet_images="Y" \
+  --use_ref_images="Y" \
   --learning_rate=1e-4 \
-  --learning_rate_text=5e-5 \
   --learning_rate_mlp=1e-3 \
-  --learning_rate_merger=1e-3 \
+  --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-3 \
-  --color_jitter \
+  --color_jitter="Y" \
+  --center_crop="N" \
   --lr_warmup_steps=0 \
-  --online_inference \
-  --with_prior_preservation \
+  --include_class_in_prompt="Y" \
+  --normalize_merged_embedding="N" \
+  --text_encoder_bypass="N" \
+  --appearance_skip_connection="N" \
+  --merged_emb_dim=1024 \
+  --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --subject="$SUBJECT" \
+  --stage1_steps=150000 \
+  --stage2_steps=350000 \
+  --resolution=512 \
+  --train_batch_size=1 \
+  --inference_batch_size=4 \
+  --prior_loss_weight=0.1 \
+  --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
+  --pretrained_model_name_or_path=$MODEL_NAME  \
+  --controlnet_data_dir_2subjects=$CONTROLNET_DIR_2SUBJECTS \
+  --controlnet_data_dir_1subject=$CONTROLNET_DIR_1SUBJECT \
+  --instance_data_dir_1subject=$INSTANCE_DIR_1SUBJECT \
+  --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
+  --output_dir=$OUTPUT_DIR \
+  --vis_dir=$VIS_DIR \
+  --online_inference \
+  --mixed_precision="fp16" \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
+
+  # --resume_training_state="../ckpts/multiobject/__controlnet+ref2/training_state_500.pth" \

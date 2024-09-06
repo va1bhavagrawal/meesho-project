@@ -216,7 +216,7 @@ class Infer:
         assert encoder_states.shape == (B, 77, 1024) 
         if self.seed is not None: 
             set_seed(self.seed) 
-        latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device).repeat(B, 1, 1, 1)  
+        latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.vae.dtype).repeat(B, 1, 1, 1)  
         self.scheduler.set_timesteps(50)
         for t in self.scheduler.timesteps:
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
@@ -240,7 +240,7 @@ class Infer:
         latents = 1 / 0.18215 * latents
 
         # decode the latents 
-        images = self.accelerator.unwrap_model(self.vae).decode(latents).sample 
+        images = self.accelerator.unwrap_model(self.vae).decode(latents.to(self.accelerator.device, dtype=self.vae.dtype)).sample 
 
         # post processing the images and storing them 
         # os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
