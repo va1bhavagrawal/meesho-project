@@ -33,6 +33,8 @@ from distutils.util import strtobool
 
 import pickle 
 
+from custom_attention_processor import patch_custom_attention 
+
 # from metrics import MetricEvaluator 
 
 
@@ -60,7 +62,7 @@ import pickle
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
 DEBUG = False  
-BS = 4   
+BS = 4       
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -532,6 +534,12 @@ def parse_args(input_args=None):
         help="whether to use the appearance skip connection (through the merger mlp)",
     ) 
     parser.add_argument(
+        "--replace_attn_maps", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to replace the special token attention maps by the class token attention maps", 
+    ) 
+    parser.add_argument(
         "--with_prior_preservation",
         type=lambda x : bool(strtobool(x)),  
         required=True, 
@@ -998,6 +1006,7 @@ def main(args):
                 unet_state_dict[name] = lora_state_dict[name]  
             unet.load_state_dict(unet_state_dict) 
 
+    patch_custom_attention(unet, None) 
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -1573,6 +1582,7 @@ def main(args):
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
         encoder_hidden_states = [] 
+        attn_assignments = [] 
         if args.with_prior_preservation: 
             input_ids, input_ids_prior = torch.chunk(batch["prompt_ids"], 2, dim=0) 
         else: 
@@ -1600,15 +1610,19 @@ def main(args):
 
             text_embeddings = text_encoder(batch_item.unsqueeze(0))[0].squeeze() 
 
-            if args.text_encoder_bypass: 
-                unique_token_positions = {}  
-                for asset_idx in range(len(batch["subjects"][batch_idx])):  
-                    for token_idx in range(args.merged_emb_dim // 1024): 
-                        unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                        assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
-                        unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
-                        unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
+            attn_assignments_batchitem = {} 
+            unique_token_positions = {}  
+            for asset_idx in range(len(batch["subjects"][batch_idx])):  
+                for token_idx in range(args.merged_emb_dim // 1024): 
+                    unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                    assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
+                    unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
+                    attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
+                    unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
 
+            attn_assignments.append(attn_assignments_batchitem) 
+
+            if args.text_encoder_bypass: 
                 for unique_token_name, position in unique_token_positions.items(): 
                     text_embeddings[position] = text_embeddings[position] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]]  
 
@@ -1623,6 +1637,9 @@ def main(args):
             encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
             assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
             encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0) 
+            assert len(input_ids_prior) == args.train_batch_size, f"{len(input_ids_prior) = }, {args.train_batch_size = }" 
+            for _ in range(args.train_batch_size):  
+                attn_assignments.append({}) 
 
         """End Adobe CONFIDENTIAL"""
 
@@ -1630,7 +1647,16 @@ def main(args):
         # Predict the noise residual
         if args.ada: 
             torch.cuda.empty_cache() 
-        model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+
+        encoder_states_dict = {
+            "encoder_hidden_states": encoder_hidden_states, 
+            "attn_assignments": attn_assignments, 
+        } 
+
+        if args.replace_attn_maps: 
+            model_pred = unet(noisy_latents, timesteps, encoder_states_dict).sample 
+        else: 
+            model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
         # Get the target for loss depending on the prediction type
         if noise_scheduler.config.prediction_type == "epsilon":

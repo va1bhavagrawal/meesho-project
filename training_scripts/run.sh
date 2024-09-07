@@ -1,4 +1,4 @@
-export RUN_NAME="controlnet+ref2" 
+export RUN_NAME="replace_attn_maps" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -26,6 +26,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
+  --replace_attn_maps="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -49,7 +50,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
-  --wandb \
+  -wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
   # --resume_training_state="../ckpts/multiobject/__controlnet+ref2/training_state_500.pth" \
