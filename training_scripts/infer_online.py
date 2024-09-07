@@ -14,6 +14,7 @@ import os.path as osp
 import inspect
 from pathlib import Path
 from typing import Optional
+import pickle 
 
 import copy 
 
@@ -33,12 +34,14 @@ from lora_diffusion import patch_pipe
 # from metrics import MetricEvaluator 
 from safetensors.torch import load_file
 
-WHICH_MODEL = "merged"  
-WHICH_STEP = 200000  
+WHICH_MODEL = "controlnet+ref2"  
+WHICH_STEP = 500000  
 # WHICH_MODEL = "__freezeapp_large"   
 # WHICH_STEP = 110000  
-MAX_SUBJECTS_PER_EXAMPLE = 1 
+MAX_SUBJECTS_PER_EXAMPLE = 2  
 NUM_SAMPLES = 18 
+
+from custom_attention_processor import patch_custom_attention, make_attention_visualization  
 
 TOKEN2ID = {
     "sks": 48136, 
@@ -142,10 +145,12 @@ import wandb
 
 
 class EncoderStatesDataset(Dataset): 
-    def __init__(self, encoder_states, save_paths): 
-        assert len(encoder_states) == len(save_paths) 
+    def __init__(self, encoder_states, save_paths, attn_assignments, track_ids): 
+        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments)  
         self.encoder_states = encoder_states 
         self.save_paths = save_paths 
+        self.attn_assignments = attn_assignments 
+        self.track_ids = track_ids 
 
 
     def __len__(self): 
@@ -157,15 +162,19 @@ class EncoderStatesDataset(Dataset):
         assert self.encoder_states[index] is not None 
         # print(f"dataset is sending {self.encoder_states[index] = }, {self.save_paths[index] = }")
         # (self.encoder_states[index], [self.save_paths[index]]) 
-        return (self.encoder_states[index], self.save_paths[index]) 
+        return (self.encoder_states[index], self.save_paths[index], self.attn_assignments[index], self.track_ids[index])  
 
 
 def collate_fn(examples): 
     save_paths = [example[1] for example in examples]  
     encoder_states = torch.stack([example[0] for example in examples], 0)    
+    attn_assignments = [example[2] for example in examples] 
+    track_ids = [example[3] for example in examples] 
     return {
         "save_paths": save_paths, 
         "encoder_states": encoder_states, 
+        "attn_assignments": attn_assignments, 
+        "track_ids": track_ids, 
     }
 
 
@@ -173,7 +182,8 @@ class Infer:
     def __init__(self, merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, bs=8):   
         self.merged_emb_dim = merged_emb_dim 
         self.accelerator = accelerator 
-        self.unet = unet 
+        self.unet = unet  
+        self.attn_store = patch_custom_attention(self.unet, store_attn=False)   
         self.text_encoder = text_encoder  
         self.scheduler = scheduler 
         self.vae = vae 
@@ -197,7 +207,7 @@ class Infer:
         # assert not osp.exists(self.gif_name)  
 
 
-    def generate_images_in_a_batch_and_save_them(self, batch, batch_idx): 
+    def generate_images_in_a_batch_and_save_them(self, batch, step_idx): 
         # print(f"{self.accelerator.process_index} is doing {batch_idx = }")
         uncond_tokens = self.tokenizer(
             [""], 
@@ -207,6 +217,11 @@ class Infer:
             return_tensors="pt", 
         ).input_ids 
         uncond_encoder_states = self.text_encoder(uncond_tokens.to(self.accelerator.device))[0] 
+        uncond_assignments = [] 
+        for batch_idx in range(batch["encoder_states"].shape[0]): 
+            uncond_assignments.append({}) 
+        cond_assignments = batch["attn_assignments"] 
+        all_assignments = uncond_assignments + cond_assignments 
         # encoder_states, save_paths = batch 
         encoder_states = batch["encoder_states"].to(self.accelerator.device)  
         save_paths = batch["save_paths"]  
@@ -227,7 +242,13 @@ class Infer:
 
             # predict the noise residual
             concat_encoder_states = torch.cat([uncond_encoder_states.repeat(B, 1, 1), encoder_states], dim=0) 
+            encoder_states_dict = {
+                "encoder_hidden_states": concat_encoder_states, 
+                "attn_assignments": all_assignments, 
+            }
+
             noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample
+            # noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=encoder_states_dict).sample 
 
             # perform guidance
             noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
@@ -247,6 +268,12 @@ class Infer:
         save_path_global = osp.join(self.tmp_dir)  
         # print(f"making {self.tmp_dir}") 
         os.makedirs(save_path_global, exist_ok=True) 
+
+        # checking on the attention store, which shhould have stored the attention maps for each attention block by now 
+        if self.attn_store is not None: 
+            for batch_idx in range(self.bs): 
+                make_attention_visualization(images[batch_idx], self.attn_store, batch["track_ids"][batch_idx])  
+
         # for idx, image in zip(ids, images):  
         for idx, image in enumerate(images): 
             image = (image / 2 + 0.5).clamp(0, 1).squeeze()
@@ -276,12 +303,16 @@ class Infer:
             # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
 
-    def do_it(self, seed, gif_path, prompt, all_subjects_data, include_class_in_prompt=None, normalize_merged_embedding=None):     
+    def do_it(self, seed, gif_path, prompt, all_subjects_data, store_attn, include_class_in_prompt=None, normalize_merged_embedding=None):     
+        if store_attn: 
+            self.bs = 1 
         with torch.no_grad(): 
             self.seed = seed 
             self.gif_path = gif_path 
             all_encoder_states = [] 
             all_save_paths = [] 
+            all_attn_assignments = [] 
+            all_track_ids = [] 
 
             for gif_subject_data in all_subjects_data:  
                 subjects = [] 
@@ -360,6 +391,11 @@ class Infer:
                     return_tensors="pt"
                 ).input_ids.to(self.accelerator.device)  
 
+                track_ids = [] 
+                for token_pos, token in enumerate(prompt_ids[0]): 
+                    if token in TOKEN2ID.values(): 
+                        track_ids.append(token_pos)  
+
                 for sample_idx in range(n_samples): 
                     for asset_idx, subject_data in enumerate(gif_subject_data): 
                         subject = subject_data["subject"] 
@@ -374,21 +410,25 @@ class Infer:
                     text_embeddings = self.text_encoder(prompt_ids)[0].squeeze() 
                     all_encoder_states.append(text_embeddings) 
                     all_save_paths.append(osp.join(self.tmp_dir, subjects_string, f"{str(sample_idx).zfill(3)}.jpg")) 
+                    all_track_ids.append(track_ids) 
 
+                    attn_assignments = {} 
+                    unique_token_positions = {} 
+                    for asset_idx, subject_data in enumerate(gif_subject_data): 
+                        for token_idx in range(self.merged_emb_dim // 1024): 
+                            unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                            assert TOKEN2ID[unique_token] in prompt_ids 
+                            # print(f"{list(prompt_ids) = }") 
+                            # print(f"{TOKEN2ID[unique_token] = }") 
+                            # print(f"{TOKEN2ID[unique_token] = }")
+                            # print(f"{prompt_ids = }")
+                            assert len(prompt_ids) == 1 
+                            unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
+                            unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
+                            attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+                    
+                    all_attn_assignments.append(attn_assignments) 
                     if self.text_encoder_bypass: 
-                        unique_token_positions = {} 
-                        for asset_idx, subject_data in enumerate(gif_subject_data): 
-                            for token_idx in range(self.merged_emb_dim // 1024): 
-                                unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                                assert TOKEN2ID[unique_token] in prompt_ids 
-                                # print(f"{list(prompt_ids) = }") 
-                                # print(f"{TOKEN2ID[unique_token] = }") 
-                                # print(f"{TOKEN2ID[unique_token] = }")
-                                # print(f"{prompt_ids = }")
-                                assert len(prompt_ids) == 1 
-                                unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
-                                unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
-
                         for unique_token_name, position in unique_token_positions.items(): 
                             text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]] 
                     
@@ -401,7 +441,7 @@ class Infer:
                     os.makedirs(osp.dirname(save_path), exist_ok=True)   
             self.accelerator.wait_for_everyone() 
 
-            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths)  
+            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths, all_attn_assignments, all_track_ids)    
 
             dataloader = DataLoader(dataset, batch_size=self.bs, collate_fn=collate_fn)  
             dataloader = self.accelerator.prepare(dataloader)  
@@ -427,10 +467,15 @@ class Infer:
 
 
 if __name__ == "__main__": 
+    args_path = osp.join(f"../ckpts/multiobject/", f"__{WHICH_MODEL}", f"args.pkl") 
+    assert osp.exists(args_path) 
+    with open(args_path, "rb") as f: 
+        args = pickle.load(f) 
+
     pipeline = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1") 
     pose_mlp = continuous_word_mlp(2, 1024) 
     merged_emb_dim = 1024 
-    merger = MergedEmbedding(True, 1024, 1024, merged_emb_dim) 
+    merger = MergedEmbedding(args['appearance_skip_connection'], 1024, 1024, merged_emb_dim) 
 
     training_state_path = osp.join(f"../ckpts/multiobject/", f"__{WHICH_MODEL}", f"training_state_{WHICH_STEP}.pth") 
     assert osp.exists(training_state_path), f"{training_state_path = }"  
@@ -471,7 +516,7 @@ if __name__ == "__main__":
         [
             {
                 "subject": "bus", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "normalized_azimuths": np.zeros((NUM_SAMPLES, )),  
                 "appearance_type": "class", 
             }, 
             {
@@ -482,7 +527,7 @@ if __name__ == "__main__":
         [
             {
                 "subject": "motorbike", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "normalized_azimuths": np.zeros((NUM_SAMPLES, )),  
                 "appearance_type": "class", 
             }, 
             {
@@ -493,7 +538,7 @@ if __name__ == "__main__":
         [
             {
                 "subject": "jeep", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "normalized_azimuths": np.zeros((NUM_SAMPLES, )),  
                 "appearance_type": "class", 
             }, 
             {
@@ -519,7 +564,12 @@ if __name__ == "__main__":
         # ][:MAX_SUBJECTS_PER_EXAMPLE], 
     ]
 
-    infer = Infer(merged_emb_dim, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", False, None, 6) 
-    prompt = "a photo of PLACEHOLDER in a dark studio with lights"     
-    seed = random.randint(0, 170904) 
-    infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, False, False)  
+    infer = Infer(merged_emb_dim, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", args['text_encoder_bypass'], None, 6) 
+    prompts = [
+        "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+        "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+        "a photo of PLACEHOLDER in the streets of Venice with the sun setting in the background", 
+    ]
+    for prompt in prompts: 
+        seed = random.randint(0, 170904) 
+        infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, store_attn=True, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding'])   
