@@ -1,4 +1,4 @@
-export RUN_NAME="controlnet_only" 
+export RUN_NAME="controlnet+ref3" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -12,12 +12,12 @@ export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt"
 export VIS_DIR="../multiobject/"  
 
 
-accelerate launch --config_file accelerate_config2.yaml train.py \
+accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
   --use_controlnet_images="Y" \
-  --use_ref_images="N" \
+  --use_ref_images="Y" \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
@@ -25,7 +25,8 @@ accelerate launch --config_file accelerate_config2.yaml train.py \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
-  --include_class_in_prompt="N" \
+  --include_class_in_prompt="Y" \
+  --replace_attn_maps="N" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -33,6 +34,8 @@ accelerate launch --config_file accelerate_config2.yaml train.py \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
+  --stage1_steps=150000 \
+  --stage2_steps=350000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
@@ -49,3 +52,4 @@ accelerate launch --config_file accelerate_config2.yaml train.py \
   --online_inference \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
+  # --resume_training_state="../ckpts/multiobject/__controlnet+ref2/training_state_500.pth" \
