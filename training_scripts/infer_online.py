@@ -38,7 +38,7 @@ WHICH_MODEL = "controlnet+ref2"
 WHICH_STEP = 500000  
 # WHICH_MODEL = "__freezeapp_large"   
 # WHICH_STEP = 110000  
-MAX_SUBJECTS_PER_EXAMPLE = 2  
+MAX_SUBJECTS_PER_EXAMPLE = 1  
 NUM_SAMPLES = 18 
 
 from custom_attention_processor import patch_custom_attention, make_attention_visualization  
@@ -179,11 +179,12 @@ def collate_fn(examples):
 
 
 class Infer: 
-    def __init__(self, merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, bs=8):   
+    def __init__(self, merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, store_attn, bs=8):   
         self.merged_emb_dim = merged_emb_dim 
+        self.store_attn = store_attn 
         self.accelerator = accelerator 
         self.unet = unet  
-        self.attn_store = patch_custom_attention(self.unet, store_attn=False)   
+        self.attn_store = patch_custom_attention(self.unet, store_attn=self.store_attn)   
         self.text_encoder = text_encoder  
         self.scheduler = scheduler 
         self.vae = vae 
@@ -231,7 +232,7 @@ class Infer:
         assert encoder_states.shape == (B, 77, 1024) 
         if self.seed is not None: 
             set_seed(self.seed) 
-        latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.vae.dtype).repeat(B, 1, 1, 1)  
+        latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
         self.scheduler.set_timesteps(50)
         for t in self.scheduler.timesteps:
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
@@ -261,7 +262,7 @@ class Infer:
         latents = 1 / 0.18215 * latents
 
         # decode the latents 
-        images = self.accelerator.unwrap_model(self.vae).decode(latents.to(self.accelerator.device, dtype=self.vae.dtype)).sample 
+        images = self.accelerator.unwrap_model(self.vae).decode(latents.to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype)).sample 
 
         # post processing the images and storing them 
         # os.makedirs(f"../gpu_imgs/{accelerator.process_index}", exist_ok=True) 
@@ -303,8 +304,8 @@ class Infer:
             # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
 
-    def do_it(self, seed, gif_path, prompt, all_subjects_data, store_attn, include_class_in_prompt=None, normalize_merged_embedding=None):     
-        if store_attn: 
+    def do_it(self, seed, gif_path, prompt, all_subjects_data, include_class_in_prompt=None, normalize_merged_embedding=None):     
+        if self.store_attn: 
             self.bs = 1 
         with torch.no_grad(): 
             self.seed = seed 
@@ -484,13 +485,26 @@ if __name__ == "__main__":
     assert osp.exists(lora_weight_path), f"{lora_weight_path = }"  
     training_state = torch.load(training_state_path) 
 
-    patch_pipe( 
-        pipeline, 
-        lora_weight_path,  
-        patch_text=True, 
-        patch_ti=True, 
-        patch_unet=True, 
-    ) 
+    # patch_pipe( 
+    #     pipeline, 
+    #     lora_weight_path,  
+    #     patch_text=True, 
+    #     patch_ti=True, 
+    #     patch_unet=True, 
+    # ) 
+
+    if args['train_unet']: 
+        with torch.no_grad(): 
+            _, _ = inject_trainable_lora(pipeline.unet, r=args['lora_rank']) 
+        unet_state_dict = pipeline.unet.state_dict() 
+        pretrained_unet_state_dict = training_state["unet"]["lora"]
+        for name, param in unet_state_dict.items(): 
+            if name.find("lora") == -1: 
+                continue 
+            assert name in pretrained_unet_state_dict.keys()  
+            unet_state_dict[name] = pretrained_unet_state_dict[name] 
+        pipeline.unet.load_state_dict(unet_state_dict) 
+
     pose_mlp.load_state_dict(training_state["contword"]["model"]) 
     merger.load_state_dict(training_state["merger"]["model"]) 
 
@@ -516,7 +530,7 @@ if __name__ == "__main__":
         [
             {
                 "subject": "bus", 
-                "normalized_azimuths": np.zeros((NUM_SAMPLES, )),  
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 "appearance_type": "class", 
             }, 
             {
@@ -527,7 +541,7 @@ if __name__ == "__main__":
         [
             {
                 "subject": "motorbike", 
-                "normalized_azimuths": np.zeros((NUM_SAMPLES, )),  
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 "appearance_type": "class", 
             }, 
             {
@@ -538,7 +552,7 @@ if __name__ == "__main__":
         [
             {
                 "subject": "jeep", 
-                "normalized_azimuths": np.zeros((NUM_SAMPLES, )),  
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 "appearance_type": "class", 
             }, 
             {
@@ -564,7 +578,7 @@ if __name__ == "__main__":
         # ][:MAX_SUBJECTS_PER_EXAMPLE], 
     ]
 
-    infer = Infer(merged_emb_dim, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", args['text_encoder_bypass'], None, 6) 
+    infer = Infer(merged_emb_dim, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", args['text_encoder_bypass'], None, store_attn=False, bs=6) 
     prompts = [
         "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
         "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
@@ -572,4 +586,4 @@ if __name__ == "__main__":
     ]
     for prompt in prompts: 
         seed = random.randint(0, 170904) 
-        infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, store_attn=True, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding'])   
+        infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding'])   
