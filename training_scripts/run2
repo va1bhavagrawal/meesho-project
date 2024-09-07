@@ -1,0 +1,503 @@
+VLOG_STEPS = [50000, 100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 150500, 151000, 152000, 155000, 160000, 170000, 180000, 190000, 200000, 210000, 220000, 230000, 240000, 250000, 260000, 270000, 280000, 290000, 300000, 310000, 320000, 330000, 340000, 350000, 360000, 370000, 380000, 390000, 400000, 410000, 420000, 430000, 440000, 450000, 460000, 470000, 480000, 490000, 500000]
+VLOG_STEPS = [50000, 100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000]
+VLOG_STEPS = [50000, 100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000]SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 150500, 151000, 152000, 155000, 160000, 170000, 180000, 190000, 200000, 210000, 220000, 230000, 240000, 250000, 260000, 270000, 280000, 290000, 300000, 310000, 320000, 330000, 340000, 350000, 360000, 370000, 380000, 390000, 400000, 410000, 420000, 430000, 440000, 450000, 460000, 470000, 480000, 490000, 500000]
+
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 150500, 151000, 152000, 155000, 160000, 170000, 180000, 190000, 200000, 210000, 220000, 230000, 240000, 250000, 260000, 270000, 280000, 290000, 300000, 310000, 320000, 330000, 340000, 350000, 360000, 370000, 380000, 390000, 400000, 410000, 420000, 430000, 440000, 450000, 460000, 470000, 480000, 490000, 500000]
+VLOG_STEPS = [50000, 100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000]
+SAVE_STEPS = [500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 150500, 151000, 152000, 155000, 160000, 170000, 180000, 190000, 200000, 210000, 220000, 230000, 240000, 250000, 260000, 270000, 280000, 290000, 300000, 310000, 320000, 330000, 340000, 350000, 360000, 370000, 380000, 390000, 400000, 410000, 420000, 430000, 440000, 450000, 460000, 470000, 480000, 490000, 500000]
+<=============================== step 0  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[4.3213661434188895]]
+subjects: [['jeep']]
+controlnet: [False]
+prompts: ['a photo of a bnha jeep', 'a photo of a jeep']
+prior_subjects: ['jeep']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 4  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.1298401109304477]]
+subjects: [['horse']]
+controlnet: [False]
+prompts: ['a photo of a bnha horse', 'a photo of a horse']
+prior_subjects: ['horse']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 8  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.0408930137936565]]
+subjects: [['horse']]
+controlnet: [False]
+prompts: ['a photo of a bnha horse', 'a photo of a horse']
+prior_subjects: ['horse']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 12  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.5500513895218666]]
+subjects: [['elephant']]
+controlnet: [False]
+prompts: ['a photo of a bnha elephant', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 16  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[6.0305714037926235]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 20  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.76379485365232]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 24  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.624548064598948]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 28  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.3071000143595866]]
+subjects: [['elephant']]
+controlnet: [False]
+prompts: ['a photo of a bnha elephant', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 32  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[0.6917386018868324]]
+subjects: [['pickup truck']]
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 36  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[4.680120378101735]]
+subjects: [['lion']]
+controlnet: [True]
+prompts: ['a photo of a bnha lion in a serene Japanese garden, surrounded by cherry blossoms', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 40  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[6.003240858751068]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 44  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.700320784778095]]
+subjects: [['bus']]
+controlnet: [True]
+prompts: ['a photo of a bnha bus in a medieval castle courtyard with ancient stone walls and archways', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 48  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.3661825706363147]]
+subjects: [['elephant']]
+controlnet: [False]
+prompts: ['a photo of a bnha elephant', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 52  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[6.14721901123894]]
+subjects: [['jeep']]
+controlnet: [False]
+prompts: ['a photo of a bnha jeep', 'a photo of a jeep']
+prior_subjects: ['jeep']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 56  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.338924814012463]]
+subjects: [['pickup truck']]
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 60  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.155133893276599]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 64  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.657149418218347]]
+subjects: [['elephant']]
+controlnet: [False]
+prompts: ['a photo of a bnha elephant', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 68  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.3926991393421164]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 72  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.478308809528051]]
+subjects: [['horse']]
+controlnet: [False]
+prompts: ['a photo of a bnha horse', 'a photo of a horse']
+prior_subjects: ['horse']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 76  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.6041299206739628]]
+subjects: [['horse']]
+controlnet: [False]
+prompts: ['a photo of a bnha horse', 'a photo of a horse']
+prior_subjects: ['horse']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 80  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.9875317137273107]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 84  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[4.141490751167274]]
+subjects: [['pickup truck']]
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 88  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.4198435815961257]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 92  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.527173757602766]]
+subjects: [['lion']]
+controlnet: [True]
+prompts: ['a photo of a bnha lion on a riverbank at sunrise, with mist rising from the water', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 96  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.1711205094403543]]
+subjects: [['jeep']]
+controlnet: [True]
+prompts: ['a photo of a bnha jeep in a serene Japanese garden, surrounded by cherry blossoms', 'a photo of a jeep']
+prior_subjects: ['jeep']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 100  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[0.5214361586176244]]
+subjects: [['elephant']]
+controlnet: [False]
+prompts: ['a photo of a bnha elephant', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 104  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.489996602072774]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 108  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[4.878950981989603]]
+subjects: [['motorbike']]
+controlnet: [True]
+prompts: ["a photo of a bnha motorbike at a river's edge with stones scattered around", 'a photo of a motorbike']
+prior_subjects: ['motorbike']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 112  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.7976891295541595]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 116  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.9482271983890036]]
+subjects: [['horse']]
+controlnet: [False]
+prompts: ['a photo of a bnha horse', 'a photo of a horse']
+prior_subjects: ['horse']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 120  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.1502227729906314]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 124  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.7147092578150516]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 128  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.6434441185327224]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 132  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.741020395965544]]
+subjects: [['pickup truck']]
+controlnet: [True]
+prompts: ['a photo of a bnha pickup truck by a riverside with wildflowers blooming nearby', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 136  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[0.3666803381304866]]
+subjects: [['pickup truck']]
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 140  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.9338361131432626]]
+subjects: [['horse']]
+controlnet: [False]
+prompts: ['a photo of a bnha horse', 'a photo of a horse']
+prior_subjects: ['horse']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 144  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.966746799197673]]
+subjects: [['motorbike']]
+controlnet: [False]
+prompts: ['a photo of a bnha motorbike', 'a photo of a motorbike']
+prior_subjects: ['motorbike']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 148  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[0.6999647012327146]]
+subjects: [['elephant']]
+controlnet: [False]
+prompts: ['a photo of a bnha elephant', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 152  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.780208358511763]]
+subjects: [['pickup truck']]
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 156  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.688282603901626]]
+subjects: [['jeep']]
+controlnet: [True]
+prompts: ['a photo of a bnha jeep in a snowy forest, with a gentle snowfall and snow-covered trees', 'a photo of a jeep']
+prior_subjects: ['jeep']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 160  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.3045533285866266]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 164  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[0.781175518305834]]
+subjects: [['elephant']]
+controlnet: [True]
+prompts: ['a photo of a bnha elephant in a serene Japanese garden, surrounded by cherry blossoms', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 168  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[0.32305055095547736]]
+subjects: [['elephant']]
+controlnet: [False]
+prompts: ['a photo of a bnha elephant', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 172  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.9333669985609552]]
+subjects: [['pickup truck']]
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 176  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[4.6576402062412035]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 180  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.242208816181801]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 184  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[0.4363323129985824]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 188  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.0622193056040667]]
+subjects: [['bus']]
+controlnet: [False]
+prompts: ['a photo of a bnha bus', 'a photo of a bus']
+prior_subjects: ['bus']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 192  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[4.368277452606029]]
+subjects: [['lion']]
+controlnet: [False]
+prompts: ['a photo of a bnha lion', 'a photo of a lion']
+prior_subjects: ['lion']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 196  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[3.3519970012872333]]
+subjects: [['horse']]
+controlnet: [False]
+prompts: ['a photo of a bnha horse', 'a photo of a horse']
+prior_subjects: ['horse']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 200  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[1.1848085789887466]]
+subjects: [['jeep']]
+controlnet: [False]
+prompts: ['a photo of a bnha jeep', 'a photo of a jeep']
+prior_subjects: ['jeep']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 204  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[0.6077885994107168]]
+subjects: [['elephant']]
+controlnet: [True]
+prompts: ['a photo of a bnha elephant in a lush vineyard with rows of grapevines stretching into the distance', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 208  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[2.967079050992246]]
+subjects: [['pickup truck']]
+controlnet: [True]
+prompts: ['a photo of a bnha pickup truck in a lush vineyard with rows of grapevines stretching into the distance', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 212  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.709587516773322]]
+subjects: [['pickup truck']]
+controlnet: [False]
+prompts: ['a photo of a bnha pickup truck', 'a photo of a pickup truck']
+prior_subjects: ['pickup truck']
+MAX_SUBJECTS_PER_EXAMPLE = 1
+<=============================== step 216  ======================================>
+prompt_ids: torch.Size([2, 77])
+pixel_values: torch.Size([2, 3, 512, 512])
+scalers: [[5.43947707964857]]
+subjects: [['elephant']]
+controlnet: [False]
+prompts: ['a photo of a bnha elephant', 'a photo of a elephant']
+prior_subjects: ['elephant']
+MAX_SUBJECTS_PER_EXAMPLE = 1
