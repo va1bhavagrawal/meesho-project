@@ -54,13 +54,14 @@ class AppearanceEmbeddings(nn.Module):
 
 
 class MergedEmbedding(nn.Module): 
-    def __init__(self, skip_conn, pose_dim, appearance_dim, output_dim): 
+    def __init__(self, skip_conn, pose_skip_conn, pose_dim, appearance_dim, output_dim): 
         super().__init__() 
         self.linear1 = nn.Linear(pose_dim + appearance_dim, 2048) 
         self.linear2 = nn.Linear(2048, 2048)  
-        self.linear3 = nn.Linear(2048, 2048) 
-        self.linear4 = nn.Linear(2048, output_dim)  
+        self.linear3 = nn.Linear(2048, 1024) 
+        self.linear4 = nn.Linear(1024, output_dim)  
         self.skip_conn = skip_conn 
+        self.pose_skip_conn = pose_skip_conn 
         self.output_dim = output_dim 
 
         merger_state_dict = self.state_dict() 
@@ -80,6 +81,8 @@ class MergedEmbedding(nn.Module):
         x = F.relu(x)  
         x = self.linear3(x) 
         x = F.relu(x) 
+        if self.pose_skip_conn: 
+            x = x + pose_embed 
         if self.skip_conn: 
             x = self.linear4(x) + appearance_embed.repeat(1, 1, self.output_dim // 1024)  
         else: 

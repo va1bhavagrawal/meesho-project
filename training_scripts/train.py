@@ -62,7 +62,7 @@ from custom_attention_processor import patch_custom_attention
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
 DEBUG = False  
-BS = 4       
+BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -532,6 +532,12 @@ def parse_args(input_args=None):
         type=lambda x : bool(strtobool(x)),  
         required=True, 
         help="whether to use the appearance skip connection (through the merger mlp)",
+    ) 
+    parser.add_argument(
+        "--pose_skip_connection", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to use the pose skip connection (through the merger mlp)",
     ) 
     parser.add_argument(
         "--replace_attn_maps", 
@@ -1177,7 +1183,7 @@ def main(args):
 
 
     # the merged token formulation 
-    merger = MergedEmbedding(args.appearance_skip_connection, pose_dim=1024, appearance_dim=1024, output_dim=args.merged_emb_dim)    
+    merger = MergedEmbedding(skip_conn=args.appearance_skip_connection, pose_skip_conn=args.pose_skip_connection, pose_dim=1024, appearance_dim=1024, output_dim=args.merged_emb_dim)    
     if args.resume_training_state: 
         merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
     # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
