@@ -524,7 +524,7 @@ class Infer:
 
             else: 
                 if self.accelerator.is_main_process: 
-                    for subjects_string in os.listdir(self.tmp_dir): 
+                    for subjects_string in os.listdir(self.tmp_dir_attn): 
                         movie = [] 
                         img_names = sorted(os.listdir(osp.join(self.tmp_dir, subjects_string)))  
                         img_paths = [osp.join(self.tmp_dir, subjects_string, img_name) for img_name in img_names] 
