@@ -23,12 +23,13 @@ from PIL import Image
 DEBUG_ATTN = False  
 
 class AttendExciteAttnProcessor:
-    def __init__(self, name):
+    def __init__(self, name, attn_store):
         super().__init__()
         self.name = name 
+        self.attn_store = attn_store 
 
 
-    def __call__(self, attn, hidden_states, encoder_hidden_states=None, attention_mask=None):
+    def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
         # print(f"input to attn for {self.layer_name} is of shape: {hidden_states.shape}")
         batch_size, sequence_length, _ = hidden_states.shape
         # attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length)
@@ -37,6 +38,7 @@ class AttendExciteAttnProcessor:
 
         is_cross = encoder_hidden_states is not None
         encoder_hidden_states = encoder_hidden_states if encoder_hidden_states is not None else hidden_states
+
         if type(encoder_hidden_states) == dict: 
             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
             used_attention_maps = encoder_hidden_states["attn_assignments"] 
@@ -44,26 +46,29 @@ class AttendExciteAttnProcessor:
             actual_encoder_hidden_states = encoder_hidden_states 
         key = attn.to_k(actual_encoder_hidden_states)
         value = attn.to_v(actual_encoder_hidden_states) 
+
         if type(encoder_hidden_states) == dict: 
             # assert len(encoder_hidden_states["attn_assignments"]) == len(encoder_hidden_states["encoder_hidden_states"]) 
             B = len(encoder_hidden_states["attn_assignments"]) 
             for batch_idx in range(B): 
                 for idx1, idx2 in used_attention_maps[batch_idx].items(): 
+                    assert idx1 != idx2 
                     key[batch_idx][idx1] = key[batch_idx][idx2] 
 
-        print(f"before {key.shape = }") 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
         value = attn.head_to_batch_dim(value)
-        print(f"after {key.shape = }") 
 
         attention_probs = attn.get_attention_scores(query, key, attention_mask)
+        # print(f"{attention_probs.shape = }") 
         # print(f"{encoder_hidden_states.shape = }")
         # print(f"{hidden_states.shape = }")
         # print(f"{query.shape = }")
         # print(f"{key.shape = }")
         # print(f"{attention_probs.shape = }")
         # sys.exit(0) 
+        if self.attn_store is not None: 
+            self.attn_store(attention_probs, self.name) 
 
         hidden_states = torch.bmm(attention_probs, value)
         hidden_states = attn.batch_to_head_dim(hidden_states)
@@ -207,194 +212,12 @@ class AttnProcessor2_0_edited:
         return hidden_states
 
 
-# class AttnAddedKVProcessor2_0_edited:
-#     r"""
-#     Processor for performing scaled dot-product attention (enabled by default if you're using PyTorch 2.0), with extra
-#     learnable key and value matrices for the text encoder.
-#     """
-
-#     def __init__(self):
-#         if not hasattr(F, "scaled_dot_product_attention"):
-#             raise ImportError(
-#                 "AttnAddedKVProcessor2_0 requires PyTorch 2.0, to use it, please upgrade PyTorch to 2.0."
-#             )
-
-#     def __call__(
-#         self,
-#         attn: Attention,
-#         hidden_states: torch.Tensor,
-#         encoder_hidden_states: Dict,  
-#         attention_mask: Optional[torch.Tensor] = None,
-#         *args,
-#         **kwargs,
-#     ) -> torch.Tensor:
-#         if len(args) > 0 or kwargs.get("scale", None) is not None:
-#             deprecation_message = "The `scale` argument is deprecated and will be ignored. Please remove it, as passing it will raise an error in the future. `scale` should directly be passed while calling the underlying pipeline component i.e., via `cross_attention_kwargs`."
-#             deprecate("scale", "1.0.0", deprecation_message)
-
-#         residual = hidden_states
-
-#         hidden_states = hidden_states.view(hidden_states.shape[0], hidden_states.shape[1], -1).transpose(1, 2)
-#         batch_size, sequence_length, _ = hidden_states.shape
-
-#         attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size, out_dim=4)
-
-#         if encoder_hidden_states is None:
-#             encoder_hidden_states = hidden_states
-#         elif attn.norm_cross:
-#             raise NotImplementedError(f"did not expect norm cross to be True!") 
-#             encoder_hidden_states = attn.norm_encoder_hidden_states(encoder_hidden_states)
-
-#         if type(encoder_hidden_states) == dict: 
-#             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
-#             attn_assignments = encoder_hidden_states["attn_assignments"] 
-#         else: 
-#             actual_encoder_hidden_states = encoder_hidden_states 
-
-#         if attn.group_norm is not None: 
-#             hidden_states = attn.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
-
-#         query = attn.to_q(hidden_states)
-#         query = attn.head_to_batch_dim(query, out_dim=4)
-
-#         encoder_hidden_states_key_proj = attn.add_k_proj(actual_encoder_hidden_states)
-#         encoder_hidden_states_value_proj = attn.add_v_proj(actual_encoder_hidden_states)
-#         encoder_hidden_states_key_proj = attn.head_to_batch_dim(encoder_hidden_states_key_proj, out_dim=4)
-#         encoder_hidden_states_value_proj = attn.head_to_batch_dim(encoder_hidden_states_value_proj, out_dim=4)
-
-#         if type(encoder_hidden_states) == dict: 
-#             assert len(actual_encoder_hidden_states) == len(attn_assignments) 
-#             for batch_idx in range(len(actual_encoder_hidden_states)): 
-#                 for idx1, idx2 in attn_assignments[batch_idx].items(): 
-#                     key[batch_idx][idx1] = key[batch_idx][idx2]  
-
-#         if not attn.only_cross_attention:
-#             key = attn.to_k(hidden_states)
-#             value = attn.to_v(hidden_states)
-#             key = attn.head_to_batch_dim(key, out_dim=4)
-#             value = attn.head_to_batch_dim(value, out_dim=4)
-#             key = torch.cat([encoder_hidden_states_key_proj, key], dim=2)
-#             value = torch.cat([encoder_hidden_states_value_proj, value], dim=2)
-#         else:
-#             key = encoder_hidden_states_key_proj
-#             value = encoder_hidden_states_value_proj
-
-#         # the output of sdp = (batch, num_heads, seq_len, head_dim)
-#         # TODO: add support for attn.scale when we move to Torch 2.1
-#         hidden_states = F.scaled_dot_product_attention(
-#             query, key, value, attn_mask=attention_mask, dropout_p=0.0, is_causal=False
-#         )
-#         hidden_states = hidden_states.transpose(1, 2).reshape(batch_size, -1, residual.shape[1])
-
-#         # linear proj
-#         hidden_states = attn.to_out[0](hidden_states)
-#         # dropout
-#         hidden_states = attn.to_out[1](hidden_states)
-
-#         hidden_states = hidden_states.transpose(-1, -2).reshape(residual.shape)
-#         hidden_states = hidden_states + residual
-
-#         return hidden_states
-
-
-# class MyAttentionProcessor: 
-#     r"""
-#     Processor for performing scaled dot-product attention (enabled by default if you're using PyTorch 2.0), with extra
-#     learnable key and value matrices for the text encoder.
-#     """
-
-#     def __init__(self):
-#         if not hasattr(F, "scaled_dot_product_attention"):
-#             raise ImportError(
-#                 "AttnAddedKVProcessor2_0 requires PyTorch 2.0, to use it, please upgrade PyTorch to 2.0."
-#             )
-
-#     def __call__(
-#         self,
-#         attn: Attention,
-#         hidden_states,  
-#         encoder_hidden_states,  
-#         attention_mask: Optional[torch.Tensor] = None,
-#         *args,
-#         **kwargs,
-#     ) -> torch.Tensor:
-#         # if len(args) > 0 or kwargs.get("scale", None) is not None:
-#         #     deprecation_message = "The `scale` argument is deprecated and will be ignored. Please remove it, as passing it will raise an error in the future. `scale` should directly be passed while calling the underlying pipeline component i.e., via `cross_attention_kwargs`."
-#         #     deprecate("scale", "1.0.0", deprecation_message)
-
-#         residual = hidden_states
-
-#         hidden_states = hidden_states.view(hidden_states.shape[0], hidden_states.shape[1], -1).transpose(1, 2)
-#         batch_size, sequence_length, _ = hidden_states.shape
-
-#         attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size, out_dim=4)
-
-#         if encoder_hidden_states is None:
-#             encoder_hidden_states = hidden_states
-#         elif attn.norm_cross:
-#             raise NotImplementedError(f"did not expected {attn.norm_cross = }") 
-#             encoder_hidden_states = attn.norm_encoder_hidden_states(encoder_hidden_states)
-
-#         if attn.group_norm is not None: 
-#             hidden_states = attn.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
-
-#         print(f"{hidden_states.shape = }") 
-#         query = attn.to_q(hidden_states)
-#         query = attn.head_to_batch_dim(query, out_dim=4)
-
-#         if type(encoder_hidden_states) == dict: 
-#             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
-#             attn_assignments = encoder_hidden_states["attn_assignments"] 
-#         else: 
-#             actual_encoder_hidden_states = encoder_hidden_states 
-
-#         encoder_hidden_states_key_proj = attn.add_k_proj(actual_encoder_hidden_states)
-#         encoder_hidden_states_value_proj = attn.add_v_proj(actual_encoder_hidden_states)
-#         encoder_hidden_states_key_proj = attn.head_to_batch_dim(encoder_hidden_states_key_proj, out_dim=4)
-#         encoder_hidden_states_value_proj = attn.head_to_batch_dim(encoder_hidden_states_value_proj, out_dim=4)
-
-#         if not attn.only_cross_attention:
-#             key = attn.to_k(hidden_states)
-#             value = attn.to_v(hidden_states)
-#             key = attn.head_to_batch_dim(key, out_dim=4)
-#             value = attn.head_to_batch_dim(value, out_dim=4)
-#             key = torch.cat([encoder_hidden_states_key_proj, key], dim=2)
-#             value = torch.cat([encoder_hidden_states_value_proj, value], dim=2)
-#         else:
-#             key = encoder_hidden_states_key_proj
-#             value = encoder_hidden_states_value_proj
-
-#         if type(encoder_hidden_states) == dict: 
-#             assert len(actual_encoder_hidden_states) == len(attn_assignments) 
-#             for batch_idx in range(len(actual_encoder_hidden_states)): 
-#                 for idx1, idx2 in attn_assignments[batch_idx].items(): 
-#                     key[batch_idx][idx1] = key[batch_idx][idx2]  
-
-
-#         # the output of sdp = (batch, num_heads, seq_len, head_dim)
-#         # TODO: add support for attn.scale when we move to Torch 2.1
-#         hidden_states = F.scaled_dot_product_attention(
-#             query, key, value, attn_mask=attention_mask, dropout_p=0.0, is_causal=False
-#         )
-#         hidden_states = hidden_states.transpose(1, 2).reshape(batch_size, -1, residual.shape[1])
-
-#         # linear proj
-#         hidden_states = attn.to_out[0](hidden_states)
-#         # dropout
-#         hidden_states = attn.to_out[1](hidden_states)
-
-#         hidden_states = hidden_states.transpose(-1, -2).reshape(residual.shape)
-#         hidden_states = hidden_states + residual
-
-#         return hidden_states
-
-
-def patch_custom_attention(unet, store_attn): 
+def patch_custom_attention(unet, store_attn, across_timesteps): 
     attn_procs = {}
     cross_att_count = 0
     attn_store = None 
     if store_attn: 
-        attn_store = AttentionStore(unet)  
+        attn_store = AttentionStore(unet, across_timesteps)  
     # print(f"printing all the unet attn_processors keys")
     for name, attn_processor in unet.attn_processors.items():
         # # print(f"{name}")
@@ -461,17 +284,26 @@ class AttentionStore:
                 #     # print(f"stored step_store for step {self.n_steps}")
                 # self.n_steps = self.n_steps + 1
                 # self.get_empty_store()
-            if layer_name in self.step_store.keys(): 
-                assert self.step_store[layer_name][0].shape == attn.shape 
-            else: 
-                self.step_store[layer_name] = [] 
-                if not self.across_timesteps: 
-                    self.step_store[layer_name].append(torch.zeros_like(attn).cpu())  
+            # if layer_name in self.step_store.keys(): 
+            #     assert self.step_store[layer_name][0].shape == attn.shape 
+            #     if not self.across_timesteps: 
+            #         self.step_store[layer_name] = [] 
+            # else: 
+            #     self.step_store[layer_name] = [] 
+            #     if not self.across_timesteps: 
+            #         self.step_store[layer_name].append(torch.zeros_like(attn).cpu())  
 
+            # if not self.across_timesteps:  
+            #     self.step_store[layer_name][0] = self.step_store[layer_name][0] + attn.cpu()  
+            # else: 
+            #     self.step_store[layer_name].append(attn)  
             if not self.across_timesteps:  
-                self.step_store[layer_name][0] = self.step_store[layer_name][0] + attn.cpu()  
+                self.step_store[layer_name] = [attn.detach().cpu()]   
+            elif layer_name not in self.step_store.keys():  
+                self.step_store[layer_name] = [attn.detach().cpu()] 
             else: 
-                self.step_store[layer_name].append(attn)  
+                self.step_store[layer_name].append(attn.detach().cpu()) 
+
         return attn 
 
 
@@ -490,31 +322,75 @@ class AttentionStore:
         self.get_empty_store()
 
 
-
-def make_attention_visualization(org_img: Image, attn_store, track_ids, res=16): 
+@torch.no_grad   
+def get_attention_maps(attn_store, track_ids, uncond_attn_also, res, batch_size): 
     # for key, attn in attn_store.step_store.items(): 
         # print(f"{attn.shape = }") 
     # sys.exit(0) 
-    print(f"making attention visualization...") 
-    total_attn = {} 
-    for track_idx in track_ids: 
-        total_attn[track_idx] = torch.zeros((res, res)) 
-    for key, attns in attn_store.step_store.items(): 
-        for attn in attns: 
-            if attn.shape[-1] != 77: 
-                continue 
+    all_batches_attn_maps = [] 
+    for batch_idx in range(batch_size): 
+        total_attn = {} 
+        for track_idx in track_ids: 
+            total_attn[track_idx] = {}  
+            # for name in attn_store.step_store.keys(): 
+            #     total_attn[track_idx][name] = [] 
 
-            # this is cross attention 
-            attn_uncond, attn_cond = attn 
+            n_timesteps = len(list(attn_store.step_store.values())[0])    
+            for name, attns in attn_store.step_store.items(): 
+                # if attns[0].shape[-2] != res * res: 
+                #     # print(f"{attns[0].shape = }, skipping...") 
+                #     continue 
+                assert len(attns) == n_timesteps, f"{len(attns) = }, {n_timesteps = }" 
+                for attn in attns: 
+                    if attn.shape[-1] != 77: 
+                        continue 
 
-            # this is not the resolution we asked for 
-            if attn_cond.shape[-2] != res * res: 
-                continue 
+                    # this is cross attention 
+                    if uncond_attn_also: 
+                        attn_uncond, attn_cond = torch.chunk(attn, 2, dim=0)  
+                    else: 
+                        attn_cond = attn 
 
-            attn_cond = torch.mean(attn_cond, dim=0).reshape((res, res, 77)).permute(2, 0, 1)  
+                    # this is not the resolution we asked for 
+                    if attn_cond.shape[-2] != res * res: 
+                        continue 
 
-            for track_idx in track_ids: 
-                total_attn[track_idx] = total_attn[track_idx] + attn_cond[track_idx]  
+                    # print(f"finally, {attn_cond.shape = }") 
+                    # attn_cond = torch.mean(attn_cond, dim=0).reshape((res, res, 77)).permute(2, 0, 1)  
+                    # print(f"{attn_cond.shape = }") 
+                    attn_cond_split = torch.chunk(attn_cond, chunks=batch_size, dim=0) 
+                    attn_cond_batchitem = attn_cond_split[batch_idx] 
+                    attn_cond_mean = torch.mean(attn_cond_batchitem, dim=0).reshape((res, res, 77)).permute(2, 0, 1) 
+
+                    if not name in total_attn[track_idx].keys(): 
+                        total_attn[track_idx][name] = [] 
+
+                    total_attn[track_idx][name].append(attn_cond_mean[track_idx])  
+
+
+        assert len(total_attn.keys()) == len(track_ids), f"{total_attn.keys() = }, {track_ids = }" 
+        total_attn_ = {} 
+        for track_idx in track_ids: 
+            total_attn_[track_idx] = [] 
+            for name in total_attn[track_idx].keys(): 
+                assert len(total_attn[track_idx][name]) == n_timesteps, f"{len(total_attn[track_idx][name]) = }, {n_timesteps = }, {name = }, {track_idx = }" 
+
+
+        final_attn_maps = {} 
+        for track_idx in track_ids: 
+            final_attn_maps[track_idx] = []  
+            for timestep in range(n_timesteps): 
+                track_attn_timestep = torch.tensor([0.0]) 
+                for name in total_attn[track_idx].keys(): 
+                    assert len(total_attn[track_idx][name]) == n_timesteps, f"{len(total_attn[track_idx][name]) = }, {n_timesteps = }" 
+                    track_attn_timestep = track_attn_timestep + total_attn[track_idx][name][timestep] 
+                track_attn_timestep = track_attn_timestep / len(total_attn[track_idx].keys()) 
+                final_attn_maps[track_idx].append(track_attn_timestep) 
+            
+        # a dict containing a list of attention maps (for each timestep) for each special token  
+        all_batches_attn_maps.append(final_attn_maps) 
+
+    return all_batches_attn_maps  
 
  
 
@@ -540,4 +416,4 @@ def show_image_relevance(image_relevance, image: Image, relevance_res=16):
     vis = show_cam_on_image(image, image_relevance)
     vis = np.uint8(255 * vis)
     vis = cv2.cvtColor(np.array(vis), cv2.COLOR_RGB2BGR)
-    return vis
+    return Image.fromarray(vis) 

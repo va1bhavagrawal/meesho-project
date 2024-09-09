@@ -76,6 +76,8 @@ def create_image_with_captions(image_rows, captions):
     final_rows = []
     for images_resized, caption_images_row in zip(images_resized_rows, caption_images):
         # Concatenate images in the current row
+        # for img in images_resized: 
+        #     print(f"{img.shape = }")
         final_images = [cv2.vconcat([img, caption]) for img, caption in zip(images_resized, caption_images_row)]
         final_row = cv2.hconcat(final_images)
         final_rows.append(final_row)
