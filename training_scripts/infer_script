@@ -3,8 +3,8 @@
 #SBATCH --output=job_output_%j.log  
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
-#SBATCH --mem=256G 
+#SBATCH --mem=500G   
 #SBATCH --gres=gpu:A5000:8  
-#SBATCH --partition=short 
+#SBATCH --partition=short  
 
-accelerate launch --config_file accelerate_config.yaml infer_online_2subjects.py 
+accelerate launch --config_file accelerate_config.yaml infer_online.py  

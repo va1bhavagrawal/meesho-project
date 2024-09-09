@@ -200,9 +200,9 @@ class Infer:
             shutil.rmtree(f"{self.tmp_dir}") 
         if store_attn: 
             self.tmp_dir_attn = osp.join(osp.dirname(self.tmp_dir), osp.basename(self.tmp_dir) + "__attn") 
-            if osp.exists(self.tmp_dir_attn): 
+            if osp.exists(self.tmp_dir_attn) and self.accelerator.is_main_process: 
                 shutil.rmtree(self.tmp_dir_attn) 
-            os.makedirs(self.tmp_dir_attn) 
+                os.makedirs(self.tmp_dir_attn) 
         self.tokenizer = tokenizer 
 
         self.unet = self.accelerator.prepare(self.unet) 
@@ -241,7 +241,7 @@ class Infer:
             set_seed(self.seed) 
         latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
         self.scheduler.set_timesteps(50)
-        self.attn_store = patch_custom_attention(self.unet, self.store_attn, across_timesteps=True)  
+        self.attn_store = patch_custom_attention(self.accelerator.unwrap_model(self.unet), self.store_attn, across_timesteps=True)  
         for t in self.scheduler.timesteps:
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
             latent_model_input = torch.cat([latents] * 2)
