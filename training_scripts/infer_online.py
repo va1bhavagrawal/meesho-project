@@ -38,8 +38,10 @@ WHICH_STEP = 500000
 # WHICH_MODEL = "__freezeapp_large"   
 # WHICH_STEP = 110000  
 MAX_SUBJECTS_PER_EXAMPLE = 2  
-NUM_SAMPLES = 5  
+NUM_SAMPLES = 9  
 KEYWORD = "" 
+
+ACROSS_TIMESTEPS = False 
 
 from custom_attention_processor import patch_custom_attention, get_attention_maps, show_image_relevance  
 
@@ -187,7 +189,7 @@ class Infer:
         self.store_attn = store_attn 
         self.accelerator = accelerator 
         self.unet = unet  
-        self.bs = 1 if self.store_attn else bs  
+        self.bs = bs if ((not self.store_attn) or (not ACROSS_TIMESTEPS)) else 1  
         self.text_encoder = text_encoder  
         self.scheduler = scheduler 
         self.vae = vae 
@@ -241,7 +243,7 @@ class Infer:
             set_seed(self.seed) 
         latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
         self.scheduler.set_timesteps(50)
-        self.attn_store = patch_custom_attention(self.accelerator.unwrap_model(self.unet), self.store_attn, across_timesteps=True)  
+        self.attn_store = patch_custom_attention(self.accelerator.unwrap_model(self.unet), self.store_attn, across_timesteps=ACROSS_TIMESTEPS)   
         for t in self.scheduler.timesteps:
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
             latent_model_input = torch.cat([latents] * 2)
@@ -281,8 +283,8 @@ class Infer:
         os.makedirs(save_path_global, exist_ok=True) 
 
         if self.store_attn: 
-            for name, attns in self.attn_store.step_store.items(): 
-                assert len(attns) == len(self.scheduler.timesteps) 
+            # for name, attns in self.attn_store.step_store.items(): 
+            #     assert len(attns) == len(self.scheduler.timesteps) 
 
             attn_maps_batch = get_attention_maps(self.attn_store, batch["track_ids"][batch_idx], uncond_attn_also=True, res=16, batch_size=self.bs)   
             for batch_idx in range(len(batch["save_paths"])):  
@@ -306,9 +308,13 @@ class Infer:
                 assert len(attn_maps.keys()) == len(batch["track_ids"][batch_idx])  
 
                 assert len(batch['track_ids'][batch_idx]) == len(batch['interesting_token_strs'][batch_idx]) 
-                for timestep in range(len(self.scheduler.timesteps)): 
+                # for timestep in range(len(self.scheduler.timesteps)): 
+                if ACROSS_TIMESTEPS: 
+                    num_timesteps_in_attnstore = len(self.scheduler.timesteps) 
+                else: 
+                    num_timesteps_in_attnstore = 1  
+                for timestep in range(num_timesteps_in_attnstore):  
                     for track_idx_idx, track_idx in enumerate(batch["track_ids"][batch_idx]):  
-                        assert len(attn_maps[track_idx]) == len(self.scheduler.timesteps) 
                         # print(f"{attn_maps[track_idx][timestep].shape = }") 
                         heatmap = show_image_relevance(attn_maps[track_idx][timestep], image, relevance_res=16) 
                         heatmap_captioned = create_image_with_captions([[heatmap]], [[batch["interesting_token_strs"][batch_idx][track_idx_idx]]]) 
@@ -534,7 +540,12 @@ class Infer:
                         heatmap_paths = [osp.join(self.tmp_dir_attn, subjects_string, heatmap_name) for heatmap_name in heatmap_names] 
                         # heatmaps = [Image.open(heatmap) for heatmap in heatmap_paths]  
 
-                        for timestep in range(len(self.scheduler.timesteps)): 
+
+                        if ACROSS_TIMESTEPS: 
+                            num_timesteps_in_attnstore = len(self.scheduler.timesteps) 
+                        else: 
+                            num_timesteps_in_attnstore = 1  
+                        for timestep in range(num_timesteps_in_attnstore): 
                             # we are building a frame here 
                             all_cols = [] 
                             all_cols_captions = [] 
