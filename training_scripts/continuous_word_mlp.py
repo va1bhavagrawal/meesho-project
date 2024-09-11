@@ -15,6 +15,39 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F 
 
+from diffusers.models.embeddings import GaussianFourierProjection 
+
+
+# class GaussianFourierProjection(nn.Module):
+#     """Gaussian Fourier embeddings for noise levels."""
+
+#     def __init__(
+#         self, embedding_size: int = 256, scale: float = 1.0, set_W_to_weight=True, log=True, flip_sin_to_cos=False
+#     ):
+#         super().__init__()
+#         self.weight = nn.Parameter(torch.randn(embedding_size) * scale, requires_grad=False)
+#         self.log = log
+#         self.flip_sin_to_cos = flip_sin_to_cos
+
+#         if set_W_to_weight:
+#             # to delete later
+#             self.W = nn.Parameter(torch.randn(embedding_size) * scale, requires_grad=False)
+
+#             self.weight = self.W
+
+#     def forward(self, x):
+#         if self.log:
+#             x = torch.log(x)
+
+#         x_proj = x[:, None] * self.weight[None, :] * 2 * torch.pi 
+#         assert not torch.any(torch.isnan(x_proj)) 
+
+#         if self.flip_sin_to_cos:
+#             out = torch.cat([torch.cos(x_proj), torch.sin(x_proj)], dim=-1)
+#         else:
+#             out = torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+#         return out
+
 
 class continuous_word_mlp(nn.Module):
     def __init__(self, input_size, output_size):
@@ -85,4 +118,29 @@ class MergedEmbedding(nn.Module):
         else: 
             x = self.linear4(x) 
 
+        return x 
+
+
+class PoseEmbedding(nn.Module): 
+    def __init__(self, output_dim): 
+        super().__init__() 
+        self.input_dim = 1  
+        self.output_dim = output_dim 
+        self.linear1 = nn.Linear(output_dim, output_dim)  
+        self.linear2 = nn.Linear(output_dim, output_dim)  
+        self.linear3 = nn.Linear(output_dim, output_dim) 
+        self.gaussian_fourier_embedding = GaussianFourierProjection(output_dim // 2, log=False)  
+
+
+    def forward(self, x):  
+        x = self.gaussian_fourier_embedding(x) 
+        # print(f"{torch.min(x) = }, {torch.max(x) = }")
+        # assert not torch.any(torch.isinf(x)) 
+        # assert not torch.any(torch.isnan(x)) 
+        # the output of gaussian fourier projection is of shape (B, output_dim) 
+        x = self.linear1(x) 
+        x = F.relu(x) 
+        x = self.linear2(x) 
+        x = F.relu(x) 
+        x = self.linear3(x) 
         return x 

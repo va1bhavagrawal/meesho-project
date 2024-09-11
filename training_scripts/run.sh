@@ -1,13 +1,13 @@
-export RUN_NAME="replace_attn_maps" 
-# export RUN_NAME="debug" 
+# export RUN_NAME="replace_attn_maps" 
+export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_0409/ref_imgs_1subject"  
-export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_0409/ref_imgs_2subjects" 
-export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_0409/controlnet_imgs_1subject"
-export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_0409/controlnet_imgs_2subjects"
+export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_1109/ref_imgs_1subject"  
+export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_1109/ref_imgs_2subjects" 
+export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_1109/controlnet_imgs_1subject"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_1109/controlnet_imgs_2subjects"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_2subjects_0409/prior_imgs" 
+export CLASS_DATA_DIR="../training_data_2subjects_1109/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
@@ -31,13 +31,14 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
+  --pose_only_embedding="Y" \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --stage1_steps=150000 \
   --stage2_steps=350000 \
   --resolution=512 \
-  --train_batch_size=1 \
+  --train_batch_size=2 \
   --inference_batch_size=4 \
   --prior_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
@@ -50,7 +51,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
   # --resume_training_state="../ckpts/multiobject/__controlnet+ref2/training_state_500.pth" \

@@ -385,40 +385,49 @@ class Infer:
                     unique_string_subject = unique_string_subject.strip() 
                     unique_strings.append(unique_string_subject) 
 
-                # n_samples = len(gif_subject_data[0]["normalized_azimuths"]) - 1   
+                n_samples = len(gif_subject_data[0]["normalized_azimuths"]) - 1   
 
                 mlp_embs_video = [] 
-                bnha_embs_video = [] 
+                if self.mlp is not None: 
+                    bnha_embs_video = [] 
 
-                for sample_idx in range(NUM_SAMPLES - 1): 
+                for sample_idx in range(n_samples): 
                     mlp_embs_frame = [] 
                     bnha_embs_frame = [] 
                     for subject_data in gif_subject_data:  
                         normalized_azimuth = subject_data["normalized_azimuths"][sample_idx] 
-                        sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(self.accelerator.device)  
-
-                        if "pose_type" in subject_data.keys() and subject_data["pose_type"] == "0": 
-                            mlp_emb = torch.zeros((1024, )).to(self.accelerator.device) 
+                        if self.mlp is not None: 
+                            sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(self.accelerator.device)  
+                            if "pose_type" in subject_data.keys() and subject_data["pose_type"] == "0": 
+                                mlp_emb = torch.zeros((1024, )).to(self.accelerator.device) 
+                            else: 
+                                mlp_emb = self.mlp(sincos.unsqueeze(0)).squeeze()  
                         else: 
-                            mlp_emb = self.mlp(sincos.unsqueeze(0)).squeeze()  
+                            mlp_emb = self.merger(torch.tensor([normalized_azimuth]).float().to(self.accelerator.device))  
 
-                        if "appearance_type" in subject_data.keys() and subject_data["appearance_type"] != "class":  
-                            if subject_data["appearance_type"] == "zero": 
-                                bnha_emb = torch.zeros((1024, )).to(self.accelerator.device)  
-                            elif subject_data["appearance_type"] == "learnt":  
-                                bnha_emb = getattr(self.accelerator.unwrap_model(self.bnha_embeds), subject_data["subject"])  
-                        else: 
-                            bnha_emb = self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_data["subject"]]] 
+                        if self.mlp is not None: 
+                            if "appearance_type" in subject_data.keys() and subject_data["appearance_type"] != "class":  
+                                if subject_data["appearance_type"] == "zero": 
+                                    bnha_emb = torch.zeros((1024, )).to(self.accelerator.device)  
+                                elif subject_data["appearance_type"] == "learnt":  
+                                    bnha_emb = getattr(self.accelerator.unwrap_model(self.bnha_embeds), subject_data["subject"])  
+                            else: 
+                                bnha_emb = self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject_data["subject"]]] 
 
                         mlp_embs_frame.append(mlp_emb) 
-                        bnha_embs_frame.append(bnha_emb)  
+                        if self.mlp is not None: 
+                            bnha_embs_frame.append(bnha_emb)  
 
                     mlp_embs_video.append(torch.stack(mlp_embs_frame, 0)) 
-                    bnha_embs_video.append(torch.stack(bnha_embs_frame, 0))  
+                    if self.mlp is not None: 
+                        bnha_embs_video.append(torch.stack(bnha_embs_frame, 0))  
 
                 mlp_embs_video = torch.stack(mlp_embs_video, 0) 
-                bnha_embs_video = torch.stack(bnha_embs_video, 0)  
-                merged_embs_video = self.merger(mlp_embs_video, bnha_embs_video) 
+                if self.mlp is not None: 
+                    bnha_embs_video = torch.stack(bnha_embs_video, 0)  
+                    merged_embs_video = self.merger(mlp_embs_video, bnha_embs_video) 
+                else: 
+                    merged_embs_video = mlp_embs_video 
 
                 placeholder_text = "a SUBJECT0 " 
                 for asset_idx in range(1, len(gif_subject_data)):  
@@ -455,7 +464,7 @@ class Infer:
                         track_ids.append(token_pos)  
                         interesting_token_strs.append(self.tokenizer.decode(token)) 
 
-                for sample_idx in range(NUM_SAMPLES - 1): 
+                for sample_idx in range(n_samples): 
                     for asset_idx, subject_data in enumerate(gif_subject_data): 
                         subject = subject_data["subject"] 
                         for token_idx in range(self.merged_emb_dim // 1024): 
@@ -551,7 +560,7 @@ class Infer:
                             all_cols_captions = [] 
 
                             # in each column we would have a specific pose configuration, and the time axis would have the timesteps of generation  
-                            for pose_idx in range(NUM_SAMPLES - 1):  
+                            for pose_idx in range(n_samples):  
                                 # for each pose there would be a column of images, and those images be decided irrespective of the timestep 
                                 # the heatmaps corresponding to the different tokens 
                                 heatmap_paths_pose_timestep = sorted([heatmap_path for heatmap_path in heatmap_paths if heatmap_path.find(f"{str(pose_idx).zfill(3)}__{str(timestep).zfill(3)}__") != -1])  

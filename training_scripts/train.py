@@ -82,7 +82,7 @@ print(f"{SAVE_STEPS = }")
 
 NUM_SAMPLES = 12  
 
-from datasets import DisentangleDataset, MAX_SUBJECTS_PER_EXAMPLE  
+from datasets import DisentangleDataset  
 
 
 from accelerate import Accelerator
@@ -119,7 +119,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding  
+from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, PoseEmbedding  
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -193,7 +193,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         # else: 
         # PERFORMING ONLY CLASS INFERENCE HERE!
         assert bnha_embeds is None 
-        infer = Infer(args.merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, None, bs=args.inference_batch_size)  
+        infer = Infer(args.merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, None, store_attn=False, bs=args.inference_batch_size)  
 
 
         prompt = "a photo of PLACEHOLDER in the streets of Venice with the sun setting in the background"   
@@ -230,7 +230,9 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(random.randint(0, 151003), gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+
+        the_common_seed = get_common_seed() 
+        infer.do_it(the_common_seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -260,8 +262,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
 
-        the_common_seed = get_common_seed() 
-        infer.do_it(the_common_seed, gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(the_common_seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -301,7 +302,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ] 
-        infer.do_it(the_common_seed, gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(the_common_seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -341,7 +342,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
-        infer.do_it(the_common_seed, gif_path, prompt, subjects, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(the_common_seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -502,6 +503,12 @@ def parse_args(input_args=None):
         type=lambda x : bool(strtobool(x)),  
         required=True, 
         help="whether to include the class name in the prompt, aka the subject in prompt approach!",
+    )
+    parser.add_argument(
+        "--pose_only_embedding", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to only use pose in the merged embedding?", 
     )
     parser.add_argument(
         "--normalize_merged_embedding", 
@@ -1006,7 +1013,7 @@ def main(args):
                 unet_state_dict[name] = lora_state_dict[name]  
             unet.load_state_dict(unet_state_dict) 
 
-    patch_custom_attention(unet, None) 
+    patch_custom_attention(unet, store_attn=False, across_timesteps=False) 
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -1159,39 +1166,62 @@ def main(args):
         optimizers["appearance"] = optimizer_bnha 
 
 
-    pos_size = 2
-    continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
-    if args.resume_training_state: 
-        continuous_word_model.load_state_dict(training_state_ckpt["contword"]["model"]) 
-    optimizer_mlp = optimizer_class(
-        continuous_word_model.parameters(),  
-        lr=args.learning_rate_mlp,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
-    if args.resume_training_state: 
-        optimizer_mlp.load_state_dict(training_state_ckpt["contword"]["optimizer"]) 
-    # optimizers.append(optimizer_mlp)  
-    optimizers["contword"] = optimizer_mlp 
+    if not args.pose_only_embedding: 
+        pos_size = 2
+        continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
+        if args.resume_training_state: 
+            continuous_word_model.load_state_dict(training_state_ckpt["contword"]["model"]) 
+        optimizer_mlp = optimizer_class(
+            continuous_word_model.parameters(),  
+            lr=args.learning_rate_mlp,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        if args.resume_training_state: 
+            optimizer_mlp.load_state_dict(training_state_ckpt["contword"]["optimizer"]) 
+        # optimizers.append(optimizer_mlp)  
+        optimizers["contword"] = optimizer_mlp 
 
 
-    # the merged token formulation 
-    merger = MergedEmbedding(args.appearance_skip_connection, pose_dim=1024, appearance_dim=1024, output_dim=args.merged_emb_dim)    
-    if args.resume_training_state: 
-        merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
-    # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
-    optimizer_merger = optimizer_class(
-        merger.parameters(),  
-        lr=args.learning_rate_merger,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
-    if args.resume_training_state: 
-        optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
-    # optimizers.append(optimizer_merger) 
-    optimizers["merger"] = optimizer_merger 
+        # the merged token formulation 
+        merger = MergedEmbedding(args.appearance_skip_connection, pose_dim=1024, appearance_dim=1024, output_dim=args.merged_emb_dim)    
+        if args.resume_training_state: 
+            merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
+        # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
+        optimizer_merger = optimizer_class(
+            merger.parameters(),  
+            lr=args.learning_rate_merger,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        if args.resume_training_state: 
+            optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
+        # optimizers.append(optimizer_merger) 
+        optimizers["merger"] = optimizer_merger 
+
+    else: 
+        continuous_word_model = None 
+        merger = PoseEmbedding(output_dim=args.merged_emb_dim)  
+        # for name, p in merger.named_parameters(): 
+        # REMEMBER THAT THERE IS A RANDOM PROJECTION IN THE GAUSSIAN FOURIER FEATURES, AND HENCE THAT IS NOT LEARNABLE 
+        #     print(f"{name = }, {p.shape = }, {p.requires_grad = }") 
+
+        if args.resume_training_state: 
+            merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
+        # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
+        optimizer_merger = optimizer_class(
+            merger.parameters(),  
+            lr=args.learning_rate_merger,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        if args.resume_training_state: 
+            optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
+        # optimizers.append(optimizer_merger) 
+        optimizers["merger"] = optimizer_merger 
 
 
     noise_scheduler = DDPMScheduler.from_config(
@@ -1336,7 +1366,8 @@ def main(args):
     Dissemination of this information or reproduction of this material is 
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
-    continuous_word_model.to(accelerator.device)  
+    if continuous_word_model is not None: 
+        continuous_word_model.to(accelerator.device)  
     """End Adobe CONFIDENTIAL"""
 
     for name, param in unet.state_dict().items(): 
@@ -1376,10 +1407,11 @@ def main(args):
     Dissemination of this information or reproduction of this material is 
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
-    continuous_word_model.train()
+    if continuous_word_model is not None: 
+        continuous_word_model.train()
+
+    merger.train() 
     """End Adobe CONFIDENTIAL"""
-    if args.train_text_encoder:
-        text_encoder.train()
 
     # steps_per_angle = {} 
     input_embeddings = torch.clone(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight).detach()  
@@ -1505,13 +1537,23 @@ def main(args):
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
                     scalers_padded[batch_idx][scaler_idx] = batch["scalers"][batch_idx][scaler_idx] 
             p = torch.Tensor(scalers_padded / (2 * math.pi)) 
-            p = p.unsqueeze(-1) 
-            p = p.repeat(1, 1, 2)  
-            p[..., 0] = torch.sin(2 * torch.pi * p[..., 0]) 
-            p[..., 1] = torch.cos(2 * torch.pi * p[..., 1]) 
+            if not args.pose_only_embedding: 
+                p = p.unsqueeze(-1) 
+                p = p.repeat(1, 1, 2)  
+                p[..., 0] = torch.sin(2 * torch.pi * p[..., 0]) 
+                p[..., 1] = torch.cos(2 * torch.pi * p[..., 1]) 
+                mlp_emb = continuous_word_model(p) 
+            else: 
+                # mlp_emb = torch.zeros((B, MAX_SUBJECTS_PER_EXAMPLE, args.merged_emb_dim)) 
+                mlp_emb = [] 
+                for scaler_idx in range(MAX_SUBJECTS_PER_EXAMPLE):  
+                    # mlp_emb[:, scaler_idx, :] = merger(p[:, scaler_idx]) 
+                    mlp_emb.append(merger(p[:, scaler_idx]).unsqueeze(1)) 
+                mlp_emb = torch.cat(mlp_emb, dim=1) 
+                assert mlp_emb.shape == (B, MAX_SUBJECTS_PER_EXAMPLE, args.merged_emb_dim) 
+                    
 
             # getting the embeddings from the mlp
-            mlp_emb = continuous_word_model(p) 
 
         else: 
             progress_bar.set_description(f"stage 1: ")
@@ -1525,37 +1567,42 @@ def main(args):
         # appearance embeddings
         # textual inversion is used, then the embeddings are initialized with their classes  
         # else it is initialized with the default value for bnha 
-        bnha_emb = torch.zeros((len(batch["subjects"]), MAX_SUBJECTS_PER_EXAMPLE, 1024)) 
-        if args.textual_inv: 
-            # assert False 
-            # bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
-            # bnha_emb = torch.stack([bnha_embeds(subject) for subject in batch["subjects"]])  
-            assert len(batch["controlnet"]) == B 
-            for batch_idx in range(B): 
-                if batch["controlnet"][batch_idx]: 
-                    # if controlnet image, then replace the appearance embedding by the class embedding
+        if not args.pose_only_embedding: 
+            bnha_emb = torch.zeros((len(batch["subjects"]), MAX_SUBJECTS_PER_EXAMPLE, 1024)) 
+            if args.textual_inv: 
+                # assert False 
+                # bnha_emb = torch.stack([getattr(accelerator.unwrap_model(bnha_embeds), subject) for subject in batch["subjects"]])  
+                # bnha_emb = torch.stack([bnha_embeds(subject) for subject in batch["subjects"]])  
+                assert len(batch["controlnet"]) == B 
+                for batch_idx in range(B): 
+                    if batch["controlnet"][batch_idx]: 
+                        # if controlnet image, then replace the appearance embedding by the class embedding
+                        for asset_idx, subject in enumerate(batch["subjects"][batch_idx]): 
+                            bnha_emb[batch_idx][asset_idx] = torch.clone(input_embeddings)[TOKEN2ID[subject]]  
+                    else: 
+                        # bnha_emb.append(bnha_embeds(batch["subjects"][idx])) 
+                        for asset_idx, subject in enumerate(batch["subjects"][batch_idx]): 
+                            bnha_emb[batch_idx][asset_idx] = getattr(accelerator.unwrap_model(bnha_embeds), subject)  
+                # bnha_emb = torch.stack(bnha_emb) 
+
+            else: 
+                # bnha_emb = torch.clone(input_embeddings).detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
+                # bnha_emb = torch.clone(input_embeddings)[TOKEN2ID[]] 
+                for batch_idx in range(B): 
+                    # REPLACING BY THE CLASS EMBEDDING 
+                    # bnha_emb.append(torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]].detach())  
                     for asset_idx, subject in enumerate(batch["subjects"][batch_idx]): 
                         bnha_emb[batch_idx][asset_idx] = torch.clone(input_embeddings)[TOKEN2ID[subject]]  
-                else: 
-                    # bnha_emb.append(bnha_embeds(batch["subjects"][idx])) 
-                    for asset_idx, subject in enumerate(batch["subjects"][batch_idx]): 
-                        bnha_emb[batch_idx][asset_idx] = getattr(accelerator.unwrap_model(bnha_embeds), subject)  
-            # bnha_emb = torch.stack(bnha_emb) 
+                # bnha_emb = torch.stack(bnha_emb) 
+
+            merged_emb = merger(mlp_emb, bnha_emb)  
+            merged_emb_norm = torch.linalg.norm(merged_emb)  
+            assert merged_emb.shape[0] == B 
 
         else: 
-            # bnha_emb = torch.clone(input_embeddings).detach()[TOKEN2ID["bnha"]].unsqueeze(0).repeat(B, 1)  
-            # bnha_emb = torch.clone(input_embeddings)[TOKEN2ID[]] 
-            for batch_idx in range(B): 
-                # REPLACING BY THE CLASS EMBEDDING 
-                # bnha_emb.append(torch.clone(input_embeddings)[TOKEN2ID[batch["subjects"][idx]]].detach())  
-                for asset_idx, subject in enumerate(batch["subjects"][batch_idx]): 
-                    bnha_emb[batch_idx][asset_idx] = torch.clone(input_embeddings)[TOKEN2ID[subject]]  
-            # bnha_emb = torch.stack(bnha_emb) 
-
-
-        merged_emb = merger(mlp_emb, bnha_emb)  
-        merged_emb_norm = torch.linalg.norm(merged_emb)  
-        assert merged_emb.shape[0] == B 
+            merged_emb = mlp_emb 
+            merged_emb_norm = torch.linalg.norm(merged_emb)   
+            assert merged_emb.shape[0] == B 
 
         # print(f"{bnha_emb.shape = }")
         # print(f"{mlp_emb.shape = }")
@@ -1577,7 +1624,8 @@ def main(args):
         #                     merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024] = merged_vec_slice 
 
 
-        pose_emb_norm = torch.linalg.norm(mlp_emb) * num_assets_in_batch / (MAX_SUBJECTS_PER_EXAMPLE * B)   
+        # pose_emb_norm = torch.linalg.norm(mlp_emb) * num_assets_in_batch / (MAX_SUBJECTS_PER_EXAMPLE * B)   
+        pose_emb_norm = torch.linalg.norm(mlp_emb)  
 
         # replacing the input embedding for sks by the mlp for each batch item, and then getting the output embeddings of the text encoder 
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
@@ -1695,9 +1743,9 @@ def main(args):
             torch.cuda.empty_cache() 
 
         # checking if the parameters do require grads at least 
-        if DEBUG: 
-            for p in merger.parameters(): 
-                assert p.requires_grad 
+        # if DEBUG: 
+        #     for p in merger.parameters(): 
+        #         assert p.requires_grad 
 
 
         accelerator.backward(loss)
@@ -1706,6 +1754,7 @@ def main(args):
             with torch.no_grad(): 
                 # checking that merger receives gradients 
                 bad_merger_params = [(n, p) for (n, p) in merger.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.zeros_like(p.grad))] 
+                bad_merger_params = [(n, p) for (n, p) in bad_merger_params if n.find("gaussian_fourier_embedding") == -1] 
                 # assert len(bad_merger_params) == 0, f"{len(bad_merger_params) = }, {len(list(merger.parameters())) = }" 
                 # print(f"{len(bad_merger_params) = }, {len(list(merger.parameters())) = }")  
                 # for (n, p) in merger.named_parameters():  
@@ -1719,13 +1768,14 @@ def main(args):
 
                 # checking that mlp receives gradients in stage 2 
                 # print(f"merger does receive gradients!")
-                bad_mlp_params = [(n, p) for (n, p) in continuous_word_model.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
-                # assert not ((len(bad_mlp_params) < len(list(continuous_word_model.parameters()))) ^ (global_step > args.stage1_steps))  
-                # assert not ((len(bad_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
-                if global_step > args.stage1_steps + 2:  
-                    # print(f"{len(bad_mlp_params) = }, {len(list(continuous_word_model.parameters())) = }")  
-                    # assert len(bad_mlp_params) < len(list(continuous_word_model.parameters()))  
-                    assert len(bad_mlp_params) == 0  
+                if not args.pose_only_embedding: 
+                    bad_mlp_params = [(n, p) for (n, p) in continuous_word_model.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
+                    # assert not ((len(bad_mlp_params) < len(list(continuous_word_model.parameters()))) ^ (global_step > args.stage1_steps))  
+                    # assert not ((len(bad_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
+                    if global_step > args.stage1_steps + 2:  
+                        # print(f"{len(bad_mlp_params) = }, {len(list(continuous_word_model.parameters())) = }")  
+                        # assert len(bad_mlp_params) < len(list(continuous_word_model.parameters()))  
+                        assert len(bad_mlp_params) == 0  
                 # print(f"{len(bad_mlp_params) = }") 
                     # print(f"mlp does receive gradients!")
 
@@ -1750,34 +1800,34 @@ def main(args):
                     
 
                 # checking whether the text encoder will receive gradients 
-                if args.train_text_encoder: 
-                    # some_grad_is_good = False  
-                    # for p in list(text_encoder.parameters()):   
-                    for p in list(itertools.chain(*text_encoder_lora_params)):    
-                        if p.grad is None: 
-                            continue 
-                        # if not torch.allclose(p.grad, torch.zeros_like(p.grad)):   
-                        #     some_grad_is_good = True 
-                        assert not torch.allclose(p.grad, torch.zeros_like(p.grad))  
-                    # assert some_grad_is_good 
+                # if args.train_text_encoder: 
+                #     # some_grad_is_good = False  
+                #     # for p in list(text_encoder.parameters()):   
+                #     for p in text_encoder_lora_params:   
+                #         if p.grad is None: 
+                #             continue 
+                #         # if not torch.allclose(p.grad, torch.zeros_like(p.grad)):   
+                #         #     some_grad_is_good = True 
+                #         assert not torch.allclose(p.grad, torch.zeros_like(p.grad))  
+                #     # assert some_grad_is_good 
 
-                # checking whether the unet will receive gradients 
-                if args.train_unet: 
-                    # some_grad_is_good = False 
-                    # for p in list(itertools.chain(*unet_lora_params)):    
-                    for n, p in list(unet.named_parameters()):    
-                        if p.grad is None: 
-                            continue 
-                        # print(f"{torch.zeros_like(p.grad) = }, {p.grad = }")
-                        # print(f"something is not none also!")
-                        if not torch.allclose(p.grad, torch.zeros_like(p.grad)):  
-                            # print(f"{n = } has a gradient!")
-                            some_grad_is_good = True 
-                        else: 
-                            # assert not torch.allclose(p.grad, torch.zeros_like(p.grad)) 
-                            # print(f"{n = } DOES NOT HAVE GRADIENT...")
-                            pass 
-                    assert some_grad_is_good 
+                # # checking whether the unet will receive gradients 
+                # if args.train_unet: 
+                #     # some_grad_is_good = False 
+                #     # for p in list(itertools.chain(*unet_lora_params)):    
+                #     for n, p in list(unet.named_parameters()):    
+                #         if p.grad is None: 
+                #             continue 
+                #         # print(f"{torch.zeros_like(p.grad) = }, {p.grad = }")
+                #         # print(f"something is not none also!")
+                #         if not torch.allclose(p.grad, torch.zeros_like(p.grad)):  
+                #             # print(f"{n = } has a gradient!")
+                #             some_grad_is_good = True 
+                #         else: 
+                #             # assert not torch.allclose(p.grad, torch.zeros_like(p.grad)) 
+                #             # print(f"{n = } DOES NOT HAVE GRADIENT...")
+                #             pass 
+                #     assert some_grad_is_good 
 
 
                 # while debugging, go all controlnet, and then this assertion must pass 
@@ -1803,13 +1853,16 @@ def main(args):
             with torch.no_grad(): 
                 all_grad_norms = []
 
-                # mlp 
-                mlp_grad_norm = [torch.linalg.norm(param.grad) for param in continuous_word_model.parameters() if param.grad is not None]
-                if len(mlp_grad_norm) == 0:
-                    mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
-                else:
-                    mlp_grad_norm = torch.mean(torch.stack(mlp_grad_norm)) 
-                all_grad_norms.append(mlp_grad_norm) 
+                if not args.pose_only_embedding: 
+                    # mlp 
+                    mlp_grad_norm = [torch.linalg.norm(param.grad) for param in continuous_word_model.parameters() if param.grad is not None]
+                    if len(mlp_grad_norm) == 0:
+                        mlp_grad_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        mlp_grad_norm = torch.mean(torch.stack(mlp_grad_norm)) 
+                    all_grad_norms.append(mlp_grad_norm) 
+                else: 
+                    all_grad_norms.append(torch.tensor(-1.0))  
 
 
                 # merger  
@@ -1896,7 +1949,8 @@ def main(args):
         if DEBUG: 
             with torch.no_grad(): 
                 merger_before = copy.deepcopy([p for p in merger.parameters()]) 
-                mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
+                if not args.pose_only_embedding: 
+                    mlp_before = copy.deepcopy([p for p in continuous_word_model.parameters()])  
                 unet_before = copy.deepcopy([p for p in unet.parameters()]) 
                 text_encoder_before = copy.deepcopy([p for p in text_encoder.parameters()]) 
                 if args.textual_inv: 
@@ -1912,12 +1966,15 @@ def main(args):
                 all_norms = []
 
                 # mlp 
-                mlp_norm = [torch.linalg.norm(param) for param in continuous_word_model.parameters() if param.grad is not None]
-                if len(mlp_norm) == 0:
-                    mlp_norm = torch.tensor(0.0).to(accelerator.device) 
-                else:
-                    mlp_norm = torch.mean(torch.stack(mlp_norm)) 
-                all_norms.append(mlp_norm) 
+                if not args.pose_only_embedding: 
+                    mlp_norm = [torch.linalg.norm(param) for param in continuous_word_model.parameters() if param.grad is not None]
+                    if len(mlp_norm) == 0:
+                        mlp_norm = torch.tensor(0.0).to(accelerator.device) 
+                    else:
+                        mlp_norm = torch.mean(torch.stack(mlp_norm)) 
+                    all_norms.append(mlp_norm) 
+                else: 
+                    all_norms.append(torch.tensor(-1.0)) 
 
 
                 # merger  
@@ -1987,9 +2044,10 @@ def main(args):
         if DEBUG: 
             # checking that no parameter should be NaN 
             for p in merger.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
-            for p in continuous_word_model.parameters(): 
-                assert not torch.any(torch.isnan(p)) 
+                assert not torch.any(torch.isnan(p)), f"{[n for (n, p) in merger.named_parameters() if torch.any(torch.isnan(p))]}" 
+            if not args.pose_only_embedding: 
+                for p in continuous_word_model.parameters(): 
+                    assert not torch.any(torch.isnan(p)) 
             for p in unet.parameters(): 
                 assert not torch.any(torch.isnan(p)) 
             for p in text_encoder.parameters(): 
@@ -1997,7 +2055,8 @@ def main(args):
 
             with torch.no_grad(): 
                 merger_after = [p for p in merger.parameters()]  
-                mlp_after = [p for p in continuous_word_model.parameters()]  
+                if not args.pose_only_embedding: 
+                    mlp_after = [p for p in continuous_word_model.parameters()]  
                 unet_after = [p for p in unet.parameters()]  
                 text_encoder_after = [p for p in text_encoder.parameters()]  
                 if args.textual_inv: 
@@ -2005,8 +2064,9 @@ def main(args):
 
                 merger_after = [p1 - p2 for p1, p2 in zip(merger_before, merger_after)] 
                 del merger_before 
-                mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
-                del mlp_before 
+                if not args.pose_only_embedding: 
+                    mlp_after = [p1 - p2 for p1, p2 in zip(mlp_before, mlp_after)] 
+                    del mlp_before 
                 unet_after = [p1 - p2 for p1, p2 in zip(unet_before, unet_after)]  
                 del unet_before 
                 text_encoder_after = [p1 - p2 for p1, p2 in zip(text_encoder_before, text_encoder_after)]  
@@ -2081,7 +2141,8 @@ def main(args):
                 # merger_safe = copy.deepcopy(merger) 
                 unet_params_safe = [torch.clone(p) for p in unet.parameters()] 
                 text_encoder_params_safe = [torch.clone(p) for p in text_encoder.parameters()] 
-                mlp_params_safe = [torch.clone(p) for p in continuous_word_model.parameters()] 
+                if not args.pose_only_embedding: 
+                    mlp_params_safe = [torch.clone(p) for p in continuous_word_model.parameters()] 
                 merger_params_safe = [torch.clone(p) for p in merger.parameters()] 
                 # bnha_embeds_safe = [torch.clone(p) for p in bnha_embeds.parameters()] 
 
@@ -2092,7 +2153,7 @@ def main(args):
             #     set_seed(args.seed + accelerator.process_index) 
             # elif (DEBUG or args.wandb) and args.online_inference: 
             # ONLY PERFORMING CLASS INFERENCE HERE!  
-            print(f"just before infer function call, {MAX_SUBJECTS_PER_EXAMPLE = }")
+            # print(f"just before infer function call, {MAX_SUBJECTS_PER_EXAMPLE = }")
             wandb_log_data = infer(args, step, wandb_log_data, accelerator, unet, noise_scheduler, vae, text_encoder, continuous_word_model, merger, None, input_embeddings, MAX_SUBJECTS_PER_EXAMPLE) 
             force_wandb_log = True 
             set_seed(args.seed + accelerator.process_index) 
@@ -2103,8 +2164,9 @@ def main(args):
                     assert torch.allclose(p_, p) 
                 for p_, p in zip(text_encoder_params_safe, text_encoder.parameters()):  
                     assert torch.allclose(p_, p) 
-                for p_, p in zip(mlp_params_safe, continuous_word_model.parameters()): 
-                    assert torch.allclose(p_, p) 
+                if not args.pose_only_embedding: 
+                    for p_, p in zip(mlp_params_safe, continuous_word_model.parameters()): 
+                        assert torch.allclose(p_, p) 
                 for p_, p in zip(merger_params_safe, merger.parameters()):  
                     assert torch.allclose(p_, p) 
                 # for p_, p in zip(bnha_embeds_safe, bnha_embeds.parameters()):  
@@ -2232,7 +2294,8 @@ def main(args):
                     training_state["global_step"] = global_step 
 
                     training_state["appearance"] = {} 
-                    training_state["contword"] = {} 
+                    if not args.pose_only_embedding: 
+                        training_state["contword"] = {} 
                     training_state["merger"] = {} 
                     training_state["text_encoder"] = {} 
                     training_state["unet"] = {} 
@@ -2254,8 +2317,9 @@ def main(args):
                     training_state["merger"]["optimizer"] = optimizers["merger"].state_dict() 
                     training_state["merger"]["model"] = accelerator.unwrap_model(merger).state_dict() 
 
-                    training_state["contword"]["optimizer"] = optimizers["contword"].state_dict() 
-                    training_state["contword"]["model"] = accelerator.unwrap_model(continuous_word_model).state_dict() 
+                    if not args.pose_only_embedding: 
+                        training_state["contword"]["optimizer"] = optimizers["contword"].state_dict() 
+                        training_state["contword"]["model"] = accelerator.unwrap_model(continuous_word_model).state_dict() 
 
                     if args.textual_inv: 
                         training_state["appearance"]["optimizer"] = optimizers["appearance"].state_dict() 
@@ -2276,21 +2340,23 @@ def main(args):
                     save_dir = osp.join(args.output_dir, f"training_state_{global_step}.pth")
                     torch.save(training_state, save_dir)   
 
+                    accelerator.print(f"<=========== SAVED CHECKPOINT FOR STEP {global_step} ===============>") 
+
                     # this is for saving the safeloras 
-                    loras = {}
-                    if args.train_unet: 
-                        loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+                    # loras = {}
+                    # if args.train_unet: 
+                    #     loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
 
-                    print("Cross Attention is also updated!")
+                    # print("Cross Attention is also updated!")
 
-                    # """ If updating only cross attention """
-                    # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
+                    # # """ If updating only cross attention """
+                    # # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
 
-                    if args.train_text_encoder:
-                        loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+                    # if args.train_text_encoder:
+                    #     loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
 
-                    if loras != {}: 
-                        save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
+                    # if loras != {}: 
+                    #     save_safeloras(loras, f"{args.output_dir}/lora_weight_{global_step}.safetensors")
                     
                     """
                     ADOBE CONFIDENTIAL
@@ -2398,61 +2464,61 @@ def main(args):
         # [shutil.rmtree(file) for file in all_gifs] 
 
     # Create the pipeline using using the trained modules and save it.
-    if accelerator.is_main_process:
-        pipeline = StableDiffusionPipeline.from_pretrained(
-            args.pretrained_model_name_or_path,
-            unet=accelerator.unwrap_model(unet),
-            text_encoder=accelerator.unwrap_model(text_encoder),
-            revision=args.revision,
-        )
+    # if accelerator.is_main_process:
+    #     pipeline = StableDiffusionPipeline.from_pretrained(
+    #         args.pretrained_model_name_or_path,
+    #         unet=accelerator.unwrap_model(unet),
+    #         text_encoder=accelerator.unwrap_model(text_encoder),
+    #         revision=args.revision,
+    #     )
 
-        print("\n\nLora TRAINING DONE!\n\n")
+    #     print("\n\nLora TRAINING DONE!\n\n")
 
-        if args.output_format == "pt" or args.output_format == "both":
-            save_lora_weight(pipeline.unet, args.output_dir + "/lora_weight.pt")
-            if args.train_text_encoder:
-                save_lora_weight(
-                    pipeline.text_encoder,
-                    args.output_dir + "/lora_weight.text_encoder.pt",
-                    target_replace_module=["CLIPAttention"],
-                )
+    #     if args.output_format == "pt" or args.output_format == "both":
+    #         save_lora_weight(pipeline.unet, args.output_dir + "/lora_weight.pt")
+    #         if args.train_text_encoder:
+    #             save_lora_weight(
+    #                 pipeline.text_encoder,
+    #                 args.output_dir + "/lora_weight.text_encoder.pt",
+    #                 target_replace_module=["CLIPAttention"],
+    #             )
 
-        if args.output_format == "safe" or args.output_format == "both":
-            loras = {}
-            if args.train_unet: 
-                loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
+        # if args.output_format == "safe" or args.output_format == "both":
+        #     loras = {}
+        #     if args.train_unet: 
+        #         loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn", "Attention", "GEGLU"})
             
-            print("Cross Attention is also updated!")
+        #     print("Cross Attention is also updated!")
             
-            # """ If updating only cross attention """
-            # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
+        #     # """ If updating only cross attention """
+        #     # loras["unet"] = (pipeline.unet, {"CrossAttnDownBlock2D", "CrossAttnUpBlock2D", "UNetMidBlock2DCrossAttn"})
             
-            if args.train_text_encoder:
-                loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
+        #     if args.train_text_encoder:
+        #         loras["text_encoder"] = (pipeline.text_encoder, {"CLIPAttention"})
 
-            if loras != {}: 
-                save_safeloras(loras, args.output_dir + "/lora_weight.safetensors")
-            """
-            ADOBE CONFIDENTIAL
-            Copyright 2024 Adobe
-            All Rights Reserved.
-            NOTICE: All information contained herein is, and remains
-            the property of Adobe and its suppliers, if any. The intellectual
-            and technical concepts contained herein are proprietary to Adobe 
-            and its suppliers and are protected by all applicable intellectual 
-            property laws, including trade secret and copyright laws. 
-            Dissemination of this information or reproduction of this material is 
-            strictly forbidden unless prior written permission is obtained from Adobe.
-            """
-            torch.save(continuous_word_model.state_dict(), args.output_dir + "/continuous_word_mlp.pt")
-            """end Adobe CONFIDENTIAL"""
+        #     # if loras != {}: 
+        #     #     save_safeloras(loras, args.output_dir + "/lora_weight.safetensors")
+        #     """
+        #     ADOBE CONFIDENTIAL
+        #     Copyright 2024 Adobe
+        #     All Rights Reserved.
+        #     NOTICE: All information contained herein is, and remains
+        #     the property of Adobe and its suppliers, if any. The intellectual
+        #     and technical concepts contained herein are proprietary to Adobe 
+        #     and its suppliers and are protected by all applicable intellectual 
+        #     property laws, including trade secret and copyright laws. 
+        #     Dissemination of this information or reproduction of this material is 
+        #     strictly forbidden unless prior written permission is obtained from Adobe.
+        #     """
+        #     torch.save(continuous_word_model.state_dict(), args.output_dir + "/continuous_word_mlp.pt")
+        #     """end Adobe CONFIDENTIAL"""
 
-        if args.push_to_hub:
-            repo.push_to_hub(
-                commit_message="End of training",
-                blocking=False,
-                auto_lfs_prune=True,
-            )
+        # if args.push_to_hub:
+        #     repo.push_to_hub(
+        #         commit_message="End of training",
+        #         blocking=False,
+        #         auto_lfs_prune=True,
+        #     )
 
     accelerator.end_training()
 
