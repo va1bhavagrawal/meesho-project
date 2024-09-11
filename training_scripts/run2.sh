@@ -51,6 +51,7 @@ accelerate launch --config_file accelerate_config2.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
   # --resume_training_state="../ckpts/multiobject/__controlnet+ref2/training_state_500.pth" \

@@ -1862,7 +1862,7 @@ def main(args):
                         mlp_grad_norm = torch.mean(torch.stack(mlp_grad_norm)) 
                     all_grad_norms.append(mlp_grad_norm) 
                 else: 
-                    all_grad_norms.append(torch.tensor(-1.0))  
+                    all_grad_norms.append(torch.tensor(-1.0).to(accelerator.device))   
 
 
                 # merger  
@@ -1974,7 +1974,7 @@ def main(args):
                         mlp_norm = torch.mean(torch.stack(mlp_norm)) 
                     all_norms.append(mlp_norm) 
                 else: 
-                    all_norms.append(torch.tensor(-1.0)) 
+                    all_norms.append(torch.tensor(-1.0).to(accelerator.device))  
 
 
                 # merger  
