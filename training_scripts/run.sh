@@ -1,5 +1,5 @@
-# export RUN_NAME="replace_attn_maps" 
-export RUN_NAME="debug" 
+export RUN_NAME="nomerged" 
+# export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_1109/ref_imgs_1subject"  
@@ -38,7 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=150000 \
   --stage2_steps=350000 \
   --resolution=512 \
-  --train_batch_size=2 \
+  --train_batch_size=1 \
   --inference_batch_size=4 \
   --prior_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
@@ -51,6 +51,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
   # --resume_training_state="../ckpts/multiobject/__controlnet+ref2/training_state_500.pth" \
