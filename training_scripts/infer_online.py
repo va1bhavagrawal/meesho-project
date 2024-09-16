@@ -37,11 +37,16 @@ WHICH_MODEL = "replace_attn_maps"
 WHICH_STEP = 500000   
 # WHICH_MODEL = "__freezeapp_large"   
 # WHICH_STEP = 110000  
-MAX_SUBJECTS_PER_EXAMPLE = 2  
-NUM_SAMPLES = 9  
-KEYWORD = "" 
+MAX_SUBJECTS_PER_EXAMPLE = 2    
+NUM_SAMPLES = 7      
 
-ACROSS_TIMESTEPS = False 
+P2P = True  
+MAX_P2P_TIMESTEP = 40   
+
+KEYWORD = f"p2p_{MAX_P2P_TIMESTEP}"   
+
+ACROSS_TIMESTEPS = True  
+NUM_INFERENCE_STEPS = 50 
 
 from custom_attention_processor import patch_custom_attention, get_attention_maps, show_image_relevance  
 
@@ -62,6 +67,7 @@ TOKEN2ID = {
     "truck": 4629,  
     "zebra": 22548,  
     "sedan": 24237, 
+    "suv": 15985, 
     "motocross": 34562,  
     "boat": 4440,   
     "ship": 1158,  
@@ -148,7 +154,7 @@ import wandb
 
 class EncoderStatesDataset(Dataset): 
     def __init__(self, encoder_states, save_paths, attn_assignments, track_ids, interesting_token_strs): 
-        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments) == len(interesting_token_strs)  
+        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments) == len(interesting_token_strs) > 0  
         self.encoder_states = encoder_states 
         self.save_paths = save_paths 
         self.attn_assignments = attn_assignments 
@@ -190,6 +196,7 @@ class Infer:
         self.accelerator = accelerator 
         self.unet = unet  
         self.bs = bs if ((not self.store_attn) or (not ACROSS_TIMESTEPS)) else 1  
+        self.bs = self.bs if (not P2P) else 2 
         self.text_encoder = text_encoder  
         self.scheduler = scheduler 
         self.vae = vae 
@@ -242,9 +249,11 @@ class Infer:
         if self.seed is not None: 
             set_seed(self.seed) 
         latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
-        self.scheduler.set_timesteps(50)
+        with open("best_latents.pt", "rb") as f: 
+            latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
+        self.scheduler.set_timesteps(NUM_INFERENCE_STEPS) 
         self.attn_store = patch_custom_attention(self.accelerator.unwrap_model(self.unet), self.store_attn, across_timesteps=ACROSS_TIMESTEPS)   
-        for t in self.scheduler.timesteps:
+        for t_idx, t in enumerate(self.scheduler.timesteps):
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
             latent_model_input = torch.cat([latents] * 2)
 
@@ -257,6 +266,9 @@ class Infer:
                 "encoder_hidden_states": concat_encoder_states, 
                 "attn_assignments": all_assignments, 
             }
+            if P2P and t_idx < MAX_P2P_TIMESTEP: 
+                encoder_states_dict["p2p"] = True 
+                assert self.bs == 2  
 
             if not self.replace_attn: 
                 noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample 
@@ -513,6 +525,28 @@ class Infer:
                     os.makedirs(osp.dirname(save_path), exist_ok=True)   
             self.accelerator.wait_for_everyone() 
 
+            if P2P: 
+                all_encoder_states_permuted = [] 
+                all_save_paths_permuted = [] 
+                all_attn_assignments_permuted = [] 
+                all_track_ids_permuted = [] 
+                all_interesting_token_strs_permuted = [] 
+
+                stride = NUM_SAMPLES - 1  
+                for start_idx in range(NUM_SAMPLES - 1): 
+                    for sample_idx in range(start_idx, len(all_encoder_states), stride): 
+                        all_encoder_states_permuted.append(all_encoder_states[sample_idx]) 
+                        all_save_paths_permuted.append(all_save_paths[sample_idx]) 
+                        all_attn_assignments_permuted.append(all_attn_assignments[sample_idx]) 
+                        all_track_ids_permuted.append(all_track_ids[sample_idx]) 
+                        all_interesting_token_strs_permuted.append(all_interesting_token_strs[sample_idx]) 
+
+                all_encoder_states = all_encoder_states_permuted 
+                all_save_paths = all_save_paths_permuted 
+                all_attn_assignments = all_attn_assignments_permuted 
+                all_track_ids = all_track_ids_permuted 
+                all_interesting_token_strs = all_interesting_token_strs_permuted 
+
             dataset = EncoderStatesDataset(all_encoder_states, all_save_paths, all_attn_assignments, all_track_ids, all_interesting_token_strs)     
 
             dataloader = DataLoader(dataset, batch_size=self.bs, collate_fn=collate_fn)  
@@ -527,17 +561,14 @@ class Infer:
 
             self.accelerator.wait_for_everyone() 
             self.accelerator.print(f"every thread finished their generation, now collecting them to form a gif...") 
-            if not self.store_attn: 
-                if self.accelerator.is_main_process: 
-                    # collect_generated_images(subjects, self.tmp_dir, prompt, "pose+app", self.gif_name)  
-                    collect_generated_images(self.tmp_dir, prompt, self.gif_path)  
-                self.accelerator.wait_for_everyone() 
+            # if not self.store_attn: 
+            if self.accelerator.is_main_process: 
+                # collect_generated_images(subjects, self.tmp_dir, prompt, "pose+app", self.gif_name)  
+                collect_generated_images(self.tmp_dir, prompt, self.gif_path)  
+            self.accelerator.wait_for_everyone() 
 
-                if self.accelerator.is_main_process: 
-                    print(f"removing {self.tmp_dir}") 
-                    shutil.rmtree(self.tmp_dir) 
 
-            else: 
+            if self.store_attn: 
                 if self.accelerator.is_main_process: 
                     for subjects_string in os.listdir(self.tmp_dir_attn): 
                         movie = [] 
@@ -590,6 +621,10 @@ class Infer:
                     self.accelerator.print(f"removing {self.tmp_dir_attn}") 
                     shutil.rmtree(self.tmp_dir_attn) 
 
+                if self.accelerator.is_main_process: 
+                    print(f"removing {self.tmp_dir}") 
+                    shutil.rmtree(self.tmp_dir) 
+
 
 if __name__ == "__main__": 
     args_path = osp.join(f"../ckpts/multiobject/", f"__{WHICH_MODEL}", f"args.pkl") 
@@ -604,9 +639,9 @@ if __name__ == "__main__":
 
     training_state_path = osp.join(f"../ckpts/multiobject/", f"__{WHICH_MODEL}", f"training_state_{WHICH_STEP}.pth") 
     assert osp.exists(training_state_path), f"{training_state_path = }"  
-    lora_weight_path = training_state_path.replace(f"training_state", "lora_weight") 
-    lora_weight_path = lora_weight_path.replace(f"pth", "safetensors") 
-    assert osp.exists(lora_weight_path), f"{lora_weight_path = }"  
+    # lora_weight_path = training_state_path.replace(f"training_state", "lora_weight") 
+    # lora_weight_path = lora_weight_path.replace(f"pth", "safetensors") 
+    # assert osp.exists(lora_weight_path), f"{lora_weight_path = }"  
     training_state = torch.load(training_state_path) 
 
     # patch_pipe( 
@@ -629,7 +664,8 @@ if __name__ == "__main__":
             unet_state_dict[name] = pretrained_unet_state_dict[name] 
         pipeline.unet.load_state_dict(unet_state_dict) 
 
-    pose_mlp.load_state_dict(training_state["contword"]["model"]) 
+    if "pose_only_embedding" not in args.keys() or not args['pose_only_embedding']: 
+        pose_mlp.load_state_dict(training_state["contword"]["model"]) 
     merger.load_state_dict(training_state["merger"]["model"]) 
 
     accelerator = Accelerator() 
@@ -652,311 +688,201 @@ if __name__ == "__main__":
 
     replace_attn = True  
 
+    infer = Infer(merged_emb_dim, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", args['text_encoder_bypass'], None, store_attn=True, bs=4) 
+
+
     subjects = [
         [
             {
                 "subject": "jeep", 
                 "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "motorbike", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "motorbike", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "pickup truck", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "jeep", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "sedan", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        [
-            {
-                "subject": "elephant", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 "appearance_type": "class", 
             }, 
             {
                 "subject": "horse", 
                 "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
             }
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
+        ][:MAX_SUBJECTS_PER_EXAMPLE],  
         [
             {
-                "subject": "sedan", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "subject": "jeep", 
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 "appearance_type": "class", 
             }, 
             {
-                "subject": "motorbike", 
+                "subject": "sedan", 
                 "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
             }
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
+        ][:MAX_SUBJECTS_PER_EXAMPLE],  
     ]
-
-    infer = Infer(merged_emb_dim, accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", args['text_encoder_bypass'], None, store_attn=True, bs=4) 
     prompts = [
         "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
         "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-        "a photo of PLACEHOLDER in the streets of Venice with the sun setting in the background", 
-        "a photo of PLACEHOLDER in a lush green forest with tall trees", 
+        "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
     ]
     for prompt in prompts: 
-        seed = random.randint(0, 170904) 
-        infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
+
+        if accelerator.is_main_process: 
+            if osp.exists("best_latents.pt"): 
+                os.remove("best_latents.pt")  
+            seed = random.randint(0, 170904) 
+            with open(f"seed.pkl", "wb") as f: 
+                pickle.dump(seed, f) 
+            # set_seed(seed) 
+            latents = torch.randn(1, 4, 64, 64)  
+            with open(f"best_latents.pt", "wb") as f: 
+                torch.save(latents, f) 
+
+        accelerator.wait_for_everyone() 
+        if not accelerator.is_main_process: 
+            with open("seed.pkl", "rb") as f: 
+                seed = pickle.load(f) 
+
+        infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
 
 
     subjects = [
-        [
-            {
-                "subject": "sedan", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "tractor", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "tractor", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "sedan", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "elephant", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "lion", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        [
-            {
-                "subject": "lion", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "elephant", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        [
-            {
-                "subject": "jeep", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "lion", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
-    ]
-
-
-    prompts = [
-        "a photo of PLACEHOLDER in front of the Taj Mahal", 
-        "a photo of PLACEHOLDER in a drive through",  
-        "a photo of PLACEHOLDER near a waterfall", 
-        "a photo of PLACEHOLDER in front of a temple", 
-        "a photo of PLACEHOLDER in front of a church", 
-    ]
-    for prompt in prompts: 
-        seed = random.randint(0, 170904) 
-        infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
-
-
-    subjects = [
-        [
-            {
-                "subject": "sedan", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                "appearance_type": "class", 
-            }, 
-            
-        ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "tractor", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                "appearance_type": "class", 
-            }, 
-            
-        ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "elephant", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                "appearance_type": "class", 
-            }, 
-            
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        [
-            {
-                "subject": "lion", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                "appearance_type": "class", 
-            }, 
-            
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
         [
             {
                 "subject": "jeep", 
                 "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 "appearance_type": "class", 
             }, 
-            
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
+            {
+                "subject": "horse", 
+                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
+            }
+        ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        [
+            {
+                "subject": "suv", 
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                "appearance_type": "class", 
+            }, 
+            {
+                "subject": "horse", 
+                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
+            }
+        ][:MAX_SUBJECTS_PER_EXAMPLE],  
     ]
-
-
     prompts = [
-        "a photo of PLACEHOLDER in front of the Taj Mahal", 
-        "a photo of PLACEHOLDER in a drive through",  
-        "a photo of PLACEHOLDER near a waterfall", 
-        "a photo of PLACEHOLDER in front of a temple", 
-        "a photo of PLACEHOLDER in front of a church", 
+        "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+        "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
     ]
     for prompt in prompts: 
-        seed = random.randint(0, 170904) 
-        infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
+
+        if accelerator.is_main_process: 
+            if osp.exists("best_latents.pt"): 
+                os.remove("best_latents.pt")  
+            seed = random.randint(0, 170904) 
+            with open(f"seed.pkl", "wb") as f: 
+                pickle.dump(seed, f) 
+            # set_seed(seed) 
+            latents = torch.randn(1, 4, 64, 64)  
+            with open(f"best_latents.pt", "wb") as f: 
+                torch.save(latents, f) 
+
+        accelerator.wait_for_everyone() 
+        if not accelerator.is_main_process: 
+            with open("seed.pkl", "rb") as f: 
+                seed = pickle.load(f) 
+
+        infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
 
 
     subjects = [
         [
             {
-                "subject": "dolphin", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "boat", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "shark", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "ship", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "boat", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-            {
-                "subject": "fish", 
-                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
-            }
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        [
-            {
-                "subject": "fish", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                "appearance_type": "class", 
-            }, 
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        [
-            {
-                "subject": "dolphin", 
+                "subject": "jeep", 
                 "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 "appearance_type": "class", 
             }, 
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
+            {
+                "subject": "elephant", 
+                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
+            }
+        ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        [
+            {
+                "subject": "suv", 
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                "appearance_type": "class", 
+            }, 
+            {
+                "subject": "zebra", 
+                "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
+            }
+        ][:MAX_SUBJECTS_PER_EXAMPLE],  
     ]
-
-
     prompts = [
-        "a photo of PLACEHOLDER in a river", 
-        "a photo of PLACEHOLDER in a calm river with lush green trees in the distance, clear skies and a serene sunset in the background", 
+        "a photo of PLACEHOLDER in front of a serence temple",  
+        "a photo of PLACEHOLDER on a beach with swaying palm trees and bustling waves", 
     ]
     for prompt in prompts: 
-        seed = random.randint(0, 170904) 
-        infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
+
+        if accelerator.is_main_process: 
+            if osp.exists("best_latents.pt"): 
+                os.remove("best_latents.pt")  
+            seed = random.randint(0, 170904) 
+            with open(f"seed.pkl", "wb") as f: 
+                pickle.dump(seed, f) 
+            # set_seed(seed) 
+            latents = torch.randn(1, 4, 64, 64)  
+            with open(f"best_latents.pt", "wb") as f: 
+                torch.save(latents, f) 
+
+        accelerator.wait_for_everyone() 
+        if not accelerator.is_main_process: 
+            with open("seed.pkl", "rb") as f: 
+                seed = pickle.load(f) 
+
+        infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
 
 
     subjects = [
         [
             {
-                "subject": "plane", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "subject": "jeep", 
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 "appearance_type": "class", 
             }, 
             {
-                "subject": "helicopter", 
+                "subject": "elephant", 
                 "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
             }
         ][:MAX_SUBJECTS_PER_EXAMPLE],  
         [
             {
-                "subject": "helicopter", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                "subject": "tractor", 
+                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                 "appearance_type": "class", 
             }, 
             {
-                "subject": "bird", 
+                "subject": "zebra", 
                 "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),   
             }
         ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        [
-            {
-                "subject": "helicopter", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                "appearance_type": "class", 
-            }, 
-            
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        [
-            {
-                "subject": "plane", 
-                "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                "appearance_type": "class", 
-            }, 
-            
-        ][:MAX_SUBJECTS_PER_EXAMPLE], 
     ]
-
-
     prompts = [
-        "a photo of PLACEHOLDER flying in the sky", 
-        "a photo of PLACEHOLDER flying in the sky on a calm sunny day, the sky is azure blue colour, the view on the ground features a bustling city",  
-        "a photo of PLACEHOLDER flying in the sky on a calm sunny day, the sky is azure blue colour, the view on the ground features a lush green forest",   
-        "a photo of PLACEHOLDER flying in the sky on a calm sunny evening with the sun setting in the distance, the view on the ground features a lush green forest",   
+        "a photo of PLACEHOLDER in a tropical forest surrounded by lush green trees",  
+        "a photo of PLACEHOLDER in a farm, featuring a lush green pasture dotted with wildflowers, an old wooden fence, and a rustic barn under a clear blue sky.",  
     ]
     for prompt in prompts: 
-        seed = random.randint(0, 170904) 
-        infer.do_it(seed, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
+
+        if accelerator.is_main_process: 
+            if osp.exists("best_latents.pt"): 
+                os.remove("best_latents.pt")  
+            seed = random.randint(0, 170904) 
+            with open(f"seed.pkl", "wb") as f: 
+                pickle.dump(seed, f) 
+            # set_seed(seed) 
+            latents = torch.randn(1, 4, 64, 64)  
+            with open(f"best_latents.pt", "wb") as f: 
+                torch.save(latents, f) 
+
+        accelerator.wait_for_everyone() 
+        if not accelerator.is_main_process: 
+            with open("seed.pkl", "rb") as f: 
+                seed = pickle.load(f) 
+
+        infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 

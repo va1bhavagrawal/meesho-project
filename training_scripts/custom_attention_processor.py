@@ -49,6 +49,16 @@ class AttendExciteAttnProcessor:
 
         if type(encoder_hidden_states) == dict: 
             # assert len(encoder_hidden_states["attn_assignments"]) == len(encoder_hidden_states["encoder_hidden_states"]) 
+            if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
+                B = len(encoder_hidden_states["attn_assignments"]) 
+                # assert B == 4  
+                # sys.exit(0) 
+                for batch_idx in range(B // 2 + 1, B): 
+                    for seq_idx in range(len(key[0])): 
+                        key[batch_idx][seq_idx] = key[B // 2][seq_idx] 
+                    for seq_idx in range(len(query[0])): 
+                        query[batch_idx][seq_idx] = query[B // 2][seq_idx] 
+                        
             B = len(encoder_hidden_states["attn_assignments"]) 
             for batch_idx in range(B): 
                 for idx1, idx2 in used_attention_maps[batch_idx].items(): 
