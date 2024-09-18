@@ -26,3 +26,4 @@ training_scripts/*.log
 waste/ 
 obja* 
 2obj* 
+training_scripts/textual_inversion/ 

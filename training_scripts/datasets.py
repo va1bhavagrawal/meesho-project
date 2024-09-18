@@ -373,3 +373,43 @@ class DisentangleDataset(Dataset):
 
         assert len(example["subjects"]) == len(example["scalers"]) 
         return example 
+
+
+class TextualInvDataset(Dataset): 
+    def __init__(
+        self, 
+        args, 
+        tokenizer, 
+        ref_imgs_dir, 
+        num_steps, 
+    ): 
+        self.args = args 
+        self.tokenizer = tokenizer 
+        self.num_steps = num_steps 
+        self.ref_imgs_dir = ref_imgs_dir 
+
+        img_transforms = [] 
+        if args.resize:
+            img_transforms.append(
+                transforms.Resize(
+                    args.resolution, interpolation=transforms.InterpolationMode.BILINEAR
+                )
+            )
+        if args.center_crop:
+            img_transforms.append(transforms.CenterCrop(args.resolution)) 
+        if args.color_jitter:
+            img_transforms.append(transforms.ColorJitter(0.2, 0.1))
+        # if args.h_flip:
+        #     img_transforms.append(transforms.RandomHorizontalFlip())
+
+        self.image_transforms = transforms.Compose(
+            [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
+        )
+
+
+    def __len__(self): 
+        return self.num_steps 
+
+
+    def __getitem__(self, index): 
+        pass 
