@@ -15,6 +15,8 @@ import os.path as osp
 
 from infer_online import UNIQUE_TOKENS 
 
+import pickle 
+
 MAX_SUBJECTS_PER_EXAMPLE = 2  
 
 # class PromptDataset(Dataset):
@@ -224,6 +226,19 @@ class DisentangleDataset(Dataset):
             imgs_list = os.listdir(subjects_comb_ref_dir) 
             imgs_list = [img_name for img_name in imgs_list if img_name.find("jpg") != -1 or img_name.find("png") != -1] 
             random_ref_img = random.choice(imgs_list)   
+            img_path = osp.join(osp.join(subjects_comb_ref_dir, random_ref_img)) 
+            pkl_path = img_path.replace("jpg", "pkl") 
+            assert osp.exists(pkl_path), f"{pkl_path = }"
+            with open(pkl_path, "rb") as f: 
+                pkl_data = pickle.load(f) 
+            all_2d_x = [] 
+            all_2d_y = [] 
+            assert len(pkl_data.keys()) == len(example["subjects"]) 
+            for asset_idx in range(len(pkl_data.keys())): 
+                bbox = pkl_data[f"obj{asset_idx+1}"]["bbox"] 
+                all_2d_x.append((bbox[0] + bbox[2]) / 2)  
+                all_2d_y.append((bbox[1] + bbox[3]) / 2)  
+
             # a, e, r, x, y, _ = random_ref_img.split("__") 
             # a = float(a) 
             # e = float(e) 
@@ -247,6 +262,8 @@ class DisentangleDataset(Dataset):
                 all_a.append(float(a)) 
 
             example["scalers"] = all_a   
+            example["2d_xs"] = all_2d_x 
+            example["2d_ys"] = all_2d_y  
             template_prompt = "a photo of PLACEHOLDER" 
             placeholder_text = "a SUBJECT0 "  
             for asset_idx in range(1, len(example["subjects"])):  
@@ -270,7 +287,6 @@ class DisentangleDataset(Dataset):
                 max_length=self.tokenizer.model_max_length, 
             ).input_ids 
 
-            img_path = osp.join(osp.join(subjects_comb_ref_dir, random_ref_img)) 
             assert osp.exists(img_path)  
             img = Image.open(img_path)  
 
@@ -297,10 +313,23 @@ class DisentangleDataset(Dataset):
             imgs_list = os.listdir(subjects_comb_controlnet_dir)  
             imgs_list = [img_name for img_name in imgs_list if img_name.find("jpg") != -1 or img_name.find("png") != -1] 
             random_controlnet_img = random.choice(imgs_list)     
+            img_path = osp.join(subjects_comb_controlnet_dir, random_controlnet_img) 
             subjects_data = random_controlnet_img.split("__") 
             subjects_data = subjects_data[:-1] 
             whichprompt = subjects_data[-1] 
             subjects_data = subjects_data[:-1] 
+            pkl_path = osp.join(used_ref_imgs_dir, subjects_comb_, f"{'__'.join(subjects_data)}__.pkl") 
+            assert osp.exists(pkl_path), f"{pkl_path = }" 
+            with open(pkl_path, "rb") as f: 
+                pkl_data = pickle.load(f) 
+            all_2d_x = [] 
+            all_2d_y = [] 
+            assert len(pkl_data.keys()) == len(example["subjects"]) 
+            for asset_idx in range(len(pkl_data.keys())): 
+                bbox = pkl_data[f"obj{asset_idx+1}"]["bbox"] 
+                all_2d_x.append((bbox[0] + bbox[2]) / 2)  
+                all_2d_y.append((bbox[1] + bbox[3]) / 2)  
+
             all_x = [] 
             all_y = [] 
             all_z = [] 
@@ -315,6 +344,8 @@ class DisentangleDataset(Dataset):
                 all_a.append(float(a)) 
 
             example["scalers"] = all_a 
+            example["2d_xs"] = all_2d_x 
+            example["2d_ys"] = all_2d_y 
             prompt_idx = int(whichprompt.replace("prompt", "").strip()) 
             template_prompt = self.args.controlnet_prompts[prompt_idx] 
             placeholder_text = "a SUBJECT0 " 
@@ -339,7 +370,6 @@ class DisentangleDataset(Dataset):
                 max_length=self.tokenizer.model_max_length, 
             ).input_ids 
 
-            img_path = osp.join(subjects_comb_controlnet_dir, random_controlnet_img) 
             assert osp.exists(img_path) 
             img = Image.open(img_path)   
 

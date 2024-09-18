@@ -1,4 +1,4 @@
-export RUN_NAME="nomerged" 
+export RUN_NAME="location_normalized" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -27,7 +27,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="Y" \
-  --normalize_merged_embedding="N" \
+  --normalize_merged_embedding="Y" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
@@ -40,6 +40,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
+  --use_location_conditioning="Y" \
   --prior_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
@@ -50,7 +51,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --online_inference \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 

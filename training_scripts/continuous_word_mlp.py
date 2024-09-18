@@ -144,3 +144,34 @@ class PoseEmbedding(nn.Module):
         x = F.relu(x) 
         x = self.linear3(x) 
         return x 
+
+
+class PoseLocationEmbedding(nn.Module): 
+    def __init__(self, fourier_embedding_dim, output_dim): 
+        super().__init__() 
+        self.input_dim = 1  
+        self.fourier_embedding_dim = fourier_embedding_dim 
+        self.output_dim = output_dim 
+        self.linear1 = nn.Linear(3 * fourier_embedding_dim, output_dim)  
+        self.linear2 = nn.Linear(output_dim, output_dim)  
+        self.linear3 = nn.Linear(output_dim, output_dim) 
+        self.gaussian_fourier_embedding = GaussianFourierProjection(fourier_embedding_dim // 2, log=False)  
+        self.gaussian_fourier_embedding_x = GaussianFourierProjection(fourier_embedding_dim // 2, log=False)   
+        self.gaussian_fourier_embedding_y = GaussianFourierProjection(fourier_embedding_dim // 2, log=False)   
+
+
+    def forward(self, a, x, y):   
+        azimuth_embedding = self.gaussian_fourier_embedding(a) 
+        x_embedding = self.gaussian_fourier_embedding(x) 
+        y_embedding = self.gaussian_fourier_embedding(y) 
+        merged_embedding = torch.cat([azimuth_embedding, x_embedding, y_embedding], -1)  
+        # print(f"{torch.min(x) = }, {torch.max(x) = }")
+        # assert not torch.any(torch.isinf(x)) 
+        # assert not torch.any(torch.isnan(x)) 
+        # the output of gaussian fourier projection is of shape (B, output_dim) 
+        x = self.linear1(merged_embedding) 
+        x = F.relu(x) 
+        x = self.linear2(x) 
+        x = F.relu(x) 
+        x = self.linear3(x) 
+        return x 

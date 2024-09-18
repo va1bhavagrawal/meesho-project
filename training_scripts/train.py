@@ -119,7 +119,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, PoseEmbedding  
+from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, PoseEmbedding, PoseLocationEmbedding  
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -515,6 +515,12 @@ def parse_args(input_args=None):
         type=lambda x : bool(strtobool(x)),  
         required=True, 
         help="whether to normalize the merged embedding, would normalize even when include_class_in_prompt is True", 
+    )
+    parser.add_argument(
+        "--use_location_conditioning", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to use location conditioning", 
     )
     parser.add_argument(
         "--use_ref_images", 
@@ -1203,7 +1209,10 @@ def main(args):
 
     else: 
         continuous_word_model = None 
-        merger = PoseEmbedding(output_dim=args.merged_emb_dim)  
+        if args.use_location_conditioning: 
+            merger = PoseLocationEmbedding(256, args.merged_emb_dim) 
+        else: 
+            merger = PoseEmbedding(output_dim=args.merged_emb_dim)  
         # for name, p in merger.named_parameters(): 
         # REMEMBER THAT THERE IS A RANDOM PROJECTION IN THE GAUSSIAN FOURIER FEATURES, AND HENCE THAT IS NOT LEARNABLE 
         #     print(f"{name = }, {p.shape = }, {p.requires_grad = }") 
@@ -1262,6 +1271,8 @@ def main(args):
         prompt_ids = [example["prompt_ids"] for example in examples] 
         prompts = [example["prompt"] for example in examples] 
         subjects = [example["subjects"] for example in examples] 
+        xs_2d = [example["2d_xs"] for example in examples] 
+        ys_2d = [example["2d_ys"] for example in examples] 
         pixel_values = []
         for example in examples:
             pixel_values.append(example["img"])
@@ -1292,6 +1303,8 @@ def main(args):
             "subjects": subjects, 
             "controlnet": is_controlnet, 
             "prompts": prompts, 
+            "2d_xs": xs_2d, 
+            "2d_ys": ys_2d, 
         }
         if args.with_prior_preservation: 
             batch["prior_subjects"] = prior_subjects  
@@ -1481,6 +1494,16 @@ def main(args):
             for batch_idx, img_t in enumerate(batch["pixel_values"]): 
                 img = (img_t * 0.5 + 0.5) * 255  
                 img = img.permute(1, 2, 0).cpu().numpy().astype(np.uint8) 
+                img = np.ascontiguousarray(img) 
+                locations = [] 
+
+                if batch_idx < len(batch['2d_xs']): 
+                    for asset_idx in range(len(batch["subjects"][batch_idx])): 
+                        location = (int(batch["2d_xs"][batch_idx][asset_idx]) // 2, int(batch["2d_ys"][batch_idx][asset_idx]) // 2)   
+                        locations.append(location) 
+                        print(f"drawing circle at {location}!") 
+                        cv2.circle(img, location, 0, (255, 0, 0), 10) 
+
                 plt.figure(figsize=(20, 20)) 
                 plt.imshow(img)  
                 if batch_idx < B: 
@@ -1530,13 +1553,27 @@ def main(args):
 
         # if we are in stage 2 of training, only then do we need to compute the pose embedding, otherwise it is zero 
         # if global_step > args.stage1_steps: 
+        # we are no longer learning appearance embeddings first! 
         if True: 
             # progress_bar.set_description(f"stage 2: ")
             scalers_padded = torch.zeros((len(batch["scalers"]), MAX_SUBJECTS_PER_EXAMPLE))  
+            xs_2d_padded = torch.zeros((len(batch["2d_xs"]), MAX_SUBJECTS_PER_EXAMPLE)) 
+            ys_2d_padded = torch.zeros((len(batch["2d_ys"]), MAX_SUBJECTS_PER_EXAMPLE)) 
+
             for batch_idx in range(len(batch["scalers"])): 
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
                     scalers_padded[batch_idx][scaler_idx] = batch["scalers"][batch_idx][scaler_idx] 
+
+            assert len(batch["scalers"]) == len(batch["2d_xs"]) == len(batch["2d_ys"])  
+            for batch_idx in range(len(batch["scalers"])): 
+                assert len(batch["scalers"][batch_idx]) == len(batch["2d_xs"][batch_idx]) == len(batch["2d_ys"][batch_idx])  
+                for scaler_idx in range(len(batch["scalers"][batch_idx])): 
+                    xs_2d_padded[batch_idx][scaler_idx] = batch["2d_xs"][batch_idx][scaler_idx] / 1024  
+                    ys_2d_padded[batch_idx][scaler_idx] = batch["2d_ys"][batch_idx][scaler_idx] / 1024  
+
             p = torch.Tensor(scalers_padded / (2 * math.pi)) 
+            assert torch.all(xs_2d_padded < 1) 
+            assert torch.all(ys_2d_padded < 1) 
             if not args.pose_only_embedding: 
                 p = p.unsqueeze(-1) 
                 p = p.repeat(1, 1, 2)  
@@ -1548,7 +1585,11 @@ def main(args):
                 mlp_emb = [] 
                 for scaler_idx in range(MAX_SUBJECTS_PER_EXAMPLE):  
                     # mlp_emb[:, scaler_idx, :] = merger(p[:, scaler_idx]) 
-                    mlp_emb.append(merger(p[:, scaler_idx]).unsqueeze(1)) 
+                    if args.use_location_conditioning: 
+                        mlp_emb.append(merger(p[:, scaler_idx], xs_2d_padded[:, scaler_idx], ys_2d_padded[:, scaler_idx]).unsqueeze(1)) 
+                    else: 
+                        mlp_emb.append(merger(p[:, scaler_idx]).unsqueeze(1)) 
+
                 mlp_emb = torch.cat(mlp_emb, dim=1) 
                 assert mlp_emb.shape == (B, MAX_SUBJECTS_PER_EXAMPLE, args.merged_emb_dim) 
                     
