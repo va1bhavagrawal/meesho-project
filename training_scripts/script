@@ -8,7 +8,4 @@
 #SBATCH --partition=long 
 
 
-./run.sh &  
-./run2.sh & 
-
-wait 
+./run.sh 
