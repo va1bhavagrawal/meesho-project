@@ -63,11 +63,11 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4   
+BS = 4    
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = []  
+VLOG_STEPS = [2000, 5000, 10000, 15000, 20000]   
 for vlog_step in range(50000, 510000, 50000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
@@ -176,6 +176,9 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
     MAX_SUBJECTS_PER_EXAMPLE = max_subjects_per_example 
     # print(f"passing {MAX_SUBJECTS_PER_EXAMPLE = }")
     with torch.no_grad(): 
+
+        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=False)  
+
         if accelerator.is_main_process: 
             os.makedirs(args.vis_dir, exist_ok=True) 
             if osp.exists(osp.join(args.vis_dir, f"outputs_{step_number}")): 
@@ -227,7 +230,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "elephant", 
+                    "subject": "jeep", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
@@ -252,53 +255,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
         
-
-        prompt = "a photo of PLACEHOLDER in front of the Leaning Tower of Pisa in Italy."   
-        if accelerator.is_main_process: 
-            if osp.exists("best_latents.pt"): 
-                os.remove("best_latents.pt")  
-            seed = random.randint(0, 170904) 
-            with open(f"seed.pkl", "wb") as f: 
-                pickle.dump(seed, f) 
-            # set_seed(seed) 
-            latents = torch.randn(1, 4, 64, 64)  
-            with open(f"best_latents.pt", "wb") as f: 
-                torch.save(latents, f) 
-        accelerator.wait_for_everyone() 
-        if not accelerator.is_main_process: 
-            with open("seed.pkl", "rb") as f: 
-                seed = pickle.load(f) 
-        accelerator.wait_for_everyone() 
-        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        subjects = [
-            [
-                {
-                    "subject": "pickup truck", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-                
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "jeep", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "motorbike", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-            ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        ] 
-
-        infer.do_it(seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
-        assert osp.exists(gif_path) 
-        wandb_log_data[prompt] = wandb.Video(gif_path)  
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
         return wandb_log_data 
-
 
 
 """end Adobe CONFIDENTIAL"""
@@ -1362,6 +1319,12 @@ def main(args):
 
 
     for step in range(args.max_train_steps): 
+
+        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
+        if args.penalize_special_token_attn: 
+            assert len(retval) == 1 
+            loss_store = retval[0] 
+
         if args.penalize_special_token_attn: 
             loss_store.get_empty_store() 
         assert loss_store.step_store["loss"] == 0.0 

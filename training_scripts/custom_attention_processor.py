@@ -28,7 +28,6 @@ class AttendExciteAttnProcessor:
         self.name = name 
         self.attn_store = attn_store 
         self.loss_store = loss_store 
-        assert loss_store is not None 
 
 
     def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
