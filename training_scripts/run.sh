@@ -1,4 +1,4 @@
-export RUN_NAME="ref_embed_penalize_normalized" 
+export RUN_NAME="ref_embed_penalize__0.001penalty_randompositions" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -28,22 +28,22 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="N" \
   --replace_attn_maps="N" \
   --penalize_special_token_attn="Y" \
-  --normalize_merged_embedding="Y" \
+  --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="Y" \
   --merged_emb_dim=1024 \
   --pose_only_embedding="N" \
-  --with_prior_preservation="Y" \
+  --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=150000 \
-  --stage2_steps=350000 \
+  --stage1_steps=100000 \
+  --stage2_steps=0 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --prior_loss_weight=0.1 \
-  --special_token_attn_loss_weight=0.005 \
+  --special_token_attn_loss_weight=0.001 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
   --pretrained_model_name_or_path=$MODEL_NAME  \
@@ -54,6 +54,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --wandb \
+  --online_inference \
   --class_data_dir=$CLASS_DATA_DIR 
 
   # --resume_training_state="../ckpts/multiobject/__controlnet+ref2/training_state_500.pth" \

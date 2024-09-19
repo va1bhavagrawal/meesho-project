@@ -176,6 +176,9 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
     MAX_SUBJECTS_PER_EXAMPLE = max_subjects_per_example 
     # print(f"passing {MAX_SUBJECTS_PER_EXAMPLE = }")
     with torch.no_grad(): 
+
+        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=False)  
+
         if accelerator.is_main_process: 
             os.makedirs(args.vis_dir, exist_ok=True) 
             if osp.exists(osp.join(args.vis_dir, f"outputs_{step_number}")): 
@@ -227,7 +230,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "elephant", 
+                    "subject": "jeep", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
@@ -251,9 +254,9 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-        
 
-        prompt = "a photo of PLACEHOLDER in front of the Leaning Tower of Pisa in Italy."   
+
+        prompt = "a photo of PLACEHOLDER in front of a serene waterfall, featuring a lot of greenery and rainy skies, and stones scattered around everywhere"    
         if accelerator.is_main_process: 
             if osp.exists("best_latents.pt"): 
                 os.remove("best_latents.pt")  
@@ -273,22 +276,33 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         subjects = [
             [
                 {
-                    "subject": "pickup truck", 
+                    "subject": "suv", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
-                
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
                 {
                     "subject": "jeep", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "motorbike", 
+                    "subject": "elephant", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
+                {
+                    "subject": "jeep", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "horse", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                }, 
+                {
+                    "subject": "bus", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
 
@@ -296,9 +310,8 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
+        
         return wandb_log_data 
-
 
 
 """end Adobe CONFIDENTIAL"""
@@ -938,10 +951,6 @@ def main(args):
                 unet_state_dict[name] = lora_state_dict[name]  
             unet.load_state_dict(unet_state_dict) 
 
-    retval = patch_custom_attention(unet, store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn, ref_embedding_loss=(args.penalize_special_token_attn and not args.include_class_in_prompt)) 
-    if args.penalize_special_token_attn: 
-        assert len(retval) == 1 
-        loss_store = retval[0] 
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -1375,6 +1384,12 @@ def main(args):
 
 
     for step in range(args.max_train_steps): 
+
+        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn, ref_embedding_loss=(args.penalize_special_token_attn and not args.include_class_in_prompt)) 
+        if args.penalize_special_token_attn: 
+            assert len(retval) == 1 
+            loss_store = retval[0] 
+
         if args.penalize_special_token_attn: 
             loss_store.get_empty_store() 
         assert loss_store.step_store["loss"] == 0.0 
