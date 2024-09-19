@@ -1708,6 +1708,11 @@ def main(args):
         else: 
             model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
+        model_pred = model_pred[:len(batch["pixel_values"])] 
+        noise = noise[:len(batch["pixel_values"])] 
+        latents = latents[:len(batch["pixel_values"])] 
+        timesteps = timesteps[:len(batch["pixel_values"])] 
+
         if args.penalize_special_token_attn: 
             assert loss_store.step_store["loss"].device == accelerator.device 
             loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
@@ -1726,6 +1731,7 @@ def main(args):
         if args.with_prior_preservation:
             # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
             model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
+            assert model_pred.shape == model_pred_prior.shape 
             target, target_prior = torch.chunk(target, 2, dim=0)
 
             # Compute instance loss
