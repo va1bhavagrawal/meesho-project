@@ -9,7 +9,6 @@
 #SBATCH -w cn6 
 
 
-sleep 10000000000000 
 ./run.sh &  
 ./run2.sh & 
 

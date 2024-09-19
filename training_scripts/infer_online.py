@@ -36,12 +36,12 @@ from lora_diffusion import patch_pipe
 WHICH_MODEL = "nomerged_normalized"  
 WHICH_STEP = 500000   
 MAX_SUBJECTS_PER_EXAMPLE = 2     
-NUM_SAMPLES = 2   
+NUM_SAMPLES = 18    
 
-P2P = True  
+P2P = False  
 MAX_P2P_TIMESTEP = 45  
 
-KEYWORD = f"p2p_{MAX_P2P_TIMESTEP}"   
+KEYWORD = f""   
 
 ACROSS_TIMESTEPS = False  
 NUM_INFERENCE_STEPS = 50 
