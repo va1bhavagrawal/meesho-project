@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4   
+BS = 4     
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -938,7 +938,7 @@ def main(args):
                 unet_state_dict[name] = lora_state_dict[name]  
             unet.load_state_dict(unet_state_dict) 
 
-    retval = patch_custom_attention(unet, store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
+    retval = patch_custom_attention(unet, store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn, ref_embedding_loss=(args.penalize_special_token_attn and not args.include_class_in_prompt)) 
     if args.penalize_special_token_attn: 
         assert len(retval) == 1 
         loss_store = retval[0] 
@@ -1061,7 +1061,6 @@ def main(args):
         # the appearance embeddings 
         bnha_embeds = {} 
         args.subjects = [
-            "pickup truck", 
             "jeep", 
             "motorbike", 
             "bus", 
@@ -1208,6 +1207,18 @@ def main(args):
             prompts += [example["class_prompt"] for example in examples] 
             prior_subjects = [example["prior_subject"] for example in examples] 
 
+
+        if args.penalize_special_token_attn: 
+            ref_prompt_ids = [example["ref_prompt_ids"] for example in examples] 
+            ref_prompt_ids = tokenizer.pad(
+                {"input_ids": ref_prompt_ids},
+                padding="max_length",
+                max_length=tokenizer.model_max_length,
+                return_tensors="pt",
+            ).input_ids 
+            ref_prompts = [example["ref_prompt"] for example in examples]  
+
+
         pixel_values = torch.stack(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float() 
 
@@ -1227,6 +1238,8 @@ def main(args):
             "prompts": prompts, 
             "2d_xs": xs_2d, 
             "2d_ys": ys_2d, 
+            "ref_prompts": ref_prompts, 
+            "ref_prompt_ids": ref_prompt_ids, 
         }
         if args.with_prior_preservation: 
             batch["prior_subjects"] = prior_subjects  
@@ -1464,6 +1477,11 @@ def main(args):
         )
         timesteps = timesteps.long()
 
+        if not args.include_class_in_prompt and args.penalize_special_token_attn: 
+            timesteps = torch.cat([timesteps, timesteps[:len(batch["controlnet"])]], dim=0) 
+            noise = torch.cat([noise, noise[:len(batch["controlnet"])]], dim=0) 
+            latents = torch.cat([latents, latents[:len(batch["controlnet"])]], dim=0) 
+
         # Add noise to the latents according to the noise magnitude at each timestep
         # (this is the forward diffusion process)
         noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
@@ -1660,12 +1678,18 @@ def main(args):
             for _ in range(args.train_batch_size):  
                 attn_assignments.append({}) 
 
+
+        if not args.include_class_in_prompt and args.penalize_special_token_attn: 
+            encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states[:len(batch["controlnet"])]], dim=0) 
+
         """End Adobe CONFIDENTIAL"""
 
 
         # Predict the noise residual
         if args.ada: 
             torch.cuda.empty_cache() 
+
+        assert len(attn_assignments) == len(batch["pixel_values"])  
 
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
@@ -1675,6 +1699,11 @@ def main(args):
             encoder_states_dict["replace_attn"] = True 
 
         if args.replace_attn_maps or args.penalize_special_token_attn:  
+            if not args.include_class_in_prompt and args.penalize_special_token_attn: 
+                if DEBUG and args.train_batch_size == 1: 
+                    assert torch.allclose(noisy_latents[2], noisy_latents[0]) 
+                    assert torch.allclose(timesteps[0], timesteps[2]) 
+                    assert torch.allclose(encoder_hidden_states[0], encoder_hidden_states[2]) 
             model_pred = unet(noisy_latents, timesteps, encoder_states_dict).sample 
         else: 
             model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample

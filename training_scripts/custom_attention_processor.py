@@ -22,6 +22,74 @@ from PIL import Image
 
 DEBUG_ATTN = False  
 
+
+class RefEmbeddingPenalizeAttnProcessor:
+    def __init__(self, name, attn_store, loss_store):
+        super().__init__()
+        self.name = name 
+        self.attn_store = attn_store 
+        self.loss_store = loss_store 
+        assert loss_store is not None 
+
+
+    def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
+        # print(f"input to attn for {self.layer_name} is of shape: {hidden_states.shape}")
+        batch_size, sequence_length, _ = hidden_states.shape
+        # attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length)
+
+        query = attn.to_q(hidden_states)
+
+        is_cross = encoder_hidden_states is not None
+        encoder_hidden_states = encoder_hidden_states if encoder_hidden_states is not None else hidden_states
+
+        if type(encoder_hidden_states) == dict: 
+            actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
+        else: 
+            actual_encoder_hidden_states = encoder_hidden_states 
+        key = attn.to_k(actual_encoder_hidden_states)
+        value = attn.to_v(actual_encoder_hidden_states) 
+
+        # print(f"AT LEAST THE CALL METHOD IS CALLED!")  
+        if type(encoder_hidden_states) == dict: 
+                         
+            # print(f"AT LEAST THE ENCODER HIDDEN STATES ARE A DICT!") 
+            B = len(encoder_hidden_states["attn_assignments"]) 
+            num_main_imgs = len([attn_assignment for attn_assignment in encoder_hidden_states["attn_assignments"] if attn_assignment != {}])  
+            for batch_idx in range(num_main_imgs):  
+                ref_idx = batch_idx + B   
+                for idx1, idx2 in encoder_hidden_states["attn_assignments"].items():   
+                    assert idx1 != idx2  
+                    # idx2 is meaningless in the merged token formulation 
+                    if self.loss_store is not None: 
+                        loss = torch.mean((key[batch_idx][idx1] - key[ref_idx][idx1].detach()) ** 2)  
+                        self.loss_store(loss) 
+                
+
+        query = attn.head_to_batch_dim(query)
+        key = attn.head_to_batch_dim(key)
+        value = attn.head_to_batch_dim(value)
+
+        attention_probs = attn.get_attention_scores(query, key, attention_mask)
+        # print(f"{attention_probs.shape = }") 
+        # print(f"{encoder_hidden_states.shape = }")
+        # print(f"{hidden_states.shape = }")
+        # print(f"{query.shape = }")
+        # print(f"{key.shape = }")
+        # print(f"{attention_probs.shape = }")
+        # sys.exit(0) 
+        if self.attn_store is not None: 
+            self.attn_store(attention_probs, self.name) 
+
+        hidden_states = torch.bmm(attention_probs, value)
+        hidden_states = attn.batch_to_head_dim(hidden_states)
+
+        # linear proj
+        hidden_states = attn.to_out[0](hidden_states)
+        # dropout
+        hidden_states = attn.to_out[1](hidden_states)
+
+        return hidden_states
+
 class AttendExciteAttnProcessor:
     def __init__(self, name, attn_store, loss_store):
         super().__init__()
@@ -232,7 +300,7 @@ class AttnProcessor2_0_edited:
         return hidden_states
 
 
-def patch_custom_attention(unet, store_attn, across_timesteps, store_loss): 
+def patch_custom_attention(unet, store_attn, across_timesteps, store_loss, ref_embedding_loss): 
     attn_procs = {}
     attn_store = None 
     loss_store = None 
@@ -265,7 +333,10 @@ def patch_custom_attention(unet, store_attn, across_timesteps, store_loss):
         #     attn_procs[name] = AttnProcessor2_0_edited(name)      
         # else: 
         #     attn_procs[name] = AttendExciteAttnProcessor(name, attn_store) 
-        attn_procs[name] = AttendExciteAttnProcessor(name, attn_store, loss_store)  
+        if ref_embedding_loss: 
+            attn_procs[name] = AttendExciteAttnProcessor(name, attn_store, loss_store)  
+        else: 
+            attn_procs[name] = RefEmbeddingPenalizeAttnProcessor(name, attn_store, loss_store) 
 
     unet.set_attn_processor(attn_procs) 
 

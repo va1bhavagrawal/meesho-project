@@ -16,6 +16,7 @@ import os.path as osp
 from infer_online import UNIQUE_TOKENS 
 
 import pickle 
+import copy 
 
 MAX_SUBJECTS_PER_EXAMPLE = 2  
 
@@ -270,10 +271,14 @@ class DisentangleDataset(Dataset):
                 placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} " 
             placeholder_text = placeholder_text.strip() 
             template_prompt = template_prompt.replace("PLACEHOLDER", placeholder_text) 
+            if not self.args.include_class_in_prompt and self.args.penalize_special_token_attn: 
+                template_prompt_ref = copy.deepcopy(template_prompt) 
             if not self.args.include_class_in_prompt: 
                 for asset_idx in range(len(example["subjects"])):    
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
                     template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]}") 
+                    if self.args.penalize_special_token_attn: 
+                        template_prompt_ref = template_prompt_ref.replace(f"SUBJECT{asset_idx}", f"{example['subjects'][asset_idx]}") 
             else: 
                 for asset_idx in range(len(subjects)): 
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
@@ -353,10 +358,14 @@ class DisentangleDataset(Dataset):
                 placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} "  
             placeholder_text = placeholder_text.strip() 
             template_prompt = template_prompt.replace("PLACEHOLDER", placeholder_text) 
+            if not self.args.include_class_in_prompt and self.args.penalize_special_token_attn:  
+                template_prompt_ref = copy.deepcopy(template_prompt) 
             if not self.args.include_class_in_prompt: 
                 for asset_idx in range(len(example["subjects"])): 
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
-                    template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subjects[asset_idx]}")  
+                    template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]}")  
+                    if self.args.penalize_special_token_attn: 
+                        template_prompt_ref = template_prompt_ref.replace(f"SUBJECT{asset_idx}", f"{subjects[asset_idx]}") 
             else: 
                 for asset_idx in range(len(subjects)): 
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
@@ -378,6 +387,14 @@ class DisentangleDataset(Dataset):
             img = img.convert("RGB") 
         example["img"] = self.image_transforms(img)  
 
+        if self.args.penalize_special_token_attn: 
+            example["ref_prompt"] = template_prompt_ref  
+            example["ref_prompt_ids"] = self.tokenizer(
+                example["ref_prompt"], 
+                padding="do_not_pad", 
+                truncation=True, 
+                max_length=self.tokenizer.model_max_length, 
+            ).input_ids 
 
         if self.args.with_prior_preservation: 
             random_subject_ = random.choice(subjects_)  
