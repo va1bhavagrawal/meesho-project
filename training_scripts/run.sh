@@ -1,4 +1,4 @@
-export RUN_NAME="penalize_attn__nopenalty" 
+export RUN_NAME="penalize_attn__nopenalty_fixedpositions" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -39,7 +39,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=20000 \
   --stage2_steps=0 \
   --resolution=512 \
-  --train_batch_size=2 \
+  --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --prior_loss_weight=0.1 \
