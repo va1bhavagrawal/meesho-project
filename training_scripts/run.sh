@@ -1,4 +1,4 @@
-export RUN_NAME="penalize_attn_normalized" 
+export RUN_NAME="penalize_attn" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -28,7 +28,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="N" \
   --penalize_special_token_attn="Y" \
-  --normalize_merged_embedding="Y" \
+  --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
