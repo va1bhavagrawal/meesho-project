@@ -62,7 +62,8 @@ from custom_attention_processor import patch_custom_attention
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
 DEBUG = False  
-BS = 4       
+PRINT_STUFF = False  
+BS = 4   
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -197,6 +198,21 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
 
 
         prompt = "a photo of PLACEHOLDER in the streets of Venice with the sun setting in the background"   
+        if accelerator.is_main_process: 
+            if osp.exists("best_latents.pt"): 
+                os.remove("best_latents.pt")  
+            seed = random.randint(0, 170904) 
+            with open(f"seed.pkl", "wb") as f: 
+                pickle.dump(seed, f) 
+            # set_seed(seed) 
+            latents = torch.randn(1, 4, 64, 64)  
+            with open(f"best_latents.pt", "wb") as f: 
+                torch.save(latents, f) 
+        accelerator.wait_for_everyone() 
+        if not accelerator.is_main_process: 
+            with open("seed.pkl", "rb") as f: 
+                seed = pickle.load(f) 
+        accelerator.wait_for_everyone() 
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             [
@@ -206,7 +222,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
                 {
                     "subject": "jeep", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -216,29 +232,43 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 }, 
                 {
                     "subject": "jeep", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 0.5,  
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "horse", 
+                    "subject": "sedan", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                 }, 
                 {
                     "subject": "bus", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 1.0,   
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
 
-        the_common_seed = get_common_seed() 
-        infer.do_it(the_common_seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
         
 
         prompt = "a photo of PLACEHOLDER in front of the Leaning Tower of Pisa in Italy."   
+        if accelerator.is_main_process: 
+            if osp.exists("best_latents.pt"): 
+                os.remove("best_latents.pt")  
+            seed = random.randint(0, 170904) 
+            with open(f"seed.pkl", "wb") as f: 
+                pickle.dump(seed, f) 
+            # set_seed(seed) 
+            latents = torch.randn(1, 4, 64, 64)  
+            with open(f"best_latents.pt", "wb") as f: 
+                torch.save(latents, f) 
+        accelerator.wait_for_everyone() 
+        if not accelerator.is_main_process: 
+            with open("seed.pkl", "rb") as f: 
+                seed = pickle.load(f) 
+        accelerator.wait_for_everyone() 
         gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
         subjects = [
             [
@@ -262,133 +292,10 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
 
-        infer.do_it(the_common_seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
-
-        prompt = "a photo of PLACEHOLDER in a river"  
-        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        subjects = [
-            [
-                {
-                    "subject": "boat", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-                {
-                    "subject": "ship", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "dolphin", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-                {
-                    "subject": "boat", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 0.5,  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "ship", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                }, 
-                {
-                    "subject": "fish", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 1.0,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        ] 
-        infer.do_it(the_common_seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
-        assert osp.exists(gif_path) 
-        wandb_log_data[prompt] = wandb.Video(gif_path)  
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
-
-        prompt = "a photo of PLACEHOLDER on a remote country road, surrounded by rolling hills, vast open fields and tall trees"  
-        gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        subjects = [
-            [
-                {
-                    "subject": "sedan", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-                {
-                    "subject": "jeep", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES),  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "dog", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-                {
-                    "subject": "cat", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 0.5,  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "sedan", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
-                }, 
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": -np.linspace(0, 1, NUM_SAMPLES) + 1.0,    
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE], 
-        ] 
-        infer.do_it(the_common_seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
-        assert osp.exists(gif_path) 
-        wandb_log_data[prompt] = wandb.Video(gif_path)  
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
-
-        # prompt = "a photo of SUBJECT0 and SUBJECT1 on a tropical beach, with palm trees swaying and waves crashing on the shore"  
-        # gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        # subjects = [
-        #     ["truck", "pickup truck"],  
-        #     ["jeep", "pickup truck"],   
-        #     ["horse", "horse"],  
-        # ] 
-        # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
-        # assert osp.exists(gif_path) 
-        # wandb_log_data[prompt] = wandb.Video(gif_path)  
-        # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
-
-        # prompt = "a photo of a SUBJECT in a desert"  
-        # gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        # subjects = [
-        #     "camel", 
-        #     "pickup truck", 
-        #     "bus", 
-        # ] 
-        # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
-        # assert osp.exists(gif_path) 
-        # wandb_log_data[prompt] = wandb.Video(gif_path)  
-        # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
-
-        # prompt = "a photo of a SUBJECT in a forest"  
-        # gif_path = osp.join(args.vis_dir, f"__{args.run_name}", f"outputs_{step_number}", "_".join(prompt.split()).strip() + ".gif")   
-        # subjects = [
-        #     "elephant", 
-        #     "lion", 
-        #     "jeep", 
-        # ] 
-        # infer.do_it(gif_path, prompt, subjects, NUM_SAMPLES, "a", "class", args.include_class_in_prompt) 
-        # assert osp.exists(gif_path) 
-        # wandb_log_data[prompt] = wandb.Video(gif_path)  
-        # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
-
-        # gif_names = os.listdir(osp.join(args.vis_dir, f"outputs_{step_number}"))  
-        # gif_names = [name for name in gif_names if name.find(f".gif") != -1] 
-        # gif_paths = [osp.join(args.vis_dir, f"outputs_{step_number}", gif_name) for gif_name in gif_names] 
 
         return wandb_log_data 
 
@@ -551,6 +458,18 @@ def parse_args(input_args=None):
         type=lambda x : bool(strtobool(x)),  
         required=True, 
         help="whether to replace the special token attention maps by the class token attention maps", 
+    ) 
+    parser.add_argument(
+        "--penalize_special_token_attn", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to penalize the attention maps of the special token against the class token", 
+    ) 
+    parser.add_argument(
+        "--special_token_attn_loss_weight", 
+        type=float, 
+        required=True, 
+        help="the weight of the special token attention loss", 
     ) 
     parser.add_argument(
         "--with_prior_preservation",
@@ -1019,7 +938,10 @@ def main(args):
                 unet_state_dict[name] = lora_state_dict[name]  
             unet.load_state_dict(unet_state_dict) 
 
-    patch_custom_attention(unet, store_attn=False, across_timesteps=False) 
+    retval = patch_custom_attention(unet, store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
+    if args.penalize_special_token_attn: 
+        assert len(retval) == 1 
+        loss_store = retval[0] 
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
@@ -1437,7 +1359,12 @@ def main(args):
 
     train_dataloader_stage1_iter = iter(train_dataloader_stage1) 
     train_dataloader_stage2_iter = iter(train_dataloader_stage2) 
+
+
     for step in range(args.max_train_steps): 
+        if args.penalize_special_token_attn: 
+            loss_store.get_empty_store() 
+        assert loss_store.step_store["loss"] == 0.0 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
         #         steps_per_angle[angle] += 1 
@@ -1463,15 +1390,17 @@ def main(args):
         if DEBUG: 
             assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight, input_embeddings) 
 
+        # print(f"{batch.keys()}")
         B = len(batch["scalers"])   
 
-        accelerator.print(f"<=============================== step {global_step}  ======================================>")
-        for key, value in batch.items(): 
-            if ("ids" in key) or ("values" in key): 
-                accelerator.print(f"{key}: {value.shape}") 
-            else:
-                accelerator.print(f"{key}: {value}") 
-        accelerator.print(f"{MAX_SUBJECTS_PER_EXAMPLE = }") 
+        if PRINT_STUFF: 
+            accelerator.print(f"<=============================== step {global_step}  ======================================>")
+            for key, value in batch.items(): 
+                if ("ids" in key) or ("values" in key): 
+                    accelerator.print(f"{key}: {value.shape}") 
+                else:
+                    accelerator.print(f"{key}: {value}") 
+            accelerator.print(f"{MAX_SUBJECTS_PER_EXAMPLE = }") 
 
             # making some checks on the dataloader outputs in case of DEBUG mode 
             # if DEBUG: 
@@ -1501,7 +1430,8 @@ def main(args):
                     for asset_idx in range(len(batch["subjects"][batch_idx])): 
                         location = (int(batch["2d_xs"][batch_idx][asset_idx]) // 2, int(batch["2d_ys"][batch_idx][asset_idx]) // 2)   
                         locations.append(location) 
-                        print(f"drawing circle at {location}!") 
+                        if PRINT_STUFF: 
+                            accelerator.print(f"drawing circle at {location}!") 
                         cv2.circle(img, location, 0, (255, 0, 0), 10) 
 
                 plt.figure(figsize=(20, 20)) 
@@ -1741,11 +1671,17 @@ def main(args):
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
         } 
-
         if args.replace_attn_maps: 
+            encoder_states_dict["replace_attn"] = True 
+
+        if args.replace_attn_maps or args.penalize_special_token_attn:  
             model_pred = unet(noisy_latents, timesteps, encoder_states_dict).sample 
         else: 
             model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+
+        if args.penalize_special_token_attn: 
+            assert loss_store.step_store["loss"].device == accelerator.device 
+            loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
 
         # Get the target for loss depending on the prediction type
         if noise_scheduler.config.prediction_type == "epsilon":
@@ -1769,7 +1705,7 @@ def main(args):
 
             # Compute prior loss
             prior_loss = F.mse_loss(model_pred_prior.float(), target_prior.float(), reduction="mean")
-            losses.append(prior_loss.detach()) 
+            losses.append(prior_loss.detach() * args.prior_loss_weight) 
 
             # Add the prior loss to the instance loss.
             loss = loss + args.prior_loss_weight * prior_loss
@@ -1777,6 +1713,18 @@ def main(args):
             loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
             losses.append(loss.detach()) 
             losses.append(torch.tensor(0.0).to(accelerator.device)) 
+
+        if args.penalize_special_token_attn: 
+            losses.append(loss_store.step_store["loss"].detach() * args.special_token_attn_loss_weight)  
+            loss = loss + args.special_token_attn_loss_weight * loss_store.step_store["loss"] 
+        else: 
+            losses.append(torch.tensor(0.0).to(accelerator.device))   
+
+        if PRINT_STUFF: 
+            accelerator.print(f"MSE loss: {losses[0].item()}, the weight is 1.0")
+            accelerator.print(f"prior loss: {losses[1].item()}, {args.prior_loss_weight = }") 
+            accelerator.print(f"special token attn loss: {losses[2].item()}, {args.special_token_attn_loss_weight = }") 
+
 
         losses = torch.stack(losses).to(accelerator.device) 
 
@@ -2457,9 +2405,9 @@ def main(args):
         gathered_losses = torch.mean(accelerator.gather(losses), dim=0) 
         if args.wandb and (ddp_step + 1) % args.log_every == 0: 
             # wandb_log_data["loss"] = gathered_loss
-            wandb_log_data["corrected_mse_loss"] = gathered_losses[0]   
-            if args.with_prior_preservation: 
-                wandb_log_data["corrected_prior_loss"] = gathered_losses[1] 
+            wandb_log_data["scaled_mse_loss"] = gathered_losses[0]   
+            wandb_log_data["scaled_prior_loss"] = gathered_losses[1] 
+            wandb_log_data["scaled_special_token_attn_loss"] = gathered_losses[2] 
 
         if args.wandb: 
             # finally logging!

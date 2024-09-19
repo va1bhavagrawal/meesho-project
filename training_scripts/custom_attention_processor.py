@@ -23,10 +23,12 @@ from PIL import Image
 DEBUG_ATTN = False  
 
 class AttendExciteAttnProcessor:
-    def __init__(self, name, attn_store):
+    def __init__(self, name, attn_store, loss_store):
         super().__init__()
         self.name = name 
         self.attn_store = attn_store 
+        self.loss_store = loss_store 
+        assert loss_store is not None 
 
 
     def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
@@ -47,6 +49,7 @@ class AttendExciteAttnProcessor:
         key = attn.to_k(actual_encoder_hidden_states)
         value = attn.to_v(actual_encoder_hidden_states) 
 
+        # print(f"AT LEAST THE CALL METHOD IS CALLED!")  
         if type(encoder_hidden_states) == dict: 
             # assert len(encoder_hidden_states["attn_assignments"]) == len(encoder_hidden_states["encoder_hidden_states"]) 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
@@ -58,12 +61,19 @@ class AttendExciteAttnProcessor:
                         key[batch_idx][seq_idx] = key[B // 2][seq_idx] 
                     for seq_idx in range(len(query[0])): 
                         query[batch_idx][seq_idx] = query[B // 2][seq_idx] 
-                        
-            B = len(encoder_hidden_states["attn_assignments"]) 
-            for batch_idx in range(B): 
-                for idx1, idx2 in used_attention_maps[batch_idx].items(): 
-                    assert idx1 != idx2 
-                    key[batch_idx][idx1] = key[batch_idx][idx2] 
+                         
+            # print(f"AT LEAST THE ENCODER HIDDEN STATES ARE A DICT!") 
+            if (self.loss_store is not None) or ("replace_attn" in encoder_hidden_states.keys() and encoder_hidden_states["replace_attn"] == True):  
+                # print(f"CAME HERE!") 
+                B = len(encoder_hidden_states["attn_assignments"]) 
+                for batch_idx in range(B): 
+                    for idx1, idx2 in used_attention_maps[batch_idx].items(): 
+                        assert idx1 != idx2 
+                        if "replace_attn" in encoder_hidden_states.keys() and encoder_hidden_states["replace_attn"] == True: 
+                            key[batch_idx][idx1] = key[batch_idx][idx2] 
+                        if self.loss_store is not None: 
+                            loss = torch.mean((key[batch_idx][idx1] - key[batch_idx][idx2].detach()) ** 2)  
+                            self.loss_store(loss) 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
@@ -222,12 +232,14 @@ class AttnProcessor2_0_edited:
         return hidden_states
 
 
-def patch_custom_attention(unet, store_attn, across_timesteps): 
+def patch_custom_attention(unet, store_attn, across_timesteps, store_loss): 
     attn_procs = {}
-    cross_att_count = 0
     attn_store = None 
+    loss_store = None 
     if store_attn: 
         attn_store = AttentionStore(unet, across_timesteps)  
+    if store_loss: 
+        loss_store = AttentionLossStore() 
     # print(f"printing all the unet attn_processors keys")
     for name, attn_processor in unet.attn_processors.items():
         # # print(f"{name}")
@@ -247,18 +259,43 @@ def patch_custom_attention(unet, store_attn, across_timesteps):
         # else:
         #     continue
 
-        cross_att_count += 1
         # attn_procs[name] = MyAttentionProcessor()  
         # attn_procs[name] = AttnProcessor2_0_edited(name, attn_store)     
-        if attn_store is None: 
-            attn_procs[name] = AttnProcessor2_0_edited(name)      
-        else: 
-            attn_procs[name] = AttendExciteAttnProcessor(name, attn_store) 
+        # if attn_store is None: 
+        #     attn_procs[name] = AttnProcessor2_0_edited(name)      
+        # else: 
+        #     attn_procs[name] = AttendExciteAttnProcessor(name, attn_store) 
+        attn_procs[name] = AttendExciteAttnProcessor(name, attn_store, loss_store)  
 
     unet.set_attn_processor(attn_procs) 
 
+    retval = [] 
     if store_attn: 
-        return attn_store 
+        retval.append(attn_store) 
+    if store_loss: 
+        retval.append(loss_store) 
+    return retval 
+
+
+class AttentionLossStore:
+    def get_empty_store(self):
+        self.step_store = {"loss": 0.0} 
+
+
+    def forward(self, loss):
+        self.step_store["loss"] = self.step_store["loss"] + loss 
+
+
+    def __call__(self, loss):
+        self.forward(loss) 
+
+
+    def __init__(self):   
+        '''
+        Initialize an empty AttentionStore
+        :param step_index: used to visualize only a specific step in the diffusion process
+        '''
+        self.get_empty_store()
 
 
 class AttentionStore:

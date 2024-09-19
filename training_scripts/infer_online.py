@@ -36,7 +36,7 @@ from lora_diffusion import patch_pipe
 WHICH_MODEL = "nomerged_normalized"  
 WHICH_STEP = 500000   
 MAX_SUBJECTS_PER_EXAMPLE = 2     
-NUM_SAMPLES = 9  
+NUM_SAMPLES = 2   
 
 P2P = True  
 MAX_P2P_TIMESTEP = 45  
@@ -254,7 +254,7 @@ class Infer:
         with open("best_latents.pt", "rb") as f: 
             latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
         self.scheduler.set_timesteps(NUM_INFERENCE_STEPS) 
-        self.attn_store = patch_custom_attention(self.accelerator.unwrap_model(self.unet), self.store_attn, across_timesteps=ACROSS_TIMESTEPS)   
+        self.attn_store = patch_custom_attention(self.accelerator.unwrap_model(self.unet), store_attn=self.store_attn, across_timesteps=ACROSS_TIMESTEPS, store_loss=False)    
         for t_idx, t in enumerate(self.scheduler.timesteps):
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
             latent_model_input = torch.cat([latents] * 2)
