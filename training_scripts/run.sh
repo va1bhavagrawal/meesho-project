@@ -1,13 +1,13 @@
-export RUN_NAME="penalize_attn__0.00001penalty_fixedpositions" 
+export RUN_NAME="penalize_attn__0.00001penalty_randompositions" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR_1SUBJECT="../training_data_fixed/ref_imgs_1subject"  
-export INSTANCE_DIR_2SUBJECTS="../training_data_fixed/ref_imgs_2subjects" 
-export CONTROLNET_DIR_1SUBJECT="../training_data_fixed/controlnet_imgs_1subject"
-export CONTROLNET_DIR_2SUBJECTS="../training_data_fixed/controlnet_imgs_2subjects"
+export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_1909/ref_imgs_1subject"  
+export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_1909/ref_imgs_2subjects" 
+export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_1909/controlnet_imgs_1subject"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_1909/controlnet_imgs_2subjects"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_fixed/prior_imgs" 
+export CLASS_DATA_DIR="../training_data_2subjects_1909/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
@@ -16,7 +16,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
-  --use_controlnet_images="N" \
+  --use_controlnet_images="Y" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
@@ -36,7 +36,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=70000 \
+  --stage1_steps=100000 \
   --stage2_steps=0 \
   --resolution=512 \
   --train_batch_size=1 \
