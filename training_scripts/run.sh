@@ -1,4 +1,4 @@
-export RUN_NAME="penalize_attn__nopenalty_fixedpositions" 
+export RUN_NAME="penalize_attn__0.00001penalty_fixedpositions" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -36,14 +36,14 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=20000 \
+  --stage1_steps=70000 \
   --stage2_steps=0 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --prior_loss_weight=0.1 \
-  --special_token_attn_loss_weight=0.0 \
+  --special_token_attn_loss_weight=0.00001 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
   --pretrained_model_name_or_path=$MODEL_NAME  \

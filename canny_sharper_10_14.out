@@ -1,4 +1,5 @@
-Traceback (most recent call last):
-  File "/home/rishubhp/vaibhav/meesho-project/canny_controlnet_safe.py", line 1, in <module>
-    import cv2
-ModuleNotFoundError: No module named 'cv2'
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_fwd")
+/home/rishubhp/miniconda3/envs/contwords/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+  @torch.library.impl_abstract("xformers_flash::flash_bwd")
+slurmstepd: error: *** JOB 1268 ON cn5 CANCELLED AT 2024-09-20T00:20:14 ***
