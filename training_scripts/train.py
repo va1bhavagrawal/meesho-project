@@ -67,8 +67,8 @@ BS = 4
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = [20000, 50000, 70000, 100000]    
-for vlog_step in range(100000, 510000, 50000): 
+VLOG_STEPS = []    
+for vlog_step in range(100000, 200000, 20000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
     
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
@@ -902,9 +902,9 @@ def main(args):
         assert osp.exists(args.resume_training_state) 
         training_state_ckpt = torch.load(args.resume_training_state) 
 
-    if accelerator.is_main_process: 
-        with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
-            pickle.dump(args.__dict__, f) 
+    # if accelerator.is_main_process: 
+    #     with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
+    #         pickle.dump(args.__dict__, f) 
 
     # Load models and create wrapper for stable diffusion
     text_encoder = CLIPTextModel.from_pretrained(
@@ -951,10 +951,10 @@ def main(args):
                 unet_state_dict[name] = lora_state_dict[name]  
             unet.load_state_dict(unet_state_dict) 
 
-    retval = patch_custom_attention(unet, store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
-    if args.penalize_special_token_attn: 
-        assert len(retval) == 1 
-        loss_store = retval[0] 
+    # retval = patch_custom_attention(unet, store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
+    # if args.penalize_special_token_attn: 
+    #     assert len(retval) == 1 
+    #     loss_store = retval[0] 
 
     # for _up, _down in extract_lora_ups_down(unet):
     #     print("Before training: Unet First Layer lora up", _up.weight.data)
