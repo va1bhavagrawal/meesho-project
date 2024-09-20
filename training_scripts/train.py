@@ -842,6 +842,22 @@ def main(args):
     # effective batch size should remain constant 
     assert accelerator.num_processes * args.train_batch_size == BS, f"{accelerator.num_processes = }, {args.train_batch_size = }" 
 
+
+    if args.resume_training_state is not None: 
+        assert osp.exists(args.resume_training_state) 
+        training_state_ckpt = torch.load(args.resume_training_state) 
+        args_path = osp.join(osp.dirname(args.resume_training_state), "args.pkl")  
+        assert osp.exists(args_path) 
+        args_loaded = None 
+        with open(args_path, "rb") as f: 
+            args_loaded = pickle.load(f) 
+    
+    args.__dict__ = args_loaded 
+
+    ################# THE CHANGES IN THE RESUMED RUN, IF ANY ######################### 
+    args.special_token_attn_loss_weight = 0.00001 
+    ################################################################################## 
+
     # init wandb 
     if args.wandb and accelerator.is_main_process:
         wandb_config = vars(args) 
@@ -903,9 +919,9 @@ def main(args):
         assert osp.exists(args.resume_training_state) 
         training_state_ckpt = torch.load(args.resume_training_state) 
 
-    with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
-        pickle.dump(args.__dict__, f) 
-    args.special_token_attn_loss_weight = 0.00001 
+    if accelerator.is_main_process: 
+        with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
+            pickle.dump(args.__dict__, f) 
 
     # Load models and create wrapper for stable diffusion
     text_encoder = CLIPTextModel.from_pretrained(
