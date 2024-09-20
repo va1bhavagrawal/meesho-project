@@ -33,10 +33,11 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "nomerged_normalized"  
-WHICH_STEP = 500000   
-MAX_SUBJECTS_PER_EXAMPLE = 2     
-NUM_SAMPLES = 18    
+WHICH_MODEL = "penalize_attn__resume0.0001" 
+# WHICH_MODEL = "replace_attn_maps"  
+WHICH_STEP = 180000  
+MAX_SUBJECTS_PER_EXAMPLE = 1   
+NUM_SAMPLES = 9  
 
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
@@ -207,13 +208,19 @@ class Infer:
         self.text_encoder_bypass = text_encoder_bypass
         self.bnha_embeds = bnha_embeds 
         self.tmp_dir = tmp_dir  
+
+        self.accelerator.wait_for_everyone() 
+
         if osp.exists(self.tmp_dir) and self.accelerator.is_main_process: 
             shutil.rmtree(f"{self.tmp_dir}") 
+        self.accelerator.wait_for_everyone() 
         if store_attn: 
             self.tmp_dir_attn = osp.join(osp.dirname(self.tmp_dir), osp.basename(self.tmp_dir) + "__attn") 
             if osp.exists(self.tmp_dir_attn) and self.accelerator.is_main_process: 
                 shutil.rmtree(self.tmp_dir_attn) 
                 os.makedirs(self.tmp_dir_attn) 
+
+        self.accelerator.wait_for_everyone() 
         self.tokenizer = tokenizer 
 
         self.unet = self.accelerator.prepare(self.unet) 
@@ -254,7 +261,9 @@ class Infer:
         with open("best_latents.pt", "rb") as f: 
             latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
         self.scheduler.set_timesteps(NUM_INFERENCE_STEPS) 
-        self.attn_store = patch_custom_attention(self.accelerator.unwrap_model(self.unet), store_attn=self.store_attn, across_timesteps=ACROSS_TIMESTEPS, store_loss=False)    
+        retval = patch_custom_attention(self.accelerator.unwrap_model(self.unet), store_attn=self.store_attn, across_timesteps=ACROSS_TIMESTEPS, store_loss=False)    
+        if self.store_attn: 
+            self.attn_store = retval[0] 
         for t_idx, t in enumerate(self.scheduler.timesteps):
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
             latent_model_input = torch.cat([latents] * 2)
@@ -268,6 +277,9 @@ class Infer:
                 "encoder_hidden_states": concat_encoder_states, 
                 "attn_assignments": all_assignments, 
             }
+            if self.replace_attn: 
+                encoder_states_dict["replace_attn"] = True 
+
             if P2P and t_idx < MAX_P2P_TIMESTEP: 
                 encoder_states_dict["p2p"] = True 
 
@@ -372,6 +384,21 @@ class Infer:
         self.replace_attn = replace_attn 
         # if self.store_attn: 
         #     self.bs = 1 
+
+        self.accelerator.wait_for_everyone() 
+        if osp.exists(self.tmp_dir) and self.accelerator.is_main_process: 
+            shutil.rmtree(f"{self.tmp_dir}") 
+
+        self.accelerator.wait_for_everyone() 
+
+        if self.store_attn: 
+            self.tmp_dir_attn = osp.join(osp.dirname(self.tmp_dir), osp.basename(self.tmp_dir) + "__attn") 
+            if osp.exists(self.tmp_dir_attn) and self.accelerator.is_main_process: 
+                shutil.rmtree(self.tmp_dir_attn) 
+                os.makedirs(self.tmp_dir_attn) 
+
+        self.accelerator.wait_for_everyone() 
+
         with torch.no_grad(): 
             self.seed = seed 
             self.gif_path = gif_path 
@@ -632,15 +659,21 @@ class Infer:
                         create_gif(movie, movie_save_path, duration=0.1)  
                 self.accelerator.wait_for_everyone() 
 
-            # if self.accelerator.is_main_process: 
+            self.accelerator.wait_for_everyone() 
+
+            # if self.store_attn and self.accelerator.is_main_process: 
             #     self.accelerator.print(f"removing {self.tmp_dir_attn}") 
             #     if osp.exists(self.tmp_dir_attn): 
             #         shutil.rmtree(self.tmp_dir_attn) 
 
-            if self.accelerator.is_main_process: 
-                print(f"removing {self.tmp_dir}") 
-                if osp.exists(self.tmp_dir): 
-                    shutil.rmtree(self.tmp_dir) 
+            # self.accelerator.wait_for_everyone() 
+
+            # if self.accelerator.is_main_process: 
+            #     print(f"removing {self.tmp_dir}") 
+            #     if osp.exists(self.tmp_dir): 
+            #         shutil.rmtree(self.tmp_dir) 
+
+            # self.accelerator.wait_for_everyone() 
 
 
 if __name__ == "__main__": 
@@ -712,7 +745,7 @@ if __name__ == "__main__":
         # appearance_embeds.load_state_dict(training_state["appearance"]["model"]) 
 
         replace_attn = args['replace_attn_maps']  
-        assert replace_attn 
+        # replace_attn = True 
 
         if TEXTUAL_INV is not None: 
             assert osp.exists(TI_PATH) 
@@ -726,18 +759,18 @@ if __name__ == "__main__":
             pipeline.text_encoder.get_input_embeddings().weight[special_token_ids[0]] = ti_embedding    
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", args['text_encoder_bypass'], None, store_attn=True, bs=3)  
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", args['text_encoder_bypass'], None, store_attn=True, bs=4)  
 
 
         subjects = [
             [
                 {
-                    "subject": "jeep", 
+                    "subject": "suv", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                 }, 
                 {
-                    "subject": "horse", 
+                    "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
@@ -754,7 +787,7 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "sedan", 
+                    "subject": "motorbike", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                 }, 
@@ -765,7 +798,7 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
-            # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
             "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
             "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
@@ -802,7 +835,7 @@ if __name__ == "__main__":
                     "appearance_type": "class", 
                 }, 
                 {
-                    "subject": "horse", 
+                    "subject": "tractor", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
@@ -813,13 +846,13 @@ if __name__ == "__main__":
                     "appearance_type": "class", 
                 }, 
                 {
-                    "subject": "sedan", 
+                    "subject": "horse", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "sedan", 
+                    "subject": "pickup truck", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                 }, 
@@ -830,7 +863,72 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
-            # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+            "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
+            "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
+            "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+        ]
+        for prompt in prompts: 
+
+            if accelerator.is_main_process: 
+                if osp.exists("best_latents.pt"): 
+                    os.remove("best_latents.pt")  
+                seed = random.randint(0, 170904) 
+                with open(f"seed.pkl", "wb") as f: 
+                    pickle.dump(seed, f) 
+                # set_seed(seed) 
+                latents = torch.randn(1, 4, 64, 64)  
+                with open(f"best_latents.pt", "wb") as f: 
+                    torch.save(latents, f) 
+
+            accelerator.wait_for_everyone() 
+            if not accelerator.is_main_process: 
+                with open("seed.pkl", "rb") as f: 
+                    seed = pickle.load(f) 
+            accelerator.wait_for_everyone() 
+
+            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
+
+
+        subjects = [
+            [
+                {
+                    "subject": "sedan", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                }, 
+                {
+                    "subject": "tractor", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "rickshaw", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                }, 
+                {
+                    "subject": "suv", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "bicycle", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                }, 
+                {
+                    "subject": "suv", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        ]
+        prompts = [
+            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
             "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
             "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
