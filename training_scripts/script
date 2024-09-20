@@ -6,7 +6,7 @@
 #SBATCH --mem=251G 
 #SBATCH --gres=gpu:4   
 #SBATCH --partition=long 
-#SBATCH -w cn4  
+#SBATCH -w cn3   
 
 
 ./run.sh 
