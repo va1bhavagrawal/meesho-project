@@ -1,4 +1,4 @@
-export RUN_NAME="penalize_attn__resume0.00001" 
+export RUN_NAME="penalize_attn__2subjects_0.00001" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -12,7 +12,7 @@ export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt"
 export VIS_DIR="../multiobject/"  
 
 
-accelerate launch --config_file accelerate_config.yaml train.py \
+accelerate launch --config_file accelerate_config2.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
@@ -36,8 +36,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=200000 \
-  --stage2_steps=0 \
+  --stage1_steps=150000 \
+  --stage2_steps=350000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
@@ -55,5 +55,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --online_inference \
   --wandb \
-  --resume_training_state="../ckpts/multiobject/__penalize_attn__nopenalty_randompositions/training_state_100000.pth" \
+  --resume_training_state="../ckpts/multiobject/__penalize_attn__resume0.00001/training_state_150000.pth" \
   --class_data_dir=$CLASS_DATA_DIR 

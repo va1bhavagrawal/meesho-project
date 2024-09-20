@@ -68,7 +68,7 @@ BS = 4
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
 VLOG_STEPS = []
-for vlog_step in range(101000, 200000, 10000): 
+for vlog_step in range(150000, 500000, 25000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
 VLOG_STEPS = sorted(VLOG_STEPS) 
     
