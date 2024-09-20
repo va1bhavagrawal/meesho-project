@@ -63,13 +63,14 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4    
+BS = 4      
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = []    
-for vlog_step in range(100000, 200000, 20000): 
+VLOG_STEPS = []
+for vlog_step in range(101000, 200000, 10000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
+VLOG_STEPS = sorted(VLOG_STEPS) 
     
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 # SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
@@ -902,9 +903,9 @@ def main(args):
         assert osp.exists(args.resume_training_state) 
         training_state_ckpt = torch.load(args.resume_training_state) 
 
-    # if accelerator.is_main_process: 
-    #     with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
-    #         pickle.dump(args.__dict__, f) 
+    with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
+        pickle.dump(args.__dict__, f) 
+    args.special_token_attn_loss_weight = 0.00001 
 
     # Load models and create wrapper for stable diffusion
     text_encoder = CLIPTextModel.from_pretrained(
@@ -1153,7 +1154,7 @@ def main(args):
         #     print(f"{name = }, {p.shape = }, {p.requires_grad = }") 
 
         if args.resume_training_state: 
-            merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
+            merger.load_state_dict(training_state_ckpt["merger"]["model"], strict=False)  
         # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
         optimizer_merger = optimizer_class(
             merger.parameters(),  
@@ -1374,7 +1375,7 @@ def main(args):
     train_dataloader_stage2_iter = iter(train_dataloader_stage2) 
 
 
-    for step in range(args.max_train_steps): 
+    while True: 
 
         retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
         if args.penalize_special_token_attn: 
@@ -1392,6 +1393,7 @@ def main(args):
         if args.resume_training_state: 
             if global_step < training_state_ckpt["global_step"]:  
                 global_step += BS  
+                progress_bar.update(BS) 
                 ddp_step += 1 
                 if accelerator.is_main_process and args.wandb: 
                     wandb_log_data = {} 

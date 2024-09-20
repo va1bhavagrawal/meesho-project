@@ -36,7 +36,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=100000 \
+  --stage1_steps=200000 \
   --stage2_steps=0 \
   --resolution=512 \
   --train_batch_size=1 \
@@ -55,5 +55,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --online_inference \
   --wandb \
-  --resume_training_state="../ckpts/multiobject//__penalize_attn__nopenalty_randompositions/training_state_100000.pth" \
+  --resume_training_state="../ckpts/multiobject/__penalize_attn__nopenalty_randompositions/training_state_100000.pth" \
   --class_data_dir=$CLASS_DATA_DIR 
