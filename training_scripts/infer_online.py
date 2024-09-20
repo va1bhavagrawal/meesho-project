@@ -632,10 +632,10 @@ class Infer:
                         create_gif(movie, movie_save_path, duration=0.1)  
                 self.accelerator.wait_for_everyone() 
 
-            if self.accelerator.is_main_process: 
-                self.accelerator.print(f"removing {self.tmp_dir_attn}") 
-                if osp.exists(self.tmp_dir_attn): 
-                    shutil.rmtree(self.tmp_dir_attn) 
+            # if self.accelerator.is_main_process: 
+            #     self.accelerator.print(f"removing {self.tmp_dir_attn}") 
+            #     if osp.exists(self.tmp_dir_attn): 
+            #         shutil.rmtree(self.tmp_dir_attn) 
 
             if self.accelerator.is_main_process: 
                 print(f"removing {self.tmp_dir}") 
