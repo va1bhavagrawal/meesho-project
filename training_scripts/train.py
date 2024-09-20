@@ -846,17 +846,6 @@ def main(args):
     if args.resume_training_state is not None: 
         assert osp.exists(args.resume_training_state) 
         training_state_ckpt = torch.load(args.resume_training_state) 
-        args_path = osp.join(osp.dirname(args.resume_training_state), "args.pkl")  
-        assert osp.exists(args_path) 
-        args_loaded = None 
-        with open(args_path, "rb") as f: 
-            args_loaded = pickle.load(f) 
-    
-    args.__dict__ = args_loaded 
-
-    ################# THE CHANGES IN THE RESUMED RUN, IF ANY ######################### 
-    args.special_token_attn_loss_weight = 0.00001 
-    ################################################################################## 
 
     # init wandb 
     if args.wandb and accelerator.is_main_process:
