@@ -21,8 +21,10 @@ import cv2
 from PIL import Image 
 
 DEBUG_ATTN = False  
+INTERPOLATION_SIZE = 1024 
 
-class AttendExciteAttnProcessor:
+
+class CustomAttentionProcessor:
     def __init__(self, name, attn_store, loss_store):
         super().__init__()
         self.name = name 
@@ -30,10 +32,29 @@ class AttendExciteAttnProcessor:
         self.loss_store = loss_store 
 
 
+    def bbox_attn_loss_func(self, bboxes, attn_maps): 
+        loss = 0.0 
+        B = len(bboxes) 
+        assert len(attn_maps) == B 
+        for batch_idx in range(B): 
+            for asset_idx in range(len(bboxes[batch_idx])):  
+                bbox = (bboxes[batch_idx][asset_idx] * INTERPOLATION_SIZE).to(dtype=torch.int32)  
+                attn_maps_for_asset = attn_maps[batch_idx][asset_idx] 
+                # print(f"{attn_maps_for_asset.shape = }") 
+                interpolated_attn_maps = F.interpolate(attn_maps_for_asset.unsqueeze(0), size=INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
+                assert interpolated_attn_maps.shape[-1] == INTERPOLATION_SIZE 
+                assert interpolated_attn_maps.shape[-2] == INTERPOLATION_SIZE 
+                assert torch.all(bbox > 0) and torch.all(bbox < INTERPOLATION_SIZE)   
+                attn_inside_bbox = interpolated_attn_maps[..., bbox[1] : bbox[3], bbox[0] : bbox[2]]  
+                # print(f"{attn_inside_bbox.shape = }") 
+                assert attn_inside_bbox.shape == (interpolated_attn_maps.shape[0], bbox[3] - bbox[1], bbox[2] - bbox[0]) 
+                loss_asset = torch.sum(attn_inside_bbox) / torch.sum(interpolated_attn_maps)  
+                assert loss_asset <= 1 
+                loss = loss + loss_asset  
+        return loss 
+
+
     def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
-        # print(f"input to attn for {self.layer_name} is of shape: {hidden_states.shape}")
-        batch_size, sequence_length, _ = hidden_states.shape
-        # attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length)
 
         query = attn.to_q(hidden_states)
 
@@ -42,43 +63,75 @@ class AttendExciteAttnProcessor:
 
         if type(encoder_hidden_states) == dict: 
             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
-            used_attention_maps = encoder_hidden_states["attn_assignments"] 
         else: 
             actual_encoder_hidden_states = encoder_hidden_states 
+
         key = attn.to_k(actual_encoder_hidden_states)
         value = attn.to_v(actual_encoder_hidden_states) 
 
-        # print(f"AT LEAST THE CALL METHOD IS CALLED!")  
         if type(encoder_hidden_states) == dict: 
-            # assert len(encoder_hidden_states["attn_assignments"]) == len(encoder_hidden_states["encoder_hidden_states"]) 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
                 B = len(encoder_hidden_states["attn_assignments"]) 
-                # assert B == 4  
-                # sys.exit(0) 
                 for batch_idx in range(B // 2 + 1, B): 
                     for seq_idx in range(len(key[0])): 
                         key[batch_idx][seq_idx] = key[B // 2][seq_idx] 
                     for seq_idx in range(len(query[0])): 
                         query[batch_idx][seq_idx] = query[B // 2][seq_idx] 
                          
-            # print(f"AT LEAST THE ENCODER HIDDEN STATES ARE A DICT!") 
-            if (self.loss_store is not None) or ("replace_attn" in encoder_hidden_states.keys() and encoder_hidden_states["replace_attn"] == True):  
-                # print(f"CAME HERE!") 
+            kwargs = encoder_hidden_states.keys() 
+            class2special = "class2special" in kwargs and encoder_hidden_states["class2special"] == True 
+            special2class_detached = "special2class_detached" in kwargs and encoder_hidden_states["special2class_detached"] == True 
+            special2class = "special2class" in kwargs and encoder_hidden_states["special2class"] == True 
+            any_replacement = class2special or special2class_detached or special2class 
+            
+            # first performing any replacement operations, and then the attention maps are calculated! 
+            if any_replacement:  
                 B = len(encoder_hidden_states["attn_assignments"]) 
                 for batch_idx in range(B): 
-                    for idx1, idx2 in used_attention_maps[batch_idx].items(): 
+                    for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
                         assert idx1 != idx2 
-                        if "replace_attn" in encoder_hidden_states.keys() and encoder_hidden_states["replace_attn"] == True: 
+
+                        if class2special: 
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
-                        if self.loss_store is not None: 
-                            loss = torch.mean((key[batch_idx][idx1] - key[batch_idx][idx2].detach()) ** 2)  
-                            self.loss_store(loss) 
+                        
+                        elif special2class_detached: 
+                            if DEBUG_ATTN: 
+                                print(f"using special2class_detached!")
+                            key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
+
+                        elif special2class: 
+                            key[batch_idx][idx2] = key[batch_idx][idx1]  
+                        
+                        else: 
+                            assert False 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
         value = attn.head_to_batch_dim(value)
-
         attention_probs = attn.get_attention_scores(query, key, attention_mask)
+
+        if self.loss_store is not None and type(encoder_hidden_states) == dict:  
+            attention_probs_batch_split = torch.chunk(attention_probs, chunks=len(encoder_hidden_states["attn_assignments"]), dim=0)  
+            bboxes = encoder_hidden_states["bboxes"]  
+            attn_maps = [] 
+            B = len(encoder_hidden_states["attn_assignments"]) 
+            for batch_idx in range(B): 
+                attn_maps_example = [] 
+                for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
+                    assert idx1 != idx2 
+                    attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
+                    res = int(math.sqrt(attention_probs_idx1.shape[-1])) 
+                    # asserting that it was a perfectly square attention map 
+                    assert attention_probs_idx1.shape[-1] == res * res 
+                    n_heads = attention_probs_idx1.shape[0] 
+                    attention_probs_idx1 = attention_probs_idx1.reshape(n_heads, res, res) 
+                    attn_maps_example.append(attention_probs_idx1) 
+                attn_maps.append(attn_maps_example) 
+                assert len(attn_maps_example) == len(bboxes[batch_idx]) 
+            assert len(attn_maps) == len(bboxes) 
+            loss = self.bbox_attn_loss_func(bboxes, attn_maps) 
+            self.loss_store(loss) 
+                    
         # print(f"{attention_probs.shape = }") 
         # print(f"{encoder_hidden_states.shape = }")
         # print(f"{hidden_states.shape = }")
@@ -264,15 +317,14 @@ def patch_custom_attention(unet, store_attn, across_timesteps, store_loss):
         #     attn_procs[name] = AttnProcessor2_0_edited(name)      
         # else: 
         #     attn_procs[name] = AttendExciteAttnProcessor(name, attn_store) 
-        attn_procs[name] = AttendExciteAttnProcessor(name, attn_store, loss_store)  
+        # attn_procs[name] = AttendExciteAttnProcessor(name, attn_store, loss_store)  
+        attn_procs[name] = CustomAttentionProcessor(name, attn_store, loss_store)  
 
     unet.set_attn_processor(attn_procs) 
 
-    retval = [] 
-    if store_attn: 
-        retval.append(attn_store) 
-    if store_loss: 
-        retval.append(loss_store) 
+    retval = {} 
+    retval["attn_store"] = attn_store 
+    retval["loss_store"] = loss_store 
     return retval 
 
 

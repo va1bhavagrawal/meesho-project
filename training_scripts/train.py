@@ -63,19 +63,19 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4      
+BS = 4   
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
 VLOG_STEPS = []
-for vlog_step in range(150000, 500000, 25000): 
+for vlog_step in range(0, 400000, 25000): 
     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
 VLOG_STEPS = sorted(VLOG_STEPS) 
     
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 # SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
-SAVE_STEPS = [500, 1000, 5000, 150500, 151000, 152000, 155000]  
-for save_step in range(10000, 510000, 10000): 
+SAVE_STEPS = [500, 1000, 5000]  
+for save_step in range(0, 400000, 10000): 
     SAVE_STEPS = SAVE_STEPS + [save_step] 
 SAVE_STEPS = sorted(SAVE_STEPS) 
 
@@ -198,7 +198,7 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
         # else: 
         # PERFORMING ONLY CLASS INFERENCE HERE!
         assert bnha_embeds is None 
-        infer = Infer(args.merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, args.text_encoder_bypass, None, store_attn=False, bs=args.inference_batch_size)  
+        infer = Infer(args.merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir=tmp_dir, bnha_embeds=None, store_attn=False, bs=args.inference_batch_size)  
 
 
         prompt = "a photo of PLACEHOLDER in the streets of Venice with the sun setting in the background"   
@@ -223,35 +223,47 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 {
                     "subject": "pickup truck", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.3, 
+                    "y": 0.6,  
                 }, 
                 {
                     "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
+                    "x": 0.7, 
+                    "y": 0.7,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
                     "subject": "jeep", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.4, 
+                    "y": 0.6, 
                 }, 
                 {
                     "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
+                    "x": 0.8, 
+                    "y": 0.9, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
                     "subject": "sedan", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.3, 
+                    "y": 0.5, 
                 }, 
                 {
                     "subject": "bus", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
 
-        infer.do_it(seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(seed, gif_path, prompt, subjects, args=args.__dict__)    
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -279,35 +291,47 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
                 {
                     "subject": "suv", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.3, 
+                    "y": 0.6,  
                 }, 
                 {
                     "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
+                    "x": 0.7, 
+                    "y": 0.7,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
                     "subject": "elephant", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.4, 
+                    "y": 0.6, 
                 }, 
                 {
                     "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
+                    "x": 0.8, 
+                    "y": 0.9, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
                     "subject": "horse", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.3, 
+                    "y": 0.5, 
                 }, 
                 {
                     "subject": "bus", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE], 
         ] 
 
-        infer.do_it(seed, gif_path, prompt, subjects, replace_attn=args.replace_attn_maps, include_class_in_prompt=args.include_class_in_prompt, normalize_merged_embedding=args.normalize_merged_embedding)    
+        infer.do_it(seed, gif_path, prompt, subjects, args=args.__dict__)     
         assert osp.exists(gif_path) 
         wandb_log_data[prompt] = wandb.Video(gif_path)  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = nn.Parameter(torch.clone(input_embeddings_safe), requires_grad=False) 
@@ -469,8 +493,8 @@ def parse_args(input_args=None):
     ) 
     parser.add_argument(
         "--replace_attn_maps", 
-        type=lambda x : bool(strtobool(x)),  
-        required=True, 
+        type=str, 
+        choices=["special2class", "special2class_detached", "class2special"], 
         help="whether to replace the special token attention maps by the class token attention maps", 
     ) 
     parser.add_argument(
@@ -1212,6 +1236,7 @@ def main(args):
         prompt_ids = [example["prompt_ids"] for example in examples] 
         prompts = [example["prompt"] for example in examples] 
         subjects = [example["subjects"] for example in examples] 
+        bboxes = [example["bboxes"] for example in examples] 
         xs_2d = [example["2d_xs"] for example in examples] 
         ys_2d = [example["2d_ys"] for example in examples] 
         pixel_values = []
@@ -1246,6 +1271,7 @@ def main(args):
             "prompts": prompts, 
             "2d_xs": xs_2d, 
             "2d_ys": ys_2d, 
+            "bboxes": bboxes, 
         }
         if args.with_prior_preservation: 
             batch["prior_subjects"] = prior_subjects  
@@ -1383,12 +1409,10 @@ def main(args):
     while True: 
 
         retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
-        if args.penalize_special_token_attn: 
-            assert len(retval) == 1 
-            loss_store = retval[0] 
-
-        if args.penalize_special_token_attn: 
-            loss_store.get_empty_store() 
+        loss_store = retval["loss_store"] 
+        attn_store = retval["attn_store"] 
+        assert loss_store is not None and attn_store is None 
+        # assert that we are beginning with an empty loss store 
         assert loss_store.step_store["loss"] == 0.0 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
@@ -1452,23 +1476,28 @@ def main(args):
                 img = np.ascontiguousarray(img) 
                 locations = [] 
 
+                bboxes = batch["bboxes"]  
                 if batch_idx < len(batch['2d_xs']): 
                     for asset_idx in range(len(batch["subjects"][batch_idx])): 
-                        location = (int(batch["2d_xs"][batch_idx][asset_idx]) // 2, int(batch["2d_ys"][batch_idx][asset_idx]) // 2)   
+                        location = (int(batch["2d_xs"][batch_idx][asset_idx] * 512), int(batch["2d_ys"][batch_idx][asset_idx] * 512))   
                         locations.append(location) 
                         if PRINT_STUFF: 
                             accelerator.print(f"drawing circle at {location}!") 
+                        bbox = bboxes[batch_idx][asset_idx]
+                        tl = (int(bbox[0] * 512), int(bbox[1] * 512))  
+                        br = (int(bbox[2] * 512), int(bbox[3] * 512))  
                         cv2.circle(img, location, 0, (255, 0, 0), 10) 
+                        cv2.rectangle(img, tl, br, (0, 255, 0), 5) 
 
                 plt.figure(figsize=(20, 20)) 
                 plt.imshow(img)  
                 if batch_idx < B: 
-                    plt_title = f"{step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t{batch['subjects'][batch_idx] = }\t{batch['scalers'][batch_idx] = }" 
+                    plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t{batch['subjects'][batch_idx] = }\t{batch['scalers'][batch_idx] = }" 
                 else: 
                     plt_title = f"{step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }" 
                 plt_title = "\n".join(textwrap.wrap(plt_title, width=60)) 
                 plt.title(plt_title, fontsize=9)  
-                plt.savefig(f"vis/{str(step).zfill(3)}_{str(batch_idx).zfill(3)}.jpg") 
+                plt.savefig(f"vis/{str(global_step).zfill(3)}_{str(batch_idx).zfill(3)}.jpg") 
                 plt.close() 
 
         latents = vae.encode(
@@ -1524,8 +1553,8 @@ def main(args):
             for batch_idx in range(len(batch["scalers"])): 
                 assert len(batch["scalers"][batch_idx]) == len(batch["2d_xs"][batch_idx]) == len(batch["2d_ys"][batch_idx])  
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
-                    xs_2d_padded[batch_idx][scaler_idx] = batch["2d_xs"][batch_idx][scaler_idx] / 1024  
-                    ys_2d_padded[batch_idx][scaler_idx] = batch["2d_ys"][batch_idx][scaler_idx] / 1024  
+                    xs_2d_padded[batch_idx][scaler_idx] = batch["2d_xs"][batch_idx][scaler_idx]  
+                    ys_2d_padded[batch_idx][scaler_idx] = batch["2d_ys"][batch_idx][scaler_idx] 
 
             p = torch.Tensor(scalers_padded / (2 * math.pi)) 
             assert torch.all(xs_2d_padded < 1) 
@@ -1539,6 +1568,10 @@ def main(args):
             else: 
                 # mlp_emb = torch.zeros((B, MAX_SUBJECTS_PER_EXAMPLE, args.merged_emb_dim)) 
                 mlp_emb = [] 
+                if PRINT_STUFF: 
+                    accelerator.print(f"{p = }") 
+                    accelerator.print(f"{xs_2d_padded = }") 
+                    accelerator.print(f"{ys_2d_padded = }") 
                 for scaler_idx in range(MAX_SUBJECTS_PER_EXAMPLE):  
                     # mlp_emb[:, scaler_idx, :] = merger(p[:, scaler_idx]) 
                     if args.use_location_conditioning: 
@@ -1697,10 +1730,13 @@ def main(args):
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
         } 
-        if args.replace_attn_maps: 
-            encoder_states_dict["replace_attn"] = True 
+        if args.replace_attn_maps is not None: 
+            encoder_states_dict[args.replace_attn_maps] = True 
 
-        if args.replace_attn_maps or args.penalize_special_token_attn:  
+        if args.penalize_special_token_attn: 
+            encoder_states_dict["bboxes"] = batch["bboxes"] 
+
+        if args.replace_attn_maps is not None or args.penalize_special_token_attn:  
             model_pred = unet(noisy_latents, timesteps, encoder_states_dict).sample 
         else: 
             model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample

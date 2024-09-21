@@ -18,6 +18,7 @@ from infer_online import UNIQUE_TOKENS
 import pickle 
 
 MAX_SUBJECTS_PER_EXAMPLE = 2  
+RAW_IMG_SIZE = 1024 
 
 # class PromptDataset(Dataset):
 #     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
@@ -233,11 +234,13 @@ class DisentangleDataset(Dataset):
                 pkl_data = pickle.load(f) 
             all_2d_x = [] 
             all_2d_y = [] 
+            all_bboxes = [] 
             assert len(pkl_data.keys()) == len(example["subjects"]) 
             for asset_idx in range(len(pkl_data.keys())): 
                 bbox = pkl_data[f"obj{asset_idx+1}"]["bbox"] 
-                all_2d_x.append((bbox[0] + bbox[2]) / 2)  
-                all_2d_y.append((bbox[1] + bbox[3]) / 2)  
+                all_2d_x.append((bbox[0] + bbox[2]) / (2 * RAW_IMG_SIZE))  
+                all_2d_y.append((bbox[1] + bbox[3]) / (2 * RAW_IMG_SIZE))  
+                all_bboxes.append(torch.tensor(bbox) / RAW_IMG_SIZE)  
 
             # a, e, r, x, y, _ = random_ref_img.split("__") 
             # a = float(a) 
@@ -262,6 +265,7 @@ class DisentangleDataset(Dataset):
                 all_a.append(float(a)) 
 
             example["scalers"] = all_a   
+            example["bboxes"] = all_bboxes 
             example["2d_xs"] = all_2d_x 
             example["2d_ys"] = all_2d_y  
             template_prompt = "a photo of PLACEHOLDER" 
@@ -324,11 +328,13 @@ class DisentangleDataset(Dataset):
                 pkl_data = pickle.load(f) 
             all_2d_x = [] 
             all_2d_y = [] 
+            all_bboxes = [] 
             assert len(pkl_data.keys()) == len(example["subjects"]) 
             for asset_idx in range(len(pkl_data.keys())): 
                 bbox = pkl_data[f"obj{asset_idx+1}"]["bbox"] 
-                all_2d_x.append((bbox[0] + bbox[2]) / 2)  
-                all_2d_y.append((bbox[1] + bbox[3]) / 2)  
+                all_2d_x.append((bbox[0] + bbox[2]) / (2 * RAW_IMG_SIZE))   
+                all_2d_y.append((bbox[1] + bbox[3]) / (2 * RAW_IMG_SIZE))  
+                all_bboxes.append(torch.tensor(bbox) / RAW_IMG_SIZE) 
 
             all_x = [] 
             all_y = [] 
@@ -346,6 +352,7 @@ class DisentangleDataset(Dataset):
             example["scalers"] = all_a 
             example["2d_xs"] = all_2d_x 
             example["2d_ys"] = all_2d_y 
+            example["bboxes"] = all_bboxes 
             prompt_idx = int(whichprompt.replace("prompt", "").strip()) 
             template_prompt = self.args.controlnet_prompts[prompt_idx] 
             placeholder_text = "a SUBJECT0 " 

@@ -193,7 +193,7 @@ def collate_fn(examples):
 
 
 class Infer: 
-    def __init__(self, merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, text_encoder_bypass, bnha_embeds, store_attn, bs=8):   
+    def __init__(self, merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, bnha_embeds, store_attn, bs=8):   
         self.merged_emb_dim = merged_emb_dim 
         self.store_attn = store_attn 
         self.accelerator = accelerator 
@@ -205,7 +205,6 @@ class Infer:
         self.vae = vae 
         self.mlp = mlp 
         self.merger = merger 
-        self.text_encoder_bypass = text_encoder_bypass
         self.bnha_embeds = bnha_embeds 
         self.tmp_dir = tmp_dir  
 
@@ -262,8 +261,9 @@ class Infer:
             latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
         self.scheduler.set_timesteps(NUM_INFERENCE_STEPS) 
         retval = patch_custom_attention(self.accelerator.unwrap_model(self.unet), store_attn=self.store_attn, across_timesteps=ACROSS_TIMESTEPS, store_loss=False)    
-        if self.store_attn: 
-            self.attn_store = retval[0] 
+        loss_store = retval["loss_store"] 
+        self.attn_store = retval["attn_store"] 
+        assert loss_store is None and not ((self.attn_store is not None) ^ self.store_attn)  
         for t_idx, t in enumerate(self.scheduler.timesteps):
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
             latent_model_input = torch.cat([latents] * 2)
@@ -277,8 +277,8 @@ class Infer:
                 "encoder_hidden_states": concat_encoder_states, 
                 "attn_assignments": all_assignments, 
             }
-            if self.replace_attn: 
-                encoder_states_dict["replace_attn"] = True 
+            if self.replace_attn is not None: 
+                encoder_states_dict[self.replace_attn] = True 
 
             if P2P and t_idx < MAX_P2P_TIMESTEP: 
                 encoder_states_dict["p2p"] = True 
@@ -380,10 +380,13 @@ class Infer:
             # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
 
 
-    def do_it(self, seed, gif_path, prompt, all_subjects_data, replace_attn, include_class_in_prompt=None, normalize_merged_embedding=None):     
-        self.replace_attn = replace_attn 
-        # if self.store_attn: 
-        #     self.bs = 1 
+    def do_it(self, seed, gif_path, prompt, all_subjects_data, args):   
+        self.replace_attn = args["replace_attn_maps"] 
+
+        normalize_merged_embedding = args["normalize_merged_embedding"] if "normalize_merged_embedding" in args.keys() else False  
+        text_encoder_bypass = args["text_encoder_bypass"] if "text_encoder_bypass" in args.keys() else False  
+        use_location_conditioning = args["use_location_conditioning"] if "use_location_conditioning" in args.keys() else False  
+        include_class_in_prompt = args["include_class_in_prompt"] if "include_class_in_prompt" in args.keys() else False  
 
         self.accelerator.wait_for_everyone() 
         if osp.exists(self.tmp_dir) and self.accelerator.is_main_process: 
@@ -437,6 +440,9 @@ class Infer:
                         bnha_embs_frame = [] 
                     for subject_data in gif_subject_data:  
                         normalized_azimuth = subject_data["normalized_azimuths"][sample_idx] 
+                        if use_location_conditioning: 
+                            x = subject_data["x"] 
+                            y = subject_data["y"] 
                         if self.mlp is not None: 
                             sincos = torch.Tensor([torch.sin(2 * torch.pi * torch.tensor(normalized_azimuth)), torch.cos(2 * torch.pi * torch.tensor(normalized_azimuth))]).to(self.accelerator.device)  
                             if "pose_type" in subject_data.keys() and subject_data["pose_type"] == "0": 
@@ -445,7 +451,13 @@ class Infer:
                                 mlp_emb = self.mlp(sincos.unsqueeze(0)).squeeze()  
                         else: 
                             # print(f"for {subject_data['subject']}, we are using {normalized_azimuth = }") 
-                            mlp_emb = self.merger(torch.tensor([normalized_azimuth]).float().to(self.accelerator.device))   
+                            pose_input = torch.tensor([normalized_azimuth]).float().to(self.accelerator.device) 
+                            if use_location_conditioning: 
+                                x_input = torch.tensor([x]).float().to(self.accelerator.device) 
+                                y_input = torch.tensor([y]).float().to(self.accelerator.device) 
+                                mlp_emb = self.merger(pose_input, x_input, y_input)  
+                            else: 
+                                mlp_emb = self.merger(pose_input)    
                             assert mlp_emb.shape == (1, self.merged_emb_dim)  
                             mlp_emb = mlp_emb.squeeze() 
 
@@ -554,7 +566,7 @@ class Infer:
                     
                     all_attn_assignments.append(attn_assignments) 
 
-                    if self.text_encoder_bypass: 
+                    if text_encoder_bypass: 
                         for unique_token_name, position in unique_token_positions.items(): 
                             text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]] 
                     
@@ -729,7 +741,6 @@ if __name__ == "__main__":
         accelerator = Accelerator() 
 
         all_subjects = [
-            "pickup truck", 
             "jeep", 
             "bus", 
             "motorbike", 
@@ -768,10 +779,14 @@ if __name__ == "__main__":
                     "subject": "suv", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.6,  
                 }, 
                 {
                     "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -779,10 +794,14 @@ if __name__ == "__main__":
                     "subject": "jeep", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.4, 
+                    "y": 0.6, 
                 }, 
                 {
                     "subject": "sedan", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.8, 
+                    "y": 0.9, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -790,10 +809,14 @@ if __name__ == "__main__":
                     "subject": "motorbike", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.5, 
                 }, 
                 {
                     "subject": "suv", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
@@ -824,7 +847,7 @@ if __name__ == "__main__":
                     seed = pickle.load(f) 
             accelerator.wait_for_everyone() 
 
-            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
+            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
 
 
         subjects = [
@@ -833,10 +856,14 @@ if __name__ == "__main__":
                     "subject": "lion", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.6,  
                 }, 
                 {
                     "subject": "tractor", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -844,21 +871,29 @@ if __name__ == "__main__":
                     "subject": "tractor", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.4, 
+                    "y": 0.6, 
                 }, 
                 {
                     "subject": "horse", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.8, 
+                    "y": 0.9, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "pickup truck", 
+                    "subject": "truck", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.5, 
                 }, 
                 {
                     "subject": "suv", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
@@ -889,7 +924,7 @@ if __name__ == "__main__":
                     seed = pickle.load(f) 
             accelerator.wait_for_everyone() 
 
-            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
+            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
 
 
         subjects = [
@@ -898,10 +933,14 @@ if __name__ == "__main__":
                     "subject": "sedan", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.6,  
                 }, 
                 {
                     "subject": "tractor", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -909,10 +948,14 @@ if __name__ == "__main__":
                     "subject": "rickshaw", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.4, 
+                    "y": 0.6, 
                 }, 
                 {
                     "subject": "suv", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.8, 
+                    "y": 0.9, 
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
@@ -920,10 +963,14 @@ if __name__ == "__main__":
                     "subject": "bicycle", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.5, 
                 }, 
                 {
                     "subject": "suv", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
@@ -954,4 +1001,4 @@ if __name__ == "__main__":
                     seed = pickle.load(f) 
             accelerator.wait_for_everyone() 
 
-            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, replace_attn=replace_attn, include_class_in_prompt=args['include_class_in_prompt'], normalize_merged_embedding=args['normalize_merged_embedding']) 
+            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args) 
