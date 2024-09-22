@@ -494,7 +494,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--replace_attn_maps", 
         type=str, 
-        choices=["special2class", "special2class_detached", "class2special"], 
+        choices=["special2class", "special2class_detached", "class2special", "class2special_detached"], 
         help="whether to replace the special token attention maps by the class token attention maps", 
     ) 
     parser.add_argument(
@@ -1411,9 +1411,10 @@ def main(args):
         retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
         loss_store = retval["loss_store"] 
         attn_store = retval["attn_store"] 
-        assert loss_store is not None and attn_store is None 
-        # assert that we are beginning with an empty loss store 
-        assert loss_store.step_store["loss"] == 0.0 
+        if args.penalize_special_token_attn: 
+            assert loss_store is not None and attn_store is None 
+            # assert that we are beginning with an empty loss store 
+            assert loss_store.step_store["loss"] == 0.0 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
         #         steps_per_angle[angle] += 1 

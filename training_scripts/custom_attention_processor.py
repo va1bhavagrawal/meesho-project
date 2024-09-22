@@ -44,7 +44,7 @@ class CustomAttentionProcessor:
                 interpolated_attn_maps = F.interpolate(attn_maps_for_asset.unsqueeze(0), size=INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
                 assert interpolated_attn_maps.shape[-1] == INTERPOLATION_SIZE 
                 assert interpolated_attn_maps.shape[-2] == INTERPOLATION_SIZE 
-                assert torch.all(bbox > 0) and torch.all(bbox < INTERPOLATION_SIZE)   
+                assert torch.all(bbox >= 0) and torch.all(bbox <= INTERPOLATION_SIZE)   
                 attn_inside_bbox = interpolated_attn_maps[..., bbox[1] : bbox[3], bbox[0] : bbox[2]]  
                 # print(f"{attn_inside_bbox.shape = }") 
                 assert attn_inside_bbox.shape == (interpolated_attn_maps.shape[0], bbox[3] - bbox[1], bbox[2] - bbox[0]) 
@@ -80,9 +80,10 @@ class CustomAttentionProcessor:
                          
             kwargs = encoder_hidden_states.keys() 
             class2special = "class2special" in kwargs and encoder_hidden_states["class2special"] == True 
+            class2special_detached = "class2special_detached" in kwargs and encoder_hidden_states["class2special_detached"] == True 
             special2class_detached = "special2class_detached" in kwargs and encoder_hidden_states["special2class_detached"] == True 
             special2class = "special2class" in kwargs and encoder_hidden_states["special2class"] == True 
-            any_replacement = class2special or special2class_detached or special2class 
+            any_replacement = class2special or special2class_detached or special2class or class2special_detached  
             
             # first performing any replacement operations, and then the attention maps are calculated! 
             if any_replacement:  
@@ -93,6 +94,11 @@ class CustomAttentionProcessor:
 
                         if class2special: 
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
+
+                        elif class2special_detached: 
+                            if DEBUG_ATTN: 
+                                print(f"using class2special_detached!") 
+                            key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
                         
                         elif special2class_detached: 
                             if DEBUG_ATTN: 

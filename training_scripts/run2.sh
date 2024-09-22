@@ -1,4 +1,4 @@
-export RUN_NAME="localizer_0.0001" 
+export RUN_NAME="class2special_detached__noloc_cond" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -26,8 +26,8 @@ accelerate launch --config_file accelerate_config2.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
-  --replace_attn_maps="special2class_detached" \
-  --penalize_special_token_attn="Y" \
+  --replace_attn_maps="class2special_detached" \
+  --penalize_special_token_attn="N" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -36,14 +36,14 @@ accelerate launch --config_file accelerate_config2.yaml train.py \
   --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=100000 \
-  --stage2_steps=300000 \
+  --stage1_steps=150000 \
+  --stage2_steps=350000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
-  --use_location_conditioning="Y" \
+  --use_location_conditioning="N" \
   --prior_loss_weight=0.1 \
-  --special_token_attn_loss_weight=0.0001 \
+  --special_token_attn_loss_weight=0.001 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
   --pretrained_model_name_or_path=$MODEL_NAME  \
@@ -54,6 +54,5 @@ accelerate launch --config_file accelerate_config2.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
   # --resume_training_state="../ckpts/multiobject/__penalize_attn__resume0.00001/training_state_150000.pth" \
