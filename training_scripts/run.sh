@@ -1,4 +1,4 @@
-export RUN_NAME="replace_attn_maps" 
+export RUN_NAME="class2special_detached" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -49,7 +49,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --online_inference \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 

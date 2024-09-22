@@ -49,7 +49,7 @@ class AttendExciteAttnProcessor:
             B = len(encoder_hidden_states["attn_assignments"]) 
             for batch_idx in range(B): 
                 for idx1, idx2 in used_attention_maps[batch_idx].items(): 
-                    key[batch_idx][idx1] = key[batch_idx][idx2] 
+                    key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
 
         print(f"before {key.shape = }") 
         query = attn.head_to_batch_dim(query)
