@@ -3,9 +3,9 @@
 #SBATCH --output=job_output_%j.log  
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
-#SBATCH --mem=500G 
-#SBATCH --gres=gpu:8   
+#SBATCH --mem=300G 
+#SBATCH --gres=gpu:4    
 #SBATCH --partition=long 
-#SBATCH -w cn6  
+#SBATCH -w cn4  
 
 ./run.sh 

@@ -1,4 +1,4 @@
-export RUN_NAME="class2special_detached__loc_cond" 
+export RUN_NAME="class2special_detached__loc_cond__resume400000" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -54,5 +54,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --online_inference \
+  --wandb \
+  --resume_training_state="../ckpts/multiobject/__class2special_detached__loc_cond/training_state_390000.pth" \
   --class_data_dir=$CLASS_DATA_DIR 
-  # --resume_training_state="../ckpts/multiobject/__penalize_attn__resume0.00001/training_state_150000.pth" \

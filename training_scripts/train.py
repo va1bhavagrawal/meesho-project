@@ -67,20 +67,20 @@ BS = 4
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
-VLOG_STEPS = []
-for vlog_step in range(0, 400000, 25000): 
-    VLOG_STEPS = VLOG_STEPS + [vlog_step]  
-VLOG_STEPS = sorted(VLOG_STEPS) 
+# VLOG_STEPS = []
+# for vlog_step in range(0, 400000, 25000): 
+#     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
+# VLOG_STEPS = sorted(VLOG_STEPS) 
+VLOG_STEPS_GAP = 25000 
+SAVE_STEPS_GAP = 10000 
     
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 # SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
-SAVE_STEPS = [500, 1000, 5000]  
-for save_step in range(0, 400000, 10000): 
-    SAVE_STEPS = SAVE_STEPS + [save_step] 
-SAVE_STEPS = sorted(SAVE_STEPS) 
+# SAVE_STEPS = [500, 1000, 5000]  
+# for save_step in range(0, 400000, 10000): 
+#     SAVE_STEPS = SAVE_STEPS + [save_step] 
+# SAVE_STEPS = sorted(SAVE_STEPS) 
 
-print(f"{VLOG_STEPS = }")
-print(f"{SAVE_STEPS = }")
 
 NUM_SAMPLES = 12  
 
@@ -933,8 +933,22 @@ def main(args):
         training_state_ckpt = torch.load(args.resume_training_state) 
 
     if accelerator.is_main_process: 
-        with open(osp.join(args.output_dir, f"args.pkl"), "wb") as f: 
+        pkl_path = osp.join(args.output_dir, f"args.pkl") 
+        if osp.exists(pkl_path): 
+            raise FileExistsError(f"{pkl_path} exists, please delete it first!") 
+        with open(pkl_path, "wb") as f: 
             pickle.dump(args.__dict__, f) 
+
+    SAVE_STEPS = [] 
+    for save_step in range(SAVE_STEPS_GAP, args.max_train_steps + 1, SAVE_STEPS_GAP): 
+        SAVE_STEPS.append(save_step) 
+
+    VLOG_STEPS = [] 
+    for vlog_step in range(VLOG_STEPS_GAP, args.max_train_steps + 1, VLOG_STEPS_GAP): 
+        VLOG_STEPS.append(vlog_step)
+
+    print(f"{SAVE_STEPS = }") 
+    print(f"{VLOG_STEPS = }") 
 
     # Load models and create wrapper for stable diffusion
     text_encoder = CLIPTextModel.from_pretrained(

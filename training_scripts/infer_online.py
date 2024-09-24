@@ -33,10 +33,10 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "penalize_attn__resume0.0001" 
+WHICH_MODEL = "class2special_detached__noloc_cond"   
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 180000  
-MAX_SUBJECTS_PER_EXAMPLE = 1   
+WHICH_STEP = 390000  
+MAX_SUBJECTS_PER_EXAMPLE = 2    
 NUM_SAMPLES = 9  
 
 P2P = False  
@@ -701,8 +701,12 @@ if __name__ == "__main__":
             pose_mlp = continuous_word_mlp(2, 1024) 
             merger = MergedEmbedding(args['appearance_skip_connection'], 1024, 1024, args['merged_emb_dim'])  
         else: 
-            merger = PoseEmbedding(args['merged_emb_dim']) 
-            print(f"using the PoseEmbedding for merger!") 
+            if "use_location_conditioning" not in args.keys() or args["use_location_conditioning"] == False: 
+                merger = PoseEmbedding(args['merged_emb_dim']) 
+                print(f"using the PoseEmbedding for merger!") 
+            else: 
+                merger = PoseLocationEmbedding(256, args["merged_emb_dim"]) 
+                print(f"using the PoseLocation merger!") 
 
         training_state_path = osp.join(f"../ckpts/multiobject/", f"__{WHICH_MODEL}", f"training_state_{WHICH_STEP}.pth") 
         assert osp.exists(training_state_path), f"{training_state_path = }"  
@@ -770,7 +774,7 @@ if __name__ == "__main__":
             pipeline.text_encoder.get_input_embeddings().weight[special_token_ids[0]] = ti_embedding    
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", args['text_encoder_bypass'], None, store_attn=True, bs=4)  
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}", None, store_attn=True, bs=4)  
 
 
         subjects = [
@@ -822,11 +826,11 @@ if __name__ == "__main__":
         ]
         prompts = [
             "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
             "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-            "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
+            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
         ]
         for prompt in prompts: 
 
@@ -899,11 +903,11 @@ if __name__ == "__main__":
         ]
         prompts = [
             "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
             "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
         ]
         for prompt in prompts: 
 
@@ -976,11 +980,11 @@ if __name__ == "__main__":
         ]
         prompts = [
             "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
             "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
         ]
         for prompt in prompts: 
 
