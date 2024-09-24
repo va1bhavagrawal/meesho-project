@@ -1,4 +1,4 @@
-export RUN_NAME="class2special_detached__loc_cond__resume400000" 
+export RUN_NAME="class2special_detached__noloc_cond__resume400000" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -41,7 +41,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
-  --use_location_conditioning="Y" \
+  --use_location_conditioning="N" \
   --prior_loss_weight=0.1 \
   --special_token_attn_loss_weight=0.001 \
   --gradient_accumulation_steps=1 \
@@ -55,5 +55,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --vis_dir=$VIS_DIR \
   --online_inference \
   --wandb \
-  --resume_training_state="../ckpts/multiobject/__class2special_detached__loc_cond/training_state_390000.pth" \
+  --resume_training_state="../ckpts/multiobject/__class2special_detached__noloc_cond/training_state_390000.pth" \
   --class_data_dir=$CLASS_DATA_DIR 

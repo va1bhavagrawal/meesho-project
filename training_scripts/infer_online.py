@@ -36,7 +36,7 @@ from lora_diffusion import patch_pipe
 WHICH_MODEL = "class2special_detached__noloc_cond"   
 # WHICH_MODEL = "replace_attn_maps"  
 WHICH_STEP = 390000  
-MAX_SUBJECTS_PER_EXAMPLE = 2    
+MAX_SUBJECTS_PER_EXAMPLE = 2   
 NUM_SAMPLES = 9  
 
 P2P = False  
@@ -507,12 +507,12 @@ class Infer:
                 else: 
                     for asset_idx, subject_data in enumerate(gif_subject_data):  
                         assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
-                        if subject_data['subject'] in TOKEN2ID.keys(): 
-                            pass
-                        else: 
-                            assert subject_data['subject'] == TEXTUAL_INV 
-                            # ti_embedding = torch.load(TI_PATH) 
-                            # ti_embedding = ti_embedding[TEXTUAL_INV].squeeze()  
+                        # if subject_data['subject'] in TOKEN2ID.keys(): 
+                        #     pass
+                        # else: 
+                        #     assert subject_data['subject'] == TEXTUAL_INV 
+                        #     # ti_embedding = torch.load(TI_PATH) 
+                        #     # ti_embedding = ti_embedding[TEXTUAL_INV].squeeze()  
                         template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subject_data['subject']}") 
 
                 print(f"{template_prompt}") 
@@ -823,6 +823,21 @@ if __name__ == "__main__":
                     "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "horse", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.5, 
+                }, 
+                {
+                    "subject": "elephant", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
             "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
@@ -900,6 +915,21 @@ if __name__ == "__main__":
                     "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "jeep", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.5, 
+                }, 
+                {
+                    "subject": "elephant", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
             "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
@@ -972,6 +1002,21 @@ if __name__ == "__main__":
                 }, 
                 {
                     "subject": "suv", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "pickup truck", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.5, 
+                }, 
+                {
+                    "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.7, 
                     "y": 0.7,   
