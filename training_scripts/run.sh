@@ -1,4 +1,4 @@
-export RUN_NAME="class2special_detached_prior1.0" 
+export RUN_NAME="learn_class_embedding" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -22,7 +22,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-3 \
-  --learn_class_embedding="N" \
+  --learn_class_embedding="Y" \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
