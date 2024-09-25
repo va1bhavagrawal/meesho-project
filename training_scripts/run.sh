@@ -22,6 +22,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-3 \
+  --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
@@ -36,8 +37,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=150000 \
-  --stage2_steps=350000 \
+  --stage1_steps=0 \
+  --stage2_steps=500000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \

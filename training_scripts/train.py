@@ -582,6 +582,12 @@ def parse_args(input_args=None):
         help="Whether to use textual inversion",
     )
     parser.add_argument(
+        "--learn_class_embedding",
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to learn the class embeddings and use the learnt ones for the reference images?",
+    )
+    parser.add_argument(
         "--online_inference", 
         action="store_true", 
         help="whether to do online inference", 
@@ -1116,7 +1122,7 @@ def main(args):
         # optimizers.append(optimizer_text_encoder) 
         optimizers["text_encoder"] = optimizer_text_encoder 
 
-    if args.textual_inv: 
+    if args.textual_inv or args.learn_class_embedding: 
         # the appearance embeddings 
         bnha_embeds = {} 
         args.subjects = [
@@ -1148,7 +1154,7 @@ def main(args):
         )
 
         if args.resume_training_state: 
-            optimizer_bnha.load_state_dict(training_state["appearance"]["optimizer"]) 
+            optimizer_bnha.load_state_dict(training_state_ckpt["appearance"]["optimizer"]) 
         # optimizers.append(optimizer_bnha) 
         optimizers["appearance"] = optimizer_bnha 
 
@@ -1690,6 +1696,13 @@ def main(args):
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
             example_merged_emb = merged_emb[batch_idx] 
             for asset_idx, subject in enumerate(batch["subjects"][batch_idx]):   
+
+                if args.learn_class_embedding: 
+                    if batch["controlnet"][batch_idx] == True: 
+                        continue 
+                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[batch["subjects"][batch_idx][asset_idx]]] = getattr(accelerator.unwrap_model(bnha_embeds), batch["subjects"][batch_idx][asset_idx]) 
+                        
+
                 for token_idx in range(args.merged_emb_dim // 1024):  
                     # replacement_emb = torch.clone(merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024])  
                     if args.normalize_merged_embedding: 
