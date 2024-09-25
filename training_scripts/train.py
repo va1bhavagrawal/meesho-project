@@ -71,7 +71,7 @@ BS = 4
 # for vlog_step in range(0, 400000, 25000): 
 #     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
 # VLOG_STEPS = sorted(VLOG_STEPS) 
-VLOG_STEPS_GAP = 25000 
+VLOG_STEPS_GAP = 33000  
 SAVE_STEPS_GAP = 10000 
     
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
@@ -939,13 +939,15 @@ def main(args):
         with open(pkl_path, "wb") as f: 
             pickle.dump(args.__dict__, f) 
 
-    SAVE_STEPS = [] 
+    SAVE_STEPS = [500, 1000, 5000]  
     for save_step in range(SAVE_STEPS_GAP, args.max_train_steps + 1, SAVE_STEPS_GAP): 
         SAVE_STEPS.append(save_step) 
+    SAVE_STEPS = sorted(SAVE_STEPS) 
 
     VLOG_STEPS = [] 
     for vlog_step in range(VLOG_STEPS_GAP, args.max_train_steps + 1, VLOG_STEPS_GAP): 
         VLOG_STEPS.append(vlog_step)
+    VLOG_STEPS = sorted(VLOG_STEPS)  
 
     print(f"{SAVE_STEPS = }") 
     print(f"{VLOG_STEPS = }") 
