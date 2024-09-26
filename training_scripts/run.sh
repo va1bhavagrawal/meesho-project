@@ -22,7 +22,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-3 \
-  --learn_class_embedding="Y" \
+  --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
