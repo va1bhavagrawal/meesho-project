@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4   
+BS = 1    
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -82,7 +82,7 @@ SAVE_STEPS_GAP = 10000
 # SAVE_STEPS = sorted(SAVE_STEPS) 
 
 
-NUM_SAMPLES = 12  
+NUM_SAMPLES = 4  
 
 from datasets import DisentangleDataset  
 
@@ -466,6 +466,12 @@ def parse_args(input_args=None):
         type=lambda x : bool(strtobool(x)),  
         required=True, 
         help="whether to use location conditioning", 
+    )
+    parser.add_argument(
+        "--attn_bbox_from_class_mean", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to use the class attention map's mean to make a bounding box attention mask for both the special token and the class token",  
     )
     parser.add_argument(
         "--use_ref_images", 
@@ -940,7 +946,7 @@ def main(args):
 
     if accelerator.is_main_process: 
         pkl_path = osp.join(args.output_dir, f"args.pkl") 
-        if osp.exists(pkl_path): 
+        if osp.exists(pkl_path) and not DEBUG: 
             raise FileExistsError(f"{pkl_path} exists, please delete it first!") 
         with open(pkl_path, "wb") as f: 
             pickle.dump(args.__dict__, f) 
@@ -950,7 +956,7 @@ def main(args):
         SAVE_STEPS.append(save_step) 
     SAVE_STEPS = sorted(SAVE_STEPS) 
 
-    VLOG_STEPS = [] 
+    VLOG_STEPS = [0] 
     for vlog_step in range(VLOG_STEPS_GAP, args.max_train_steps + 1, VLOG_STEPS_GAP): 
         VLOG_STEPS.append(vlog_step)
     VLOG_STEPS = sorted(VLOG_STEPS)  
@@ -1517,7 +1523,7 @@ def main(args):
                 if batch_idx < B: 
                     plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t{batch['subjects'][batch_idx] = }\t{batch['scalers'][batch_idx] = }" 
                 else: 
-                    plt_title = f"{step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }" 
+                    plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }" 
                 plt_title = "\n".join(textwrap.wrap(plt_title, width=60)) 
                 plt.title(plt_title, fontsize=9)  
                 plt.savefig(f"vis/{str(global_step).zfill(3)}_{str(batch_idx).zfill(3)}.jpg") 
@@ -1764,6 +1770,10 @@ def main(args):
             encoder_states_dict[args.replace_attn_maps] = True 
 
         if args.penalize_special_token_attn: 
+            encoder_states_dict["bboxes"] = batch["bboxes"] 
+
+        if args.attn_bbox_from_class_mean: 
+            encoder_states_dict["bbox_from_class_mean"] = True 
             encoder_states_dict["bboxes"] = batch["bboxes"] 
 
         if args.replace_attn_maps is not None or args.penalize_special_token_attn:  

@@ -32,6 +32,29 @@ class CustomAttentionProcessor:
         self.loss_store = loss_store 
 
 
+    def find_attention_mean(self, attention_map): 
+        assert attention_map.ndim == 3  
+
+        mesh_i, mesh_j = torch.meshgrid(torch.arange(INTERPOLATION_SIZE), torch.arange(INTERPOLATION_SIZE), indexing="ij") 
+        mesh_i, mesh_j = mesh_i.to(attention_map), mesh_j.to(attention_map) 
+        mean_i, mean_j = int(torch.sum(mesh_i * attention_map) / torch.sum(attention_map)), int(torch.sum(mesh_j * attention_map) / torch.sum(attention_map))   
+
+        if DEBUG_ATTN: 
+            mean_i_ = 0 
+            mean_j_ = 0 
+            for head_idx in range(attention_map.shape[0]): 
+                for i in range(attention_map.shape[0]): 
+                    for j in range(attention_map.shape[1]): 
+                        mean_i_ = mean_i_ + i * attention_map[head_idx, i, j] 
+                        mean_j_ = mean_j_ + j * attention_map[head_idx, i, j]  
+            mean_i_ = mean_i_ / torch.sum(attention_map) 
+            mean_j_ = mean_j_ / torch.sum(attention_map) 
+            assert mean_i == mean_i_ 
+            assert mean_j == mean_j_ 
+        
+        return mean_i, mean_j 
+
+
     def bbox_attn_loss_func(self, bboxes, attn_maps): 
         loss = 0.0 
         B = len(bboxes) 
@@ -96,13 +119,13 @@ class CustomAttentionProcessor:
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
 
                         elif class2special_detached: 
-                            if DEBUG_ATTN: 
-                                print(f"using class2special_detached!") 
+                            # if DEBUG_ATTN: 
+                                # print(f"using class2special_detached!") 
                             key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
                         
                         elif special2class_detached: 
-                            if DEBUG_ATTN: 
-                                print(f"using special2class_detached!")
+                            # if DEBUG_ATTN: 
+                                # print(f"using special2class_detached!")
                             key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
 
                         elif special2class: 
@@ -116,6 +139,43 @@ class CustomAttentionProcessor:
         value = attn.head_to_batch_dim(value)
         attention_probs = attn.get_attention_scores(query, key, attention_mask)
 
+        if type(encoder_hidden_states) == "dict" and "bbox_from_class_mean" in encoder_hidden_states.keys() and encoder_hidden_states["bbox_from_class_mean"] == True:  
+            B = len(encoder_hidden_states["attn_assignments"]) 
+            attention_probs_batch_split = torch.chunk(attention_probs, chunks=B, dim=0) 
+            bboxes = encoder_hidden_states["bboxes"] 
+            for batch_idx in range(B): 
+                for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    assert idx1 != idx2 
+                    attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
+                    attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
+                    spatial_dim = int(math.sqrt(attention_probs_idx1.shape[-1])) 
+                    assert spatial_dim * spatial_dim == attention_probs_idx1.shape[-1] 
+                    attention_probs_idx1 = attention_probs_idx1.reshape((attention_probs_idx1.shape[0], spatial_dim, spatial_dim)) 
+                    attention_probs_idx2 = attention_probs_idx2.reshape((attention_probs_idx2.shape[0], spatial_dim, spatial_dim)) 
+
+                    attention_probs_idx1_interp = F.interpolate(attention_probs_idx1.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True) 
+                    attention_probs_idx2_interp = F.interpolate(attention_probs_idx2.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True) 
+
+                    mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
+
+                    given_bbox = bboxes[batch_idx][asset_idx] 
+                    given_bbox_max_side = max(int(INTERPOLATION_SIZE * (given_bbox[2] - given_bbox[0])), int(INTERPOLATION_SIZE * (given_bbox[3] - given_bbox[1]))) 
+                    assert 0 < given_bbox_max_side < INTERPOLATION_SIZE 
+                    
+                    attention_mask_ = torch.zeros((INTERPOLATION_SIZE, INTERPOLATION_SIZE)) 
+                    attention_mask_[mean_i - given_bbox_max_side // 2 : mean_i + given_bbox_max_side // 2, mean_j - given_bbox_max_side // 2 : mean_j + given_bbox_max_side // 2] = 1   
+                    attention_probs_idx1 = attention_probs_idx1 * attention_mask_ 
+                    attention_probs_idx2 = attention_probs_idx2 * attention_mask_ 
+
+                    attention_probs_idx1_masked = F.interpolate(attention_probs_idx1_interp.unsqueeze(0), attention_probs_idx1.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx1.shape[0], spatial_dim * spatial_dim)  
+                    attention_probs_idx2_masked = F.interpolate(attention_probs_idx2_interp.unsqueeze(0), attention_probs_idx1.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx2.shape[0], spatial_dim * spatial_dim)  
+                    
+                    attention_probs_batch_split[batch_idx][..., idx1] = attention_probs_idx1_masked 
+                    attention_probs_batch_split[batch_idx][..., idx2] = attention_probs_idx2_masked 
+
+            attention_probs = torch.cat(attention_probs_batch_split, dim=0) 
+
+        # the bounding box attention loss 
         if self.loss_store is not None and type(encoder_hidden_states) == dict:  
             attention_probs_batch_split = torch.chunk(attention_probs, chunks=len(encoder_hidden_states["attn_assignments"]), dim=0)  
             bboxes = encoder_hidden_states["bboxes"]  

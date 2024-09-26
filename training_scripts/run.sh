@@ -1,4 +1,4 @@
-export RUN_NAME="learn_class_embedding" 
+export RUN_NAME="attn_bbox_from_class_mean" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -43,6 +43,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
+  --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.001 \
   --gradient_accumulation_steps=1 \

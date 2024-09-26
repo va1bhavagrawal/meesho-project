@@ -33,16 +33,18 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "class2special_detached__noloc_cond"   
-# WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 390000  
-MAX_SUBJECTS_PER_EXAMPLE = 2   
-NUM_SAMPLES = 9  
+# WHICH_MODEL = "penalize_attn__resume0.0001" 
+WHICH_MODEL = "replace_attn_maps"  
+WHICH_STEP = 300000   
+MAX_SUBJECTS_PER_EXAMPLE = 1  
+NUM_SAMPLES = 7  
 
 P2P = False  
-MAX_P2P_TIMESTEP = 45  
+P2P_CIRCLE = False  
+MAX_P2P_TIMESTEP = 50  
+ETA = 1.0  
 
-KEYWORD = f""   
+KEYWORD = f"jeep_pickuptruck"     
 
 ACROSS_TIMESTEPS = False  
 NUM_INFERENCE_STEPS = 50 
@@ -69,6 +71,7 @@ TOKEN2ID = {
     "tractor": 14607,  
     "truck": 4629,  
     "zebra": 22548,  
+    "hatchback": 42348, 
     "sedan": 24237, 
     "suv": 15985, 
     "motocross": 34562,  
@@ -120,6 +123,7 @@ from accelerate.utils import set_seed
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
+    DDIMScheduler, 
     StableDiffusionPipeline,
     UNet2DConditionModel,
 )
@@ -256,9 +260,12 @@ class Infer:
         assert encoder_states.shape == (B, 77, 1024) 
         if self.seed is not None: 
             set_seed(self.seed) 
-        latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
-        with open("best_latents.pt", "rb") as f: 
-            latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
+        else: 
+            set_seed(get_common_seed() + accelerator.process_index) 
+        # latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
+        latents = torch.randn(B, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype) 
+        # with open("best_latents.pt", "rb") as f: 
+        #     latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
         self.scheduler.set_timesteps(NUM_INFERENCE_STEPS) 
         retval = patch_custom_attention(self.accelerator.unwrap_model(self.unet), store_attn=self.store_attn, across_timesteps=ACROSS_TIMESTEPS, store_loss=False)    
         loss_store = retval["loss_store"] 
@@ -280,8 +287,12 @@ class Infer:
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
 
+            assert not (P2P and P2P_CIRCLE), f"both P2P and P2P_CIRLCE can't be true together!" 
             if P2P and t_idx < MAX_P2P_TIMESTEP: 
                 encoder_states_dict["p2p"] = True 
+            if P2P_CIRCLE and t_idx < MAX_P2P_TIMESTEP: 
+                encoder_states_dict["p2p_circle"] = True  
+            
 
             if not self.replace_attn: 
                 noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample 
@@ -293,7 +304,7 @@ class Infer:
             noise_pred = noise_pred_uncond + 7.5 * (noise_pred_text - noise_pred_uncond)
 
             # compute the previous noisy sample x_t -> x_t-1
-            latents = self.scheduler.step(noise_pred, t, latents).prev_sample
+            latents = self.scheduler.step(noise_pred, t, latents, eta=ETA).prev_sample 
 
         # scale the latents 
         latents = 1 / 0.18215 * latents
@@ -330,7 +341,7 @@ class Infer:
                 image = np.ascontiguousarray(image) 
                 image = Image.fromarray(image) 
                 
-                assert len(attn_maps.keys()) == len(batch["track_ids"][batch_idx]), f"{attn_maps.keys() = }, {batch['track_ids'][batch_idx] = }" 
+                assert len(attn_maps.keys()) == len(batch["track_ids"][batch_idx])  
 
                 assert len(batch['track_ids'][batch_idx]) == len(batch['interesting_token_strs'][batch_idx]) 
                 # for timestep in range(len(self.scheduler.timesteps)): 
@@ -494,7 +505,7 @@ class Infer:
                 for asset_idx in range(1, len(gif_subject_data)):  
                     placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} " 
                 placeholder_text = placeholder_text.strip() 
-                assert prompt.find("PLACEHOLDER") != -1 
+                # assert prompt.find("PLACEHOLDER") != -1 
                 template_prompt = prompt.replace("PLACEHOLDER", placeholder_text) 
 
                 assert (include_class_in_prompt is not None) or "include_class_in_prompt" in subject_data.keys()  
@@ -502,17 +513,17 @@ class Infer:
 
                 if not include_class_in_prompt_here: 
                     for asset_idx, subject_data in enumerate(gif_subject_data): 
-                        assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                        # assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
                         template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]}")   
                 else: 
                     for asset_idx, subject_data in enumerate(gif_subject_data):  
-                        assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
-                        # if subject_data['subject'] in TOKEN2ID.keys(): 
-                        #     pass
-                        # else: 
-                        #     assert subject_data['subject'] == TEXTUAL_INV 
-                        #     # ti_embedding = torch.load(TI_PATH) 
-                        #     # ti_embedding = ti_embedding[TEXTUAL_INV].squeeze()  
+                        # assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                        if subject_data['subject'] in TOKEN2ID.keys(): 
+                            pass
+                        else: 
+                            assert subject_data['subject'] == TEXTUAL_INV 
+                            # ti_embedding = torch.load(TI_PATH) 
+                            # ti_embedding = ti_embedding[TEXTUAL_INV].squeeze()  
                         template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subject_data['subject']}") 
 
                 print(f"{template_prompt}") 
@@ -554,15 +565,19 @@ class Infer:
                     for asset_idx, subject_data in enumerate(gif_subject_data): 
                         for token_idx in range(self.merged_emb_dim // 1024): 
                             unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                            assert TOKEN2ID[unique_token] in prompt_ids 
+                            # assert TOKEN2ID[unique_token] in prompt_ids 
                             # print(f"{list(prompt_ids) = }") 
                             # print(f"{TOKEN2ID[unique_token] = }") 
                             # print(f"{TOKEN2ID[unique_token] = }")
                             # print(f"{prompt_ids = }")
                             assert len(prompt_ids) == 1 
-                            unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
+                            # unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
+                            # unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
+                            # attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+
+                            unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[subject_data["subject"]])  
                             unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
-                            attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+                            attn_assignments[unique_token_idx] = unique_token_idx 
                     
                     all_attn_assignments.append(attn_assignments) 
 
@@ -579,7 +594,7 @@ class Infer:
                     os.makedirs(osp.dirname(save_path), exist_ok=True)   
             self.accelerator.wait_for_everyone() 
 
-            if P2P: 
+            if P2P or P2P_CIRCLE: 
                 all_encoder_states_permuted = [] 
                 all_save_paths_permuted = [] 
                 all_attn_assignments_permuted = [] 
@@ -694,19 +709,20 @@ if __name__ == "__main__":
         assert osp.exists(args_path) 
         with open(args_path, "rb") as f: 
             args = pickle.load(f) 
+        if WHICH_MODEL.find("replace_attn_maps") != -1: 
+            args["replace_attn_maps"] = "class2special" 
 
         pipeline = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1") 
+        pipeline.scheduler = DDIMScheduler.from_config( 
+            pipeline.scheduler.config, rescale_betas_zero_snr=True, timestep_spacing="trailing"  
+        )
         pose_mlp = None 
         if "pose_only_embedding" not in args.keys(): 
             pose_mlp = continuous_word_mlp(2, 1024) 
             merger = MergedEmbedding(args['appearance_skip_connection'], 1024, 1024, args['merged_emb_dim'])  
         else: 
-            if "use_location_conditioning" not in args.keys() or args["use_location_conditioning"] == False: 
-                merger = PoseEmbedding(args['merged_emb_dim']) 
-                print(f"using the PoseEmbedding for merger!") 
-            else: 
-                merger = PoseLocationEmbedding(256, args["merged_emb_dim"]) 
-                print(f"using the PoseLocation merger!") 
+            merger = PoseEmbedding(args['merged_emb_dim']) 
+            print(f"using the PoseEmbedding for merger!") 
 
         training_state_path = osp.join(f"../ckpts/multiobject/", f"__{WHICH_MODEL}", f"training_state_{WHICH_STEP}.pth") 
         assert osp.exists(training_state_path), f"{training_state_path = }"  
@@ -774,91 +790,106 @@ if __name__ == "__main__":
             pipeline.text_encoder.get_input_embeddings().weight[special_token_ids[0]] = ti_embedding    
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}", None, store_attn=True, bs=4)  
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, "tmp", None, store_attn=True, bs=2)  
 
 
         subjects = [
             [
                 {
-                    "subject": "suv", 
+                    "subject": "jeep", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 
                     "y": 0.6,  
                 }, 
                 {
-                    "subject": "jeep", 
+                    "subject": "pickup truck", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.7, 
                     "y": 0.7,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "jeep", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.4, 
-                    "y": 0.6, 
-                }, 
-                {
-                    "subject": "sedan", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.8, 
-                    "y": 0.9, 
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "motorbike", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "horse", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "elephant", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
+            #         "subject": "bicycle", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.4, 
+            #         "y": 0.6, 
+            #     }, 
+            #     {
+            #         "subject": "suv", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.8, 
+            #         "y": 0.9, 
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
+            #         "subject": "sedan", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.3, 
+            #         "y": 0.5, 
+            #     }, 
+            #     {
+            #         "subject": "suv", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
+            #         "subject": "horse", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.3, 
+            #         "y": 0.5, 
+            #     }, 
+            #     {
+            #         "subject": "suv", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
+            #         "subject": "tractor", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.3, 
+            #         "y": 0.5, 
+            #     }, 
+            #     {
+            #         "subject": "suv", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
-            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-            "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            "a photo of a sedan in a modern city street surrounded by towering skyscrapers and neon lights",  
+            "a photo of a sedan in front of the leaning tower of Pisa in Italy",  
+            "a photo of a sedan in the streets of Venice, with the sun setting in the background", 
+            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
             # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
             # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
         ]
         for prompt in prompts: 
 
             if accelerator.is_main_process: 
-                if osp.exists("best_latents.pt"): 
-                    os.remove("best_latents.pt")  
                 seed = random.randint(0, 170904) 
                 with open(f"seed.pkl", "wb") as f: 
                     pickle.dump(seed, f) 
-                # set_seed(seed) 
-                latents = torch.randn(1, 4, 64, 64)  
-                with open(f"best_latents.pt", "wb") as f: 
-                    torch.save(latents, f) 
+                set_seed(seed) 
+                # if osp.exists("best_latents.pt"): 
+                #     os.remove("best_latents.pt")  
+                # latents = torch.randn(1, 4, 64, 64)  
+                # with open(f"best_latents.pt", "wb") as f: 
+                #     torch.save(latents, f) 
 
             accelerator.wait_for_everyone() 
             if not accelerator.is_main_process: 
@@ -869,185 +900,150 @@ if __name__ == "__main__":
             infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
 
 
-        subjects = [
-            [
-                {
-                    "subject": "lion", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.6,  
-                }, 
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.4, 
-                    "y": 0.6, 
-                }, 
-                {
-                    "subject": "horse", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.8, 
-                    "y": 0.9, 
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "truck", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "jeep", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "elephant", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        ]
-        prompts = [
-            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-            "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-            "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
-        ]
-        for prompt in prompts: 
+        # subjects = [
+        #     [
+        #         {
+        #             "subject": "lion", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.6,  
+        #         }, 
+        #         {
+        #             "subject": "tractor", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,  
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "tractor", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.4, 
+        #             "y": 0.6, 
+        #         }, 
+        #         {
+        #             "subject": "horse", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.8, 
+        #             "y": 0.9, 
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "truck", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.5, 
+        #         }, 
+        #         {
+        #             "subject": "suv", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,   
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        # ]
+        # prompts = [
+        #     "a photo of PLACEHOLDER in a serene corn field, feature vast stretch of crops and a farmhouse in the distance, it is a sunny afternoon",  
+        #     "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
+        #     "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+        # ]
 
-            if accelerator.is_main_process: 
-                if osp.exists("best_latents.pt"): 
-                    os.remove("best_latents.pt")  
-                seed = random.randint(0, 170904) 
-                with open(f"seed.pkl", "wb") as f: 
-                    pickle.dump(seed, f) 
-                # set_seed(seed) 
-                latents = torch.randn(1, 4, 64, 64)  
-                with open(f"best_latents.pt", "wb") as f: 
-                    torch.save(latents, f) 
+        # for prompt in prompts: 
 
-            accelerator.wait_for_everyone() 
-            if not accelerator.is_main_process: 
-                with open("seed.pkl", "rb") as f: 
-                    seed = pickle.load(f) 
-            accelerator.wait_for_everyone() 
+        #     if accelerator.is_main_process: 
+        #         seed = random.randint(0, 170904) 
+        #         with open(f"seed.pkl", "wb") as f: 
+        #             pickle.dump(seed, f) 
+        #         set_seed(seed) 
+        #         # if osp.exists("best_latents.pt"): 
+        #         #     os.remove("best_latents.pt")  
+        #         # latents = torch.randn(1, 4, 64, 64)  
+        #         # with open(f"best_latents.pt", "wb") as f: 
+        #         #     torch.save(latents, f) 
 
-            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
+        #     accelerator.wait_for_everyone() 
+        #     if not accelerator.is_main_process: 
+        #         with open("seed.pkl", "rb") as f: 
+        #             seed = pickle.load(f) 
+        #     accelerator.wait_for_everyone() 
+
+        #     infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
 
 
-        subjects = [
-            [
-                {
-                    "subject": "sedan", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.6,  
-                }, 
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "rickshaw", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.4, 
-                    "y": 0.6, 
-                }, 
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.8, 
-                    "y": 0.9, 
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "bicycle", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "pickup truck", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "jeep", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        ]
-        prompts = [
-            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-            "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-            "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
-        ]
-        for prompt in prompts: 
+        # subjects = [
+        #     [
+        #         {
+        #             "subject": "sedan", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.6,  
+        #         }, 
+        #         {
+        #             "subject": "tractor", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,  
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "jeep", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.4, 
+        #             "y": 0.6, 
+        #         }, 
+        #         {
+        #             "subject": "tractor", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.8, 
+        #             "y": 0.9, 
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "dog", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.5, 
+        #         }, 
+        #         {
+        #             "subject": "sedan", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,   
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        # ]
+        # prompts = [
+        #     "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+        #     "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+        #     "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+        # ]
+        # for prompt in prompts: 
 
-            if accelerator.is_main_process: 
-                if osp.exists("best_latents.pt"): 
-                    os.remove("best_latents.pt")  
-                seed = random.randint(0, 170904) 
-                with open(f"seed.pkl", "wb") as f: 
-                    pickle.dump(seed, f) 
-                # set_seed(seed) 
-                latents = torch.randn(1, 4, 64, 64)  
-                with open(f"best_latents.pt", "wb") as f: 
-                    torch.save(latents, f) 
+        #     if accelerator.is_main_process: 
+        #         seed = random.randint(0, 170904) 
+        #         with open(f"seed.pkl", "wb") as f: 
+        #             pickle.dump(seed, f) 
+        #         set_seed(seed) 
+        #         # if osp.exists("best_latents.pt"): 
+        #         #     os.remove("best_latents.pt")  
+        #         # latents = torch.randn(1, 4, 64, 64)  
+        #         # with open(f"best_latents.pt", "wb") as f: 
+        #         #     torch.save(latents, f) 
 
-            accelerator.wait_for_everyone() 
-            if not accelerator.is_main_process: 
-                with open("seed.pkl", "rb") as f: 
-                    seed = pickle.load(f) 
-            accelerator.wait_for_everyone() 
+        #     accelerator.wait_for_everyone() 
+        #     if not accelerator.is_main_process: 
+        #         with open("seed.pkl", "rb") as f: 
+        #             seed = pickle.load(f) 
+        #     accelerator.wait_for_everyone() 
 
-            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args) 
+        #     infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
