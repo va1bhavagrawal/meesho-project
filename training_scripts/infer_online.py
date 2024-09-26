@@ -33,9 +33,9 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "class2special_detached__noloc_cond"   
+WHICH_MODEL = "attn_bbox_from_class_mean"   
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 390000  
+WHICH_STEP = 90000  
 MAX_SUBJECTS_PER_EXAMPLE = 2   
 NUM_SAMPLES = 9  
 
@@ -280,13 +280,16 @@ class Infer:
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
 
+            if self.attn_bbox_from_class_mean:  
+                encoder_states_dict["bbox_from_class_mean"] = True 
+
             if P2P and t_idx < MAX_P2P_TIMESTEP: 
                 encoder_states_dict["p2p"] = True 
 
-            if not self.replace_attn: 
-                noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample 
-            else: 
-                noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=encoder_states_dict).sample 
+            # if not self.replace_attn: 
+            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample 
+            # else: 
+            #     noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=encoder_states_dict).sample 
 
             # perform guidance
             noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
@@ -387,6 +390,7 @@ class Infer:
         text_encoder_bypass = args["text_encoder_bypass"] if "text_encoder_bypass" in args.keys() else False  
         use_location_conditioning = args["use_location_conditioning"] if "use_location_conditioning" in args.keys() else False  
         include_class_in_prompt = args["include_class_in_prompt"] if "include_class_in_prompt" in args.keys() else False  
+        self.attn_bbox_from_class_mean = args["attn_bbox_from_class_mean"] if "attn_bbox_from_class_mean" in args.keys() else False 
 
         self.accelerator.wait_for_everyone() 
         if osp.exists(self.tmp_dir) and self.accelerator.is_main_process: 

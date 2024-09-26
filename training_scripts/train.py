@@ -61,9 +61,9 @@ from custom_attention_processor import patch_custom_attention
 # }
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
-DEBUG = False  
+DEBUG = False 
 PRINT_STUFF = False  
-BS = 4     
+BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -956,7 +956,7 @@ def main(args):
         SAVE_STEPS.append(save_step) 
     SAVE_STEPS = sorted(SAVE_STEPS) 
 
-    VLOG_STEPS = [0] 
+    VLOG_STEPS = [] 
     for vlog_step in range(VLOG_STEPS_GAP, args.max_train_steps + 1, VLOG_STEPS_GAP): 
         VLOG_STEPS.append(vlog_step)
     VLOG_STEPS = sorted(VLOG_STEPS)  
@@ -1776,10 +1776,12 @@ def main(args):
             encoder_states_dict["bbox_from_class_mean"] = True 
             encoder_states_dict["bboxes"] = batch["bboxes"] 
 
-        if args.replace_attn_maps is not None or args.penalize_special_token_attn:  
-            model_pred = unet(noisy_latents, timesteps, encoder_states_dict).sample 
-        else: 
-            model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+        # if args.replace_attn_maps is not None or args.penalize_special_token_attn or args.bbox_from_class_mean:  
+        if DEBUG: 
+            os.makedirs(osp.join("vis_attnmaps", f"{str(global_step).zfill(3)}"), exist_ok=True) 
+        model_pred = unet(noisy_latents, timesteps, encoder_states_dict).sample 
+        # else: 
+        #     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
         if args.penalize_special_token_attn: 
             assert loss_store.step_store["loss"].device == accelerator.device 
