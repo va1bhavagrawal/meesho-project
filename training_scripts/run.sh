@@ -1,4 +1,4 @@
-export RUN_NAME="attn_bbox_from_class_mean" 
+export RUN_NAME="attn_bbox_from_class_mean_noattnreplacement" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -27,7 +27,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
-  --replace_attn_maps="class2special_detached" \
   --penalize_special_token_attn="N" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
