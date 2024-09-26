@@ -235,13 +235,13 @@ def infer(args, step_number, wandb_log_data, accelerator, unet, scheduler, vae, 
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "jeep", 
+                    "subject": "dog", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.4, 
                     "y": 0.6, 
                 }, 
                 {
-                    "subject": "jeep", 
+                    "subject": "tractor", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),  
                     "x": 0.8, 
                     "y": 0.9, 
