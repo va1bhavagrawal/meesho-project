@@ -22,10 +22,9 @@ from PIL import Image
 import matplotlib.pyplot as plt 
 import os 
 import os.path as osp 
-import time 
 
 DEBUG_ATTN = False  
-INTERPOLATION_SIZE = 512  
+INTERPOLATION_SIZE = 1024  
 BOX_RESIZING_FACTOR = 1.2 
 
 
@@ -42,7 +41,7 @@ class CustomAttentionProcessor:
 
         mesh_i, mesh_j = torch.meshgrid(torch.arange(INTERPOLATION_SIZE), torch.arange(INTERPOLATION_SIZE), indexing="ij") 
         mesh_i, mesh_j = mesh_i.to(attention_map), mesh_j.to(attention_map) 
-        mean_i, mean_j = torch.sum(mesh_i * attention_map) / torch.sum(attention_map), torch.sum(mesh_j * attention_map) / torch.sum(attention_map)  
+        mean_i, mean_j = int(torch.sum(mesh_i * attention_map) / torch.sum(attention_map)), int(torch.sum(mesh_j * attention_map) / torch.sum(attention_map))   
 
         # if DEBUG_ATTN: 
         #     mean_i_ = 0 
@@ -175,32 +174,7 @@ class CustomAttentionProcessor:
                     attention_probs_idx1_interp = F.interpolate(attention_probs_idx1.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
                     attention_probs_idx2_interp = F.interpolate(attention_probs_idx2.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
 
-                    # mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
-                    mean_j, mean_i = (bboxes[batch_idx][asset_idx][0] + bboxes[batch_idx][asset_idx][2]) / 2, (bboxes[batch_idx][asset_idx][1] + bboxes[batch_idx][asset_idx][3]) / 2  
-                    mean_j, mean_i = INTERPOLATION_SIZE * mean_j, INTERPOLATION_SIZE * mean_i 
-                    mean_j, mean_i = mean_j.item(), mean_i.item() 
-
-                    if self.loss_store is not None: 
-                        # apply the centroid forcing loss 
-                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
-                        loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
-                        loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
-                        self.loss_store(loss) 
-
-
-                    given_bbox = bboxes[batch_idx][asset_idx] 
-                    h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
-                    h, w = int(h * INTERPOLATION_SIZE), int(w * INTERPOLATION_SIZE) 
-                    # given_bbox_max_side = max(int(INTERPOLATION_SIZE * (given_bbox[2] - given_bbox[0])), int(INTERPOLATION_SIZE * (given_bbox[3] - given_bbox[1]))) 
-                    # assert 0 < given_bbox_max_side < INTERPOLATION_SIZE 
-                    
-                    attention_mask_ = torch.zeros((INTERPOLATION_SIZE, INTERPOLATION_SIZE)).to(attention_probs) 
-                    # attention_mask_[mean_i - given_bbox_max_side // 2 : mean_i + given_bbox_max_side // 2, mean_j - given_bbox_max_side // 2 : mean_j + given_bbox_max_side // 2] = 1   
-                    i_min = int(max(0, mean_i - int(BOX_RESIZING_FACTOR * h / 2)))  
-                    i_max = int(min(INTERPOLATION_SIZE - 1, mean_i + int(BOX_RESIZING_FACTOR * h / 2)))  
-                    j_min = int(max(0, mean_j - int(BOX_RESIZING_FACTOR * w / 2)))  
-                    j_max = int(min(INTERPOLATION_SIZE - 1, mean_j + int(BOX_RESIZING_FACTOR * w / 2)))  
-                    attention_mask_[i_min : i_max, j_min : j_max] = 1  
+                    mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
 
                     if DEBUG_ATTN: 
                         viridis = plt.get_cmap('viridis') 
@@ -210,20 +184,48 @@ class CustomAttentionProcessor:
                         img = (img[:, :, :3] * 255).astype(np.uint8) 
                         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  
                         # img = np.repeat(attn_map[..., None], repeats=3, axis=-1)  
-                        cv2.circle(img, (int(mean_j), int(mean_i)), radius=0, color=(0, 0, 255), thickness=10)  
+                        cv2.circle(img, (mean_j, mean_i), radius=0, color=(0, 0, 255), thickness=10)  
                         # cv2.imwrite(osp.join("vis_attnmaps", f"{str(dataloader_idx).zfill(3)}", f"{str(batch_idx).zfill(3)}__{str(asset_idx).zfill(3)}.jpg"), img) 
-                        cv2.rectangle(img, (j_min, i_min), (j_max, i_max), color=(0, 0, 255), thickness=10)  
                         cv2.imwrite("img.jpg", img) 
+                        import time 
                         time.sleep(1) 
 
-                        # print(f"{i_max - i_min = }, {h = }, ratio = {(i_max - i_min) / h}") 
-                        # print(f"{j_max - j_min = }, {w = }, ratio = {(j_max - j_min) / w}") 
-
+                    given_bbox = bboxes[batch_idx][asset_idx] 
+                    h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
+                    h, w = int(h * INTERPOLATION_SIZE), int(w * INTERPOLATION_SIZE) 
+                    # given_bbox_max_side = max(int(INTERPOLATION_SIZE * (given_bbox[2] - given_bbox[0])), int(INTERPOLATION_SIZE * (given_bbox[3] - given_bbox[1]))) 
+                    # assert 0 < given_bbox_max_side < INTERPOLATION_SIZE 
+                    
+                    attention_mask_ = torch.zeros((INTERPOLATION_SIZE, INTERPOLATION_SIZE)).to(attention_probs) 
+                    # attention_mask_[mean_i - given_bbox_max_side // 2 : mean_i + given_bbox_max_side // 2, mean_j - given_bbox_max_side // 2 : mean_j + given_bbox_max_side // 2] = 1   
+                    i_min = max(0, mean_i - int(BOX_RESIZING_FACTOR * h / 2)) 
+                    i_max = min(INTERPOLATION_SIZE - 1, mean_i + int(BOX_RESIZING_FACTOR * h / 2)) 
+                    j_min = max(0, mean_j - int(BOX_RESIZING_FACTOR * w / 2)) 
+                    j_max = min(INTERPOLATION_SIZE - 1, mean_j + int(BOX_RESIZING_FACTOR * w / 2)) 
+                    attention_mask_[i_min : i_max, j_min : j_max] = 1  
+                    if DEBUG_ATTN: 
+                        print(f"{i_max - i_min = }, {h = }, ratio = {(i_max - i_min) / h}") 
+                        print(f"{j_max - j_min = }, {w = }, ratio = {(j_max - j_min) / w}") 
                     attention_probs_idx1_interp = attention_probs_idx1_interp * attention_mask_ 
                     attention_probs_idx2_interp = attention_probs_idx2_interp * attention_mask_ 
 
                     attention_probs_idx1_masked = F.interpolate(attention_probs_idx1_interp.unsqueeze(0), attention_probs_idx1.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx1.shape[0], spatial_dim * spatial_dim)  
                     attention_probs_idx2_masked = F.interpolate(attention_probs_idx2_interp.unsqueeze(0), attention_probs_idx2.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx2.shape[0], spatial_dim * spatial_dim)  
+
+                    if DEBUG_ATTN: 
+                        viridis = plt.get_cmap('viridis') 
+                        attn_map = torch.mean(attention_probs_idx2_interp, dim=0).detach().cpu().numpy()   
+                        attn_map = (attn_map - np.min(attn_map)) / (np.max(attn_map) - np.min(attn_map)) 
+                        img = viridis(attn_map)  
+                        img = (img[:, :, :3] * 255).astype(np.uint8) 
+                        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  
+                        # img = np.repeat(attn_map[..., None], repeats=3, axis=-1)  
+                        cv2.circle(img, (mean_j, mean_i), radius=0, color=(0, 0, 255), thickness=20)  
+                        cv2.rectangle(img, (j_min, i_min), (j_max, i_max), color=(0, 0, 255), thickness=10)  
+                        # cv2.imwrite(osp.join("vis_attnmaps", f"{str(dataloader_idx).zfill(3)}", f"{str(batch_idx).zfill(3)}__{str(asset_idx).zfill(3)}.jpg"), img) 
+                        cv2.imwrite("img.jpg", img) 
+                        import time 
+                        time.sleep(1)  
                     
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(attention_probs)  
                     idx1_mask[idx1] = 1  
@@ -239,31 +241,45 @@ class CustomAttentionProcessor:
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx1], attention_probs_idx1_masked)   
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx2], attention_probs_idx2_masked)   
 
+                    if DEBUG_ATTN: 
+                        viridis = plt.get_cmap('viridis') 
+                        attn_map = np.mean(F.interpolate(attention_probs_batch_split[batch_idx][..., idx2].reshape(attention_probs_batch_split[batch_idx][..., idx2].shape[0], spatial_dim, spatial_dim).unsqueeze(0), INTERPOLATION_SIZE, mode="bicubic", align_corners=True).squeeze().detach().cpu().numpy(), axis=0)  
+                        attn_map = (attn_map - np.min(attn_map)) / (np.max(attn_map) - np.min(attn_map)) 
+                        img = viridis(attn_map)  
+                        img = (img[:, :, :3] * 255).astype(np.uint8) 
+                        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  
+                        # img = np.repeat(attn_map[..., None], repeats=3, axis=-1)  
+                        cv2.circle(img, (mean_j, mean_i), radius=0, color=(0, 0, 255), thickness=20)  
+                        cv2.rectangle(img, (j_min, i_min), (j_max, i_max), color=(0, 0, 255), thickness=10)  
+                        # cv2.imwrite(osp.join("vis_attnmaps", f"{str(dataloader_idx).zfill(3)}", f"{str(batch_idx).zfill(3)}__{str(asset_idx).zfill(3)}.jpg"), img) 
+                        cv2.imwrite("img.jpg", img) 
+                        import time 
+                        time.sleep(1)  
+
             attention_probs = torch.cat(attention_probs_batch_split, dim=0) 
 
         # the bounding box attention loss 
-        # if self.loss_store is not None and type(encoder_hidden_states) == dict:  
-        #     attention_probs_batch_split = torch.chunk(attention_probs, chunks=len(encoder_hidden_states["attn_assignments"]), dim=0)  
-        #     bboxes = encoder_hidden_states["bboxes"]  
-        #     attn_maps = [] 
-        #     B = len(encoder_hidden_states["attn_assignments"]) 
-        #     for batch_idx in range(B): 
-        #         attn_maps_example = [] 
-        #         for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
-        #             assert idx1 != idx2 
-        #             attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
-        #             res = int(math.sqrt(attention_probs_idx1.shape[-1])) 
-        #             # asserting that it was a perfectly square attention map 
-        #             assert attention_probs_idx1.shape[-1] == res * res 
-        #             n_heads = attention_probs_idx1.shape[0] 
-        #             attention_probs_idx1 = attention_probs_idx1.reshape(n_heads, res, res) 
-        #             attn_maps_example.append(attention_probs_idx1) 
-        #         attn_maps.append(attn_maps_example) 
-        #         assert len(attn_maps_example) == len(bboxes[batch_idx]) 
-        #     assert len(attn_maps) == len(bboxes) 
-        #     loss = self.bbox_attn_loss_func(bboxes, attn_maps) 
-        #     self.loss_store(loss) 
-
+        if self.loss_store is not None and type(encoder_hidden_states) == dict:  
+            attention_probs_batch_split = torch.chunk(attention_probs, chunks=len(encoder_hidden_states["attn_assignments"]), dim=0)  
+            bboxes = encoder_hidden_states["bboxes"]  
+            attn_maps = [] 
+            B = len(encoder_hidden_states["attn_assignments"]) 
+            for batch_idx in range(B): 
+                attn_maps_example = [] 
+                for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
+                    assert idx1 != idx2 
+                    attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
+                    res = int(math.sqrt(attention_probs_idx1.shape[-1])) 
+                    # asserting that it was a perfectly square attention map 
+                    assert attention_probs_idx1.shape[-1] == res * res 
+                    n_heads = attention_probs_idx1.shape[0] 
+                    attention_probs_idx1 = attention_probs_idx1.reshape(n_heads, res, res) 
+                    attn_maps_example.append(attention_probs_idx1) 
+                attn_maps.append(attn_maps_example) 
+                assert len(attn_maps_example) == len(bboxes[batch_idx]) 
+            assert len(attn_maps) == len(bboxes) 
+            loss = self.bbox_attn_loss_func(bboxes, attn_maps) 
+            self.loss_store(loss) 
                     
         # print(f"{attention_probs.shape = }") 
         # print(f"{encoder_hidden_states.shape = }")
@@ -297,8 +313,8 @@ class CustomAttentionProcessor:
                     # cv2.rectangle(img, (j_min, i_min), (j_max, i_max), color=(0, 0, 255), thickness=10)  
                     # cv2.imwrite(osp.join("vis_attnmaps", f"{str(dataloader_idx).zfill(3)}", f"{str(batch_idx).zfill(3)}__{str(asset_idx).zfill(3)}.jpg"), img) 
                     cv2.imwrite("img.jpg", img) 
+                    import time 
                     time.sleep(1)  
-
         if self.attn_store is not None: 
             self.attn_store(attention_probs, self.name) 
 
