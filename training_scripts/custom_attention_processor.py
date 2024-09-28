@@ -61,6 +61,21 @@ class CustomAttentionProcessor:
         return mean_i, mean_j 
 
 
+    def find_good_bbox_size(self, inp_y, inp_azimuth):  
+        ys = self.bbox_data["ys"] 
+        azimuths = self.bbox_data["azimuths"] 
+        horizontal_sides = self.bbox_data["horizontal_sides"] 
+        vertical_sides = self.bbox_data["vertical_sides"]  
+        weights = np.abs(1 / ((ys - inp_y + 1e-4) * (azimuths - inp_azimuth + 1e-4)))  
+        weights = weights * weights 
+        weights = weights / np.sum(weights) 
+        h = np.sum(vertical_sides * weights)  
+        w = np.sum(horizontal_sides * weights)  
+        h = 512  
+        w = 512 
+        return h, w  
+
+
     def bbox_attn_loss_func(self, bboxes, attn_maps): 
         loss = 0.0 
         B = len(bboxes) 
@@ -175,10 +190,12 @@ class CustomAttentionProcessor:
                     attention_probs_idx1_interp = F.interpolate(attention_probs_idx1.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
                     attention_probs_idx2_interp = F.interpolate(attention_probs_idx2.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
 
-                    # mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
-                    mean_j, mean_i = (bboxes[batch_idx][asset_idx][0] + bboxes[batch_idx][asset_idx][2]) / 2, (bboxes[batch_idx][asset_idx][1] + bboxes[batch_idx][asset_idx][3]) / 2  
-                    mean_j, mean_i = INTERPOLATION_SIZE * mean_j, INTERPOLATION_SIZE * mean_i 
-                    mean_j, mean_i = mean_j.item(), mean_i.item() 
+                    if "bboxes" in encoder_hidden_states.keys(): 
+                        mean_j, mean_i = (bboxes[batch_idx][asset_idx][0] + bboxes[batch_idx][asset_idx][2]) / 2, (bboxes[batch_idx][asset_idx][1] + bboxes[batch_idx][asset_idx][3]) / 2  
+                        mean_j, mean_i = INTERPOLATION_SIZE * mean_j, INTERPOLATION_SIZE * mean_i 
+                        mean_j, mean_i = mean_j.item(), mean_i.item() 
+                    else: 
+                        mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
 
                     if self.loss_store is not None: 
                         # apply the centroid forcing loss 
@@ -188,9 +205,18 @@ class CustomAttentionProcessor:
                         self.loss_store(loss) 
 
 
-                    given_bbox = bboxes[batch_idx][asset_idx] 
-                    h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
-                    h, w = int(h * INTERPOLATION_SIZE), int(w * INTERPOLATION_SIZE) 
+                    if "bboxes" in encoder_hidden_states.keys(): 
+                        given_bbox = bboxes[batch_idx][asset_idx] 
+                        h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
+                        h, w = int(h * INTERPOLATION_SIZE), int(w * INTERPOLATION_SIZE) 
+                    elif "bbox_data" in encoder_hidden_states.keys(): 
+                        self.bbox_data = encoder_hidden_states["bbox_data"] 
+                        assert "azimuths" in encoder_hidden_states.keys() 
+                        assert len(encoder_hidden_states["azimuths"]) == B, f"{len(encoder_hidden_states['azimuths']) = }, {B = }"   
+                        h, w = self.find_good_bbox_size(mean_i.item(), encoder_hidden_states["azimuths"][batch_idx][asset_idx])   
+                        h, w = int(h), int(w) 
+                    else: 
+                        raise NotImplementedError(f"one of bboxes or bbox_data must be present in the encoder_states to enable bbox_from_class_mean!") 
                     # given_bbox_max_side = max(int(INTERPOLATION_SIZE * (given_bbox[2] - given_bbox[0])), int(INTERPOLATION_SIZE * (given_bbox[3] - given_bbox[1]))) 
                     # assert 0 < given_bbox_max_side < INTERPOLATION_SIZE 
                     
@@ -230,11 +256,11 @@ class CustomAttentionProcessor:
                     assert idx1_mask.requires_grad == False 
                     # TODO weird error with in place replacement, that is coming up when performing in place replacement for idx1, but not for idx2, must check! 
                     replacement_attn_maps_example = attention_probs_batch_split[batch_idx] * (1 - idx1_mask) + idx1_mask * attention_probs_idx1_masked[..., None].expand(-1, -1, 77)  
-                    assert replacement_attn_maps_example.requires_grad 
+                    # assert replacement_attn_maps_example.requires_grad 
                     attention_probs_batch_split[batch_idx] = replacement_attn_maps_example  
                     # attention_probs_batch_split[batch_idx][..., idx1] = attention_probs_idx1_masked 
-                    assert attention_probs_batch_split[batch_idx].requires_grad == True 
-                    assert attention_probs_idx2_masked.requires_grad == True 
+                    # assert attention_probs_batch_split[batch_idx].requires_grad == True 
+                    # assert attention_probs_idx2_masked.requires_grad == True 
                     attention_probs_batch_split[batch_idx][..., idx2] = attention_probs_idx2_masked 
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx1], attention_probs_idx1_masked)   
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx2], attention_probs_idx2_masked)   

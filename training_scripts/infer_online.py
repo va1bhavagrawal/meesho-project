@@ -33,16 +33,17 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "attn_bbox_from_class_mean"   
+WHICH_MODEL = "teacher_forcing_0.01"  
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 90000  
-MAX_SUBJECTS_PER_EXAMPLE = 2   
-NUM_SAMPLES = 9  
+WHICH_STEP = 50000  
+MAX_SUBJECTS_PER_EXAMPLE = 1    
+NUM_SAMPLES = 17  
+MODE = "all_steps" 
 
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
 
-KEYWORD = f""   
+KEYWORD = f"bbox512"   
 
 ACROSS_TIMESTEPS = False  
 NUM_INFERENCE_STEPS = 50 
@@ -50,6 +51,9 @@ NUM_INFERENCE_STEPS = 50
 TEXTUAL_INV = None  
 TEXTUAL_INV_SUBJECT = "sedan" 
 TI_PATH = osp.join("textual_inversion", "textual_inversion_sedan", "vstarsedan.bin") 
+
+INSTANCE_DIR_1SUBJECT = "../training_data_2subjects_2509/ref_imgs_1subject"  
+INSTANCE_DIR_2SUBJECTS = "../training_data_2subjects_2509/ref_imgs_2subjects" 
 
 from custom_attention_processor import patch_custom_attention, get_attention_maps, show_image_relevance  
 
@@ -156,13 +160,15 @@ import wandb
 
 
 class EncoderStatesDataset(Dataset): 
-    def __init__(self, encoder_states, save_paths, attn_assignments, track_ids, interesting_token_strs): 
-        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments) == len(interesting_token_strs) > 0  
+    def __init__(self, encoder_states, save_paths, attn_assignments, track_ids, interesting_token_strs, all_azimuths, all_subjects): 
+        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments) == len(interesting_token_strs) == len(all_azimuths) == len(all_subjects) > 0  
         self.encoder_states = encoder_states 
         self.save_paths = save_paths 
         self.attn_assignments = attn_assignments 
         self.track_ids = track_ids 
         self.interesting_token_strs = interesting_token_strs 
+        self.azimuths = all_azimuths 
+        self.subjects = all_subjects 
 
 
     def __len__(self): 
@@ -174,7 +180,7 @@ class EncoderStatesDataset(Dataset):
         assert self.encoder_states[index] is not None 
         # print(f"dataset is sending {self.encoder_states[index] = }, {self.save_paths[index] = }")
         # (self.encoder_states[index], [self.save_paths[index]]) 
-        return (self.encoder_states[index], self.save_paths[index], self.attn_assignments[index], self.track_ids[index], self.interesting_token_strs[index])   
+        return (self.encoder_states[index], self.save_paths[index], self.attn_assignments[index], self.track_ids[index], self.interesting_token_strs[index], self.azimuths[index], self.subjects[index])     
 
 
 def collate_fn(examples): 
@@ -183,13 +189,17 @@ def collate_fn(examples):
     attn_assignments = [example[2] for example in examples] 
     track_ids = [example[3] for example in examples] 
     interesting_token_strs = [example[4] for example in examples] 
+    azimuths = [example[5] for example in examples] 
+    subjects = [example[6] for example in examples] 
     return {
         "save_paths": save_paths, 
         "encoder_states": encoder_states, 
         "attn_assignments": attn_assignments, 
         "track_ids": track_ids, 
         "interesting_token_strs": interesting_token_strs, 
-    }
+        "azimuths": azimuths, 
+        "subjects": subjects, 
+    } 
 
 
 class Infer: 
@@ -208,18 +218,6 @@ class Infer:
         self.bnha_embeds = bnha_embeds 
         self.tmp_dir = tmp_dir  
 
-        self.accelerator.wait_for_everyone() 
-
-        if osp.exists(self.tmp_dir) and self.accelerator.is_main_process: 
-            shutil.rmtree(f"{self.tmp_dir}") 
-        self.accelerator.wait_for_everyone() 
-        if store_attn: 
-            self.tmp_dir_attn = osp.join(osp.dirname(self.tmp_dir), osp.basename(self.tmp_dir) + "__attn") 
-            if osp.exists(self.tmp_dir_attn) and self.accelerator.is_main_process: 
-                shutil.rmtree(self.tmp_dir_attn) 
-                os.makedirs(self.tmp_dir_attn) 
-
-        self.accelerator.wait_for_everyone() 
         self.tokenizer = tokenizer 
 
         self.unet = self.accelerator.prepare(self.unet) 
@@ -230,6 +228,190 @@ class Infer:
         self.merger = self.accelerator.prepare(self.merger) 
         self.bnha_embeds = self.accelerator.prepare(self.bnha_embeds) 
         # assert not osp.exists(self.gif_name)  
+
+
+        img_transforms = [] 
+        img_transforms.append(
+            transforms.Resize(
+                512, interpolation=transforms.InterpolationMode.BILINEAR 
+            )
+        )
+
+        self.image_transforms = transforms.Compose(
+            [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
+        ) 
+
+
+    def do_one_step(self, batch, dataloader_idx): 
+        # print(f"{self.accelerator.process_index} is doing {batch_idx = }")
+        assert self.store_attn  
+        B = len(batch["subjects"]) 
+        for batch_idx in range(B): 
+            retval = patch_custom_attention(self.accelerator.unwrap_model(self.unet), store_attn=self.store_attn, across_timesteps=ACROSS_TIMESTEPS, store_loss=False)    
+            loss_store = retval["loss_store"] 
+            self.attn_store = retval["attn_store"] 
+            assert loss_store is None and not ((self.attn_store is not None) ^ self.store_attn)  
+
+            subjects = batch["subjects"][batch_idx]  
+            subjects_ = ["_".join(subject.split()) for subject in subjects] 
+            subjects = subjects_ 
+            # subjects_ = [] 
+            # for subject in subjects: 
+            #     if subject in training_subjects and subject not in subjects_: 
+            #         subjects_.append(subject) 
+            #         continue 
+            #     while True: 
+            #         random_subject = random.choice(training_subjects) 
+            #         if random_subject in subjects_: 
+            #             continue 
+            #         subjects_.append(random_subject) 
+            #         break 
+            # subjects = subjects_ 
+            assert len(subjects) == len(set(subjects)) 
+
+            subjects_string = "__".join(subjects)   
+            if len(subjects) == 2: 
+                subjects_comb_dir = osp.join(INSTANCE_DIR_2SUBJECTS, subjects_string)  
+            elif len(subjects) == 1:  
+                subjects_comb_dir = osp.join(INSTANCE_DIR_1SUBJECT, subjects_string) 
+            else: 
+                raise NotImplementedError("only 2 subjects supported for now!") 
+            assert osp.exists(subjects_comb_dir), f"{subjects_comb_dir = }" 
+            img_names = os.listdir(subjects_comb_dir) 
+            img_names = [img_name for img_name in img_names if img_name.find("jpg") != -1] 
+            chosen_img_name = random.choice(img_names)  
+            img = Image.open(osp.join(subjects_comb_dir, chosen_img_name)) 
+            img = img.convert("RGB") 
+            pixel_values = self.image_transforms(img)   
+            pixel_values = pixel_values.unsqueeze(0) 
+            assert pixel_values.ndim == 4 
+            # uncond_tokens = self.tokenizer(
+            #     [""], 
+            #     padding="max_length", 
+            #     max_length=self.tokenizer.model_max_length,
+            #     truncation=True, 
+            #     return_tensors="pt", 
+            # ).input_ids 
+            # uncond_encoder_states = self.text_encoder(uncond_tokens.to(self.accelerator.device))[0] 
+            # encoder_states, save_paths = batch 
+            encoder_states = batch["encoder_states"][batch_idx].to(self.accelerator.device).unsqueeze(0)  
+
+            encoder_states_dict = {
+                "encoder_hidden_states": encoder_states, 
+                "attn_assignments": batch["attn_assignments"][batch_idx:batch_idx+1],  
+            }
+            if self.replace_attn is not None: 
+                encoder_states_dict[self.replace_attn] = True 
+
+            if self.attn_bbox_from_class_mean:  
+                encoder_states_dict["bbox_from_class_mean"] = True 
+                with open(f"bbox_data.pkl", "rb") as f: 
+                    bbox_data = pickle.load(f)  
+                encoder_states_dict["bbox_data"] = bbox_data 
+                encoder_states_dict["azimuths"] = batch["azimuths"][batch_idx:batch_idx+1]  
+            # print(f"{self.accelerator.process_index} is doing {save_paths}") 
+            # encoder_states = torch.stack(encoder_states).to(self.accelerator.device) 
+            # latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device).repeat(B, 1, 1, 1)  
+            latents = self.accelerator.unwrap_model(self.vae).encode( 
+                # batch["pixel_values"].to(self.accelerator.device)  
+                pixel_values.to(self.accelerator.device) 
+            ).latent_dist.sample() 
+
+            latents = latents * 0.18215 
+
+            noise = torch.randn_like(latents) 
+            timesteps = torch.randint(
+                0,
+                self.scheduler.config.num_train_timesteps, 
+                (1, ),
+                device=latents.device,
+            )
+            self.scheduler.set_timesteps(50) 
+            noisy_latents = self.scheduler.add_noise(latents, noise, timesteps) 
+            # decode the latents 
+            noisy_images = self.accelerator.unwrap_model(self.vae).decode(noisy_latents / 0.18215).sample 
+
+            noisy_images = (noisy_images / 2 + 0.5).clamp(0, 1) 
+            noisy_images = (noisy_images * 255).to(torch.uint8) 
+            noisy_images = noisy_images.permute(0, 2, 3, 1) 
+            # generated_images[idx] = image 
+            noisy_images = noisy_images.cpu().numpy()  
+            noisy_images = [Image.fromarray(noisy_image) for noisy_image in noisy_images] 
+            # for t in self.scheduler.timesteps:
+            #     # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
+            #     latent_model_input = torch.cat([latents] * 2)
+
+            #     # scaling the latents for the scheduler timestep  
+            #     latent_model_input = self.scheduler.scale_model_input(latent_model_input, timestep=t)
+
+            #     # predict the noise residual
+            #     concat_encoder_states = torch.cat([uncond_encoder_states.repeat(B, 1, 1), encoder_states], dim=0) 
+            #     noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample
+
+            #     # perform guidance
+            #     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+            #     noise_pred = noise_pred_uncond + 7.5 * (noise_pred_text - noise_pred_uncond)
+
+            #     # compute the previous noisy sample x_t -> x_t-1
+            #     latents = self.scheduler.step(noise_pred, t, latents).prev_sample
+
+            # print(f"{timesteps.shape = }") 
+            # print(f"{noisy_latents.shape = }") 
+            # print(f"{encoder_states.shape = }") 
+            # sys.exit(0) 
+            model_pred = self.unet(noisy_latents, timesteps, encoder_states_dict).sample 
+            pred_org_latents = self.scheduler.step(model_pred, timesteps, latents).pred_original_sample 
+            pred_pixel_values = self.accelerator.unwrap_model(self.vae).decode(pred_org_latents).sample.to(self.accelerator.device)  
+            pred_org_images = [] 
+            for image in pred_pixel_values: 
+                image = (image / 2 + 0.5).clamp(0, 1).squeeze()
+                image = (image * 255).to(torch.uint8) 
+                image = image.cpu().numpy()  
+                image = np.transpose(image, (1, 2, 0)) 
+                image = np.ascontiguousarray(image) 
+                image = Image.fromarray(image) 
+                pred_org_images.append(image) 
+
+            org_images = [img] 
+
+            if self.store_attn: 
+                attn_maps_batch = get_attention_maps(self.attn_store, batch["track_ids"][batch_idx], uncond_attn_also=True, res=16, batch_size=self.bs)   
+                attn_maps = attn_maps_batch[batch_idx] 
+
+                path, tail = osp.split(batch["save_paths"][batch_idx])  
+                _, subjects_string = osp.split(path) 
+                save_path = osp.join(self.tmp_dir_attn, subjects_string) 
+                os.makedirs(save_path, exist_ok=True) 
+                pose_idx = int(osp.basename(batch["save_paths"][batch_idx]).replace(f".jpg", ""))  
+                # print(f"\n{pose_idx = } for this batch!\n") 
+
+                assert len(attn_maps.keys()) == len(batch["track_ids"][batch_idx]), f"{attn_maps.keys() = }, {batch['track_ids'][batch_idx] = }" 
+
+                assert len(batch['track_ids'][batch_idx]) == len(batch['interesting_token_strs'][batch_idx]) 
+                # for timestep in range(len(self.scheduler.timesteps)): 
+                for track_idx_idx, track_idx in enumerate(batch["track_ids"][batch_idx]):  
+                    # print(f"{attn_maps[track_idx][timestep].shape = }") 
+                    heatmap = show_image_relevance(attn_maps[track_idx][0], img, relevance_res=16) 
+                    heatmap_captioned = create_image_with_captions([[heatmap]], [[batch["interesting_token_strs"][batch_idx][track_idx_idx]]]) 
+                    save_path = osp.join(self.tmp_dir_attn, subjects_string, f"{str(pose_idx).zfill(3)}__{str(0).zfill(3)}__{str(track_idx).zfill(3)}.jpg") 
+                    heatmap_captioned.save(save_path) 
+
+                assert len(org_images) == len(pred_org_images) == len(noisy_images) == 1 
+                org_image = org_images[0] 
+                pred_org_image = pred_org_images[0] 
+                noisy_image = noisy_images[0] 
+
+                save_path = batch["save_paths"][batch_idx]  
+                save_path_org = osp.join(osp.dirname(save_path), f"{osp.basename(save_path).replace('.jpg', '')}__000.jpg") 
+                save_path_pred = osp.join(osp.dirname(save_path), f"{osp.basename(save_path).replace('.jpg', '')}__002.jpg") 
+                save_path_noisy = osp.join(osp.dirname(save_path), f"{osp.basename(save_path).replace('.jpg', '')}__001.jpg") 
+                org_image.save(save_path_org)    
+                pred_org_image.save(save_path_pred) 
+                noisy_image.save(save_path_noisy) 
+                # image = Image.fromarray(image) 
+                # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
+
+
 
 
     def generate_images_in_a_batch_and_save_them(self, batch, step_idx): 
@@ -243,10 +425,21 @@ class Infer:
         ).input_ids 
         uncond_encoder_states = self.text_encoder(uncond_tokens.to(self.accelerator.device))[0] 
         uncond_assignments = [] 
+        uncond_subjects = [] 
+        uncond_azimuths = [] 
         for batch_idx in range(batch["encoder_states"].shape[0]): 
             uncond_assignments.append({}) 
+            uncond_subjects.append([]) 
+            uncond_azimuths.append([]) 
         cond_assignments = batch["attn_assignments"] 
+        cond_subjects = batch["subjects"] 
+        cond_azimuths = batch["azimuths"] 
+
         all_assignments = uncond_assignments + cond_assignments 
+        all_subjects = uncond_subjects + cond_subjects  
+        all_azimuths = uncond_azimuths + cond_azimuths 
+        assert len(all_assignments) == len(all_subjects) == len(all_azimuths) 
+
         # encoder_states, save_paths = batch 
         encoder_states = batch["encoder_states"].to(self.accelerator.device)  
         save_paths = batch["save_paths"]  
@@ -256,7 +449,7 @@ class Infer:
         assert encoder_states.shape == (B, 77, 1024) 
         if self.seed is not None: 
             set_seed(self.seed) 
-        latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
+        # latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
         with open("best_latents.pt", "rb") as f: 
             latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
         self.scheduler.set_timesteps(NUM_INFERENCE_STEPS) 
@@ -282,12 +475,17 @@ class Infer:
 
             if self.attn_bbox_from_class_mean:  
                 encoder_states_dict["bbox_from_class_mean"] = True 
+                with open(f"bbox_data.pkl", "rb") as f: 
+                    bbox_data = pickle.load(f)  
+                encoder_states_dict["bbox_data"] = bbox_data 
+                encoder_states_dict["azimuths"] = all_azimuths  
+
 
             if P2P and t_idx < MAX_P2P_TIMESTEP: 
                 encoder_states_dict["p2p"] = True 
 
             # if not self.replace_attn: 
-            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=concat_encoder_states).sample 
+            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=encoder_states_dict).sample 
             # else: 
             #     noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=encoder_states_dict).sample 
 
@@ -417,6 +615,8 @@ class Infer:
             all_attn_assignments = [] 
             all_track_ids = [] 
             all_interesting_token_strs = [] 
+            all_azimuths = [] 
+            all_subjects = [] 
 
             for gif_subject_data in all_subjects_data:  
                 subjects = [] 
@@ -442,6 +642,13 @@ class Infer:
                     mlp_embs_frame = [] 
                     if self.mlp is not None: 
                         bnha_embs_frame = [] 
+                    azimuths_frame = [] 
+                    subjects_frame = [] 
+                    for subject_data in gif_subject_data: 
+                        azimuths_frame.append(2 * math.pi * subject_data["normalized_azimuths"][sample_idx]) 
+                        subjects_frame.append(subject_data["subject"]) 
+                    all_subjects.append(subjects_frame) 
+                    all_azimuths.append(azimuths_frame) 
                     for subject_data in gif_subject_data:  
                         normalized_azimuth = subject_data["normalized_azimuths"][sample_idx] 
                         if use_location_conditioning: 
@@ -589,6 +796,8 @@ class Infer:
                 all_attn_assignments_permuted = [] 
                 all_track_ids_permuted = [] 
                 all_interesting_token_strs_permuted = [] 
+                all_subjects_permuted = [] 
+                all_azimuths_permuted = [] 
 
                 stride = NUM_SAMPLES - 1  
                 for start_idx in range(NUM_SAMPLES - 1): 
@@ -598,14 +807,19 @@ class Infer:
                         all_attn_assignments_permuted.append(all_attn_assignments[sample_idx]) 
                         all_track_ids_permuted.append(all_track_ids[sample_idx]) 
                         all_interesting_token_strs_permuted.append(all_interesting_token_strs[sample_idx]) 
+                        all_subjects_permuted.append(all_subjects[sample_idx]) 
+                        all_azimuths_permuted.append(all_azimuths[sample_idx]) 
 
                 all_encoder_states = all_encoder_states_permuted 
                 all_save_paths = all_save_paths_permuted 
                 all_attn_assignments = all_attn_assignments_permuted 
                 all_track_ids = all_track_ids_permuted 
                 all_interesting_token_strs = all_interesting_token_strs_permuted 
+                all_subjects = all_subjects_permuted 
+                all_azimuths = all_azimuths_permuted  
 
-            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths, all_attn_assignments, all_track_ids, all_interesting_token_strs)     
+
+            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths, all_attn_assignments, all_track_ids, all_interesting_token_strs, all_azimuths, all_subjects)      
 
             dataloader = DataLoader(dataset, batch_size=self.bs, collate_fn=collate_fn)  
             dataloader = self.accelerator.prepare(dataloader)  
@@ -614,20 +828,20 @@ class Infer:
             self.accelerator.wait_for_everyone() 
             self.accelerator.print(f"every thread finished preparing their dataloaders...") 
             self.accelerator.print(f"starting generation...") 
-            for batch_idx, batch in enumerate(dataloader): 
-                self.generate_images_in_a_batch_and_save_them(batch, batch_idx)  
+            if MODE == "all_steps": 
+                for batch_idx, batch in enumerate(dataloader): 
+                    self.generate_images_in_a_batch_and_save_them(batch, batch_idx)  
 
-            self.accelerator.wait_for_everyone() 
-            self.accelerator.print(f"every thread finished their generation, now collecting them to form a gif...") 
-            # if not self.store_attn: 
-            if self.accelerator.is_main_process: 
-                # collect_generated_images(subjects, self.tmp_dir, prompt, "pose+app", self.gif_name)  
-                collect_generated_images(self.tmp_dir, prompt, self.gif_path)  
-            self.accelerator.wait_for_everyone() 
-
-
-            if self.store_attn: 
+                self.accelerator.wait_for_everyone() 
+                self.accelerator.print(f"every thread finished their generation, now collecting them to form a gif...") 
+                # if not self.store_attn: 
                 if self.accelerator.is_main_process: 
+                    # collect_generated_images(subjects, self.tmp_dir, prompt, "pose+app", self.gif_name)  
+                    collect_generated_images(self.tmp_dir, prompt, self.gif_path)  
+                self.accelerator.wait_for_everyone() 
+
+                # collecting attention map visualizations!  
+                if ACROSS_TIMESTEPS and self.store_attn and self.accelerator.is_main_process: 
                     for subjects_string in os.listdir(self.tmp_dir_attn): 
                         movie = [] 
                         img_names = sorted(os.listdir(osp.join(self.tmp_dir, subjects_string)))  
@@ -639,10 +853,8 @@ class Infer:
                         # heatmaps = [Image.open(heatmap) for heatmap in heatmap_paths]  
 
 
-                        if ACROSS_TIMESTEPS: 
-                            num_timesteps_in_attnstore = len(self.scheduler.timesteps) 
-                        else: 
-                            num_timesteps_in_attnstore = 1  
+                        num_timesteps_in_attnstore = len(self.scheduler.timesteps) 
+
                         for timestep in range(num_timesteps_in_attnstore): 
                             # we are building a frame here 
                             all_cols = [] 
@@ -673,23 +885,102 @@ class Infer:
 
                         movie_save_path = osp.join(osp.dirname(self.gif_path_attn), subjects_string + "___" + osp.basename(self.gif_path_attn))  
                         create_gif(movie, movie_save_path, duration=0.1)  
+
+                elif self.store_attn and self.accelerator.is_main_process: 
+                    for subjects_string in os.listdir(self.tmp_dir_attn): 
+                        movie = [] 
+                        img_names = sorted(os.listdir(osp.join(self.tmp_dir, subjects_string)))  
+                        img_paths = [osp.join(self.tmp_dir, subjects_string, img_name) for img_name in img_names] 
+                        # generated_imgs = [Image.open(img_path) for img_path in img_paths]  
+
+                        heatmap_names = sorted(os.listdir(osp.join(self.tmp_dir_attn, subjects_string))) 
+                        heatmap_paths = [osp.join(self.tmp_dir_attn, subjects_string, heatmap_name) for heatmap_name in heatmap_names] 
+
+                        all_cols = [] 
+                        all_cols_captions = [] 
+                        
+                        for pose_idx in range(n_samples): 
+                            heatmap_paths_pose_timestep = sorted([heatmap_path for heatmap_path in heatmap_paths if heatmap_path.find(f"{str(pose_idx).zfill(3)}__{str(0).zfill(3)}__") != -1])  
+                            heatmaps_pose_timestep = [Image.open(heatmap_path) for heatmap_path in heatmap_paths_pose_timestep] 
+                            # the generated image by the model 
+                            gen_img_path = [img_path for img_path in img_paths if img_path.find(f"{str(pose_idx).zfill(3)}.jpg") != -1] 
+                            assert len(gen_img_path) == 1 
+                            gen_img = Image.open(gen_img_path[0]) 
+                            gen_img = create_image_with_captions([[gen_img]], [["generated image"]]) 
+                            gen_img = gen_img.resize(heatmaps_pose_timestep[0].size) 
+                            heatmaps_pose_timestep = [img.convert("RGB") for img in heatmaps_pose_timestep] 
+                            debug_path = osp.join(f"vis", f"{str(pose_idx).zfill(3)}__{str(0).zfill(3)}") 
+                            os.makedirs(debug_path, exist_ok=True)   
+                            for some_token_idx, heatmap in enumerate(heatmaps_pose_timestep): 
+                                heatmap.save(osp.join(debug_path, f"{some_token_idx}.jpg")) 
+                            imgs_col = [gen_img] + heatmaps_pose_timestep  
+                            captions_col = [""] * (len(heatmaps_pose_timestep) + 1)  
+                            movie.append(create_image_with_captions([imgs_col], [captions_col])) 
+
+                        movie_save_path = osp.join(osp.dirname(self.gif_path_attn), subjects_string + "___" + osp.basename(self.gif_path_attn))  
+
+                        create_gif(movie, movie_save_path, duration=1.0)  
+
                 self.accelerator.wait_for_everyone() 
 
-            self.accelerator.wait_for_everyone() 
+            elif MODE == "single_step": 
+                for batch_idx, batch in enumerate(dataloader): 
+                    self.do_one_step(batch, batch_idx)  
 
-            # if self.store_attn and self.accelerator.is_main_process: 
-            #     self.accelerator.print(f"removing {self.tmp_dir_attn}") 
-            #     if osp.exists(self.tmp_dir_attn): 
-            #         shutil.rmtree(self.tmp_dir_attn) 
+                self.accelerator.wait_for_everyone() 
+                self.accelerator.print(f"every thread finished their generation, now collecting them to form a gif...") 
 
-            # self.accelerator.wait_for_everyone() 
+                if self.accelerator.is_main_process: 
+                    for subjects_string in os.listdir(self.tmp_dir_attn): 
+                        movie = [] 
+                        img_names = sorted(os.listdir(osp.join(self.tmp_dir, subjects_string)))  
+                        img_paths = [osp.join(self.tmp_dir, subjects_string, img_name) for img_name in img_names] 
+                        generated_imgs = [Image.open(img_path) for img_path in img_paths]  
 
-            # if self.accelerator.is_main_process: 
-            #     print(f"removing {self.tmp_dir}") 
-            #     if osp.exists(self.tmp_dir): 
-            #         shutil.rmtree(self.tmp_dir) 
+                        heatmap_names = sorted(os.listdir(osp.join(self.tmp_dir_attn, subjects_string))) 
+                        heatmap_paths = [osp.join(self.tmp_dir_attn, subjects_string, heatmap_name) for heatmap_name in heatmap_names] 
 
-            # self.accelerator.wait_for_everyone() 
+                        # all_cols = [] 
+                        # all_cols_captions = [] 
+                        
+                        for pose_idx in range(n_samples): 
+                            heatmap_paths_pose_timestep = sorted([heatmap_path for heatmap_path in heatmap_paths if heatmap_path.find(f"{str(pose_idx).zfill(3)}__{str(0).zfill(3)}__") != -1])  
+                            heatmaps_pose_timestep = [Image.open(heatmap_path) for heatmap_path in heatmap_paths_pose_timestep] 
+                            # the generated image by the model 
+                            gen_img_paths = sorted([img_path for img_path in img_paths if img_path.find(f"{str(pose_idx).zfill(3)}__") != -1])  
+                            assert len(gen_img_paths) == 3, f"{len(gen_img_paths) = }, {gen_img_paths = }" 
+
+                            org_img = Image.open(gen_img_paths[0]) 
+                            org_img = create_image_with_captions([[org_img]], [["original image"]]) 
+                            org_img = org_img.resize(heatmaps_pose_timestep[0].size) 
+
+                            noisy_img = Image.open(gen_img_paths[1]) 
+                            noisy_img = create_image_with_captions([[noisy_img]], [["noised image"]]) 
+                            noisy_img = noisy_img.resize(heatmaps_pose_timestep[0].size) 
+
+                            pred_img = Image.open(gen_img_paths[2]) 
+                            pred_img = create_image_with_captions([[pred_img]], [["predicted image"]]) 
+                            pred_img = pred_img.resize(heatmaps_pose_timestep[0].size) 
+
+                            heatmaps_pose_timestep = [img.convert("RGB") for img in heatmaps_pose_timestep] 
+                            debug_path = osp.join(f"vis", f"{str(pose_idx).zfill(3)}__{str(0).zfill(3)}") 
+                            os.makedirs(debug_path, exist_ok=True)   
+                            for some_token_idx, heatmap in enumerate(heatmaps_pose_timestep): 
+                                heatmap.save(osp.join(debug_path, f"{some_token_idx}.jpg")) 
+                            imgs = [org_img, noisy_img, pred_img] + heatmaps_pose_timestep  
+                            captions = [""] * (len(heatmaps_pose_timestep) + 3)  
+                            # print(f"{all_cols = }") 
+                            # print(f"{all_cols_captions = }") 
+                            movie.append(create_image_with_captions([imgs], [captions])) 
+
+                        movie_save_path = osp.join(osp.dirname(self.gif_path_attn), subjects_string + "___" + osp.basename(self.gif_path_attn))  
+
+                        create_gif(movie, movie_save_path, duration=2.0)  
+
+                    self.accelerator.wait_for_everyone() 
+
+            else: 
+                raise NotImplementedError(f"{MODE = } not supported!") 
 
 
 if __name__ == "__main__": 
@@ -778,13 +1069,13 @@ if __name__ == "__main__":
             pipeline.text_encoder.get_input_embeddings().weight[special_token_ids[0]] = ti_embedding    
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}", None, store_attn=True, bs=4)  
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{KEYWORD}", None, store_attn=True, bs=4)     
 
 
         subjects = [
             [
                 {
-                    "subject": "suv", 
+                    "subject": "sedan", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 
@@ -799,14 +1090,14 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "jeep", 
+                    "subject": "suv", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.4, 
                     "y": 0.6, 
                 }, 
                 {
-                    "subject": "sedan", 
+                    "subject": "suv", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.8, 
                     "y": 0.9, 
@@ -814,40 +1105,41 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "motorbike", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
                     "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "horse", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 
                     "y": 0.5, 
                 }, 
                 {
-                    "subject": "elephant", 
+                    "subject": "sedan", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.7, 
                     "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
+            #         "subject": "tractor", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.3, 
+            #         "y": 0.5, 
+            #     }, 
+            #     {
+            #         "subject": "horse", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
+            # "a photo of PLACEHOLDER", 
             "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+            "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
             # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
             # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
         ]
@@ -873,185 +1165,185 @@ if __name__ == "__main__":
             infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
 
 
-        subjects = [
-            [
-                {
-                    "subject": "lion", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.6,  
-                }, 
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.4, 
-                    "y": 0.6, 
-                }, 
-                {
-                    "subject": "horse", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.8, 
-                    "y": 0.9, 
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "truck", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "jeep", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "elephant", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        ]
-        prompts = [
-            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-            "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-            "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
-        ]
-        for prompt in prompts: 
+        # subjects = [
+        #     [
+        #         {
+        #             "subject": "lion", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.6,  
+        #         }, 
+        #         {
+        #             "subject": "tractor", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,  
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "tractor", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.4, 
+        #             "y": 0.6, 
+        #         }, 
+        #         {
+        #             "subject": "horse", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.8, 
+        #             "y": 0.9, 
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "truck", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.5, 
+        #         }, 
+        #         {
+        #             "subject": "suv", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,   
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "jeep", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.5, 
+        #         }, 
+        #         {
+        #             "subject": "elephant", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,   
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        # ]
+        # prompts = [
+        #     "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+        #     # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+        #     "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
+        #     # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+        #     "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
+        #     # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+        # ]
+        # for prompt in prompts: 
 
-            if accelerator.is_main_process: 
-                if osp.exists("best_latents.pt"): 
-                    os.remove("best_latents.pt")  
-                seed = random.randint(0, 170904) 
-                with open(f"seed.pkl", "wb") as f: 
-                    pickle.dump(seed, f) 
-                # set_seed(seed) 
-                latents = torch.randn(1, 4, 64, 64)  
-                with open(f"best_latents.pt", "wb") as f: 
-                    torch.save(latents, f) 
+        #     if accelerator.is_main_process: 
+        #         if osp.exists("best_latents.pt"): 
+        #             os.remove("best_latents.pt")  
+        #         seed = random.randint(0, 170904) 
+        #         with open(f"seed.pkl", "wb") as f: 
+        #             pickle.dump(seed, f) 
+        #         # set_seed(seed) 
+        #         latents = torch.randn(1, 4, 64, 64)  
+        #         with open(f"best_latents.pt", "wb") as f: 
+        #             torch.save(latents, f) 
 
-            accelerator.wait_for_everyone() 
-            if not accelerator.is_main_process: 
-                with open("seed.pkl", "rb") as f: 
-                    seed = pickle.load(f) 
-            accelerator.wait_for_everyone() 
+        #     accelerator.wait_for_everyone() 
+        #     if not accelerator.is_main_process: 
+        #         with open("seed.pkl", "rb") as f: 
+        #             seed = pickle.load(f) 
+        #     accelerator.wait_for_everyone() 
 
-            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
+        #     infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
 
 
-        subjects = [
-            [
-                {
-                    "subject": "sedan", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.6,  
-                }, 
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "rickshaw", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.4, 
-                    "y": 0.6, 
-                }, 
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.8, 
-                    "y": 0.9, 
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "bicycle", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "pickup truck", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "jeep", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        ]
-        prompts = [
-            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-            "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-            "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
-        ]
-        for prompt in prompts: 
+        # subjects = [
+        #     [
+        #         {
+        #             "subject": "sedan", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.6,  
+        #         }, 
+        #         {
+        #             "subject": "tractor", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,  
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "rickshaw", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.4, 
+        #             "y": 0.6, 
+        #         }, 
+        #         {
+        #             "subject": "suv", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.8, 
+        #             "y": 0.9, 
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "bicycle", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.5, 
+        #         }, 
+        #         {
+        #             "subject": "suv", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,   
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        #     [
+        #         {
+        #             "subject": "pickup truck", 
+        #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+        #             "appearance_type": "class", 
+        #             "x": 0.3, 
+        #             "y": 0.5, 
+        #         }, 
+        #         {
+        #             "subject": "jeep", 
+        #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+        #             "x": 0.7, 
+        #             "y": 0.7,   
+        #         }
+        #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+        # ]
+        # prompts = [
+        #     "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+        #     # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+        #     "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
+        #     # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+        #     "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
+        #     # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+        # ]
+        # for prompt in prompts: 
 
-            if accelerator.is_main_process: 
-                if osp.exists("best_latents.pt"): 
-                    os.remove("best_latents.pt")  
-                seed = random.randint(0, 170904) 
-                with open(f"seed.pkl", "wb") as f: 
-                    pickle.dump(seed, f) 
-                # set_seed(seed) 
-                latents = torch.randn(1, 4, 64, 64)  
-                with open(f"best_latents.pt", "wb") as f: 
-                    torch.save(latents, f) 
+        #     if accelerator.is_main_process: 
+        #         if osp.exists("best_latents.pt"): 
+        #             os.remove("best_latents.pt")  
+        #         seed = random.randint(0, 170904) 
+        #         with open(f"seed.pkl", "wb") as f: 
+        #             pickle.dump(seed, f) 
+        #         # set_seed(seed) 
+        #         latents = torch.randn(1, 4, 64, 64)  
+        #         with open(f"best_latents.pt", "wb") as f: 
+        #             torch.save(latents, f) 
 
-            accelerator.wait_for_everyone() 
-            if not accelerator.is_main_process: 
-                with open("seed.pkl", "rb") as f: 
-                    seed = pickle.load(f) 
-            accelerator.wait_for_everyone() 
+        #     accelerator.wait_for_everyone() 
+        #     if not accelerator.is_main_process: 
+        #         with open("seed.pkl", "rb") as f: 
+        #             seed = pickle.load(f) 
+        #     accelerator.wait_for_everyone() 
 
-            infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args) 
+        #     infer.do_it(None, osp.join(f"inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args) 
