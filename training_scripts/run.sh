@@ -1,4 +1,4 @@
-export RUN_NAME="teacher_forcing_0.1" 
+export RUN_NAME="teacher_forcing_0.1_detached" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"

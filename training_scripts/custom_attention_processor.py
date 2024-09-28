@@ -199,7 +199,7 @@ class CustomAttentionProcessor:
 
                     if self.loss_store is not None: 
                         # apply the centroid forcing loss 
-                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
+                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx1_interp) 
                         loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
                         loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
                         self.loss_store(loss) 
