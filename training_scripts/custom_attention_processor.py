@@ -112,6 +112,8 @@ class CustomAttentionProcessor:
             class2special_detached = "class2special_detached" in kwargs and encoder_hidden_states["class2special_detached"] == True 
             special2class_detached = "special2class_detached" in kwargs and encoder_hidden_states["special2class_detached"] == True 
             special2class = "special2class" in kwargs and encoder_hidden_states["special2class"] == True 
+            # we need this for the teacher_forcing_v2, as we need the keys of the class token to be detached for computing the attention loss 
+            assert class2special_detached 
             any_replacement = class2special or special2class_detached or special2class or class2special_detached  
             
             # first performing any replacement operations, and then the attention maps are calculated! 
@@ -180,13 +182,6 @@ class CustomAttentionProcessor:
                     mean_j, mean_i = INTERPOLATION_SIZE * mean_j, INTERPOLATION_SIZE * mean_i 
                     mean_j, mean_i = mean_j.item(), mean_i.item() 
 
-                    if self.loss_store is not None: 
-                        # apply the centroid forcing loss 
-                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
-                        loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
-                        loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
-                        self.loss_store(loss) 
-
 
                     given_bbox = bboxes[batch_idx][asset_idx] 
                     h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
@@ -201,6 +196,21 @@ class CustomAttentionProcessor:
                     j_min = int(max(0, mean_j - int(BOX_RESIZING_FACTOR * w / 2)))  
                     j_max = int(min(INTERPOLATION_SIZE - 1, mean_j + int(BOX_RESIZING_FACTOR * w / 2)))  
                     attention_mask_[i_min : i_max, j_min : j_max] = 1  
+
+
+                    if self.loss_store is not None: 
+                        # apply the centroid forcing loss 
+                        # mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
+                        # loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
+                        # loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
+                        # self.loss_store(loss) 
+                        
+                        inside_sum = torch.sum(attention_mask_) 
+                        outside_sum = torch.sum(1 - attention_mask_) 
+                        assert inside_sum + outside_sum == INTERPOLATION_SIZE * INTERPOLATION_SIZE 
+                        layout_loss = torch.sum((1 - attention_mask_) * attention_probs_idx1_interp) / outside_sum - torch.sum(attention_mask_ * attention_probs_idx1_interp) / inside_sum  
+                        self.loss_store(layout_loss) 
+
 
                     if DEBUG_ATTN: 
                         viridis = plt.get_cmap('viridis') 
