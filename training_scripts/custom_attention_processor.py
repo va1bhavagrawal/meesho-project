@@ -209,6 +209,7 @@ class CustomAttentionProcessor:
                         outside_sum = torch.sum(1 - attention_mask_) 
                         assert inside_sum + outside_sum == INTERPOLATION_SIZE * INTERPOLATION_SIZE 
                         layout_loss = torch.sum((1 - attention_mask_) * attention_probs_idx1_interp) / outside_sum - torch.sum(attention_mask_ * attention_probs_idx1_interp) / inside_sum   
+                        layout_loss = layout_loss / attention_probs_idx1_interp.shape[0] 
                         assert torch.abs(layout_loss) <= 1 
                         self.loss_store(layout_loss + 1)  
 
