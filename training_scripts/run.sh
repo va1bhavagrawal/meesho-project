@@ -1,4 +1,4 @@
-export RUN_NAME="learnthelayout" 
+export RUN_NAME="learnthelayout_prior5.0" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -45,7 +45,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_location_conditioning="N" \
   --learn_pose="N" \
   --attn_bbox_from_class_mean="Y" \
-  --prior_loss_weight=1.0 \
+  --prior_loss_weight=5.0 \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
