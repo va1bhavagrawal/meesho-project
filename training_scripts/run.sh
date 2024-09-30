@@ -2,12 +2,12 @@ export RUN_NAME="learnthelayout_prior5.0"
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_1109/ref_imgs_1subject"  
-export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_1109/ref_imgs_2subjects" 
-export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_1109/controlnet_imgs_1subject"
-export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_1109/controlnet_imgs_2subjects"
+export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_3009/ref_imgs_1subject"  
+export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_3009/ref_imgs_2subjects" 
+export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_3009/controlnet_imgs_1subject"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_3009/controlnet_imgs_2subjects"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_2subjects_1109/prior_imgs" 
+export CLASS_DATA_DIR="../training_data_2subjects_3009/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
@@ -29,7 +29,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special" \
   --penalize_special_token_attn="Y" \
-  --normalize_merged_embedding="Y" \
+  --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
@@ -45,7 +45,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_location_conditioning="N" \
   --learn_pose="N" \
   --attn_bbox_from_class_mean="Y" \
-  --prior_loss_weight=5.0 \
+  --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \

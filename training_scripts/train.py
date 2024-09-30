@@ -1137,7 +1137,6 @@ def main(args):
         # the appearance embeddings 
         bnha_embeds = {} 
         args.subjects = [
-            "pickup truck", 
             "jeep", 
             "motorbike", 
             "bus", 
