@@ -107,11 +107,12 @@ class CustomAttentionProcessor:
 
         if type(encoder_hidden_states) == dict: 
             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
+            value = attn.to_v(actual_encoder_hidden_states).detach()  
         else: 
             actual_encoder_hidden_states = encoder_hidden_states 
+            value = attn.to_v(actual_encoder_hidden_states)  
 
         key = attn.to_k(actual_encoder_hidden_states)
-        value = attn.to_v(actual_encoder_hidden_states) 
 
         if type(encoder_hidden_states) == dict: 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
