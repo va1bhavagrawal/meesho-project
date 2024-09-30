@@ -1,4 +1,4 @@
-export RUN_NAME="learnthelayout_prior5.0" 
+export RUN_NAME="learnthelayout" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
