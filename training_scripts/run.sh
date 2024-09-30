@@ -1,13 +1,13 @@
-export RUN_NAME="teacher_forcing_0.1_detached_1e-5_normalized" 
+export RUN_NAME="learnthelayout" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_2509/ref_imgs_1subject"  
-export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_2509/ref_imgs_2subjects" 
-export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_2509/controlnet_imgs_1subject"
-export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_2509/controlnet_imgs_2subjects"
+export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_1109/ref_imgs_1subject"  
+export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_1109/ref_imgs_2subjects" 
+export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_1109/controlnet_imgs_1subject"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_1109/controlnet_imgs_2subjects"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_2subjects_2509/prior_imgs" 
+export CLASS_DATA_DIR="../training_data_2subjects_1109/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
@@ -27,7 +27,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
-  --replace_attn_maps="class2special_detached" \
+  --replace_attn_maps="class2special" \
   --penalize_special_token_attn="Y" \
   --normalize_merged_embedding="Y" \
   --text_encoder_bypass="N" \
@@ -38,11 +38,12 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --stage1_steps=0 \
-  --stage2_steps=500000 \
+  --stage2_steps=100000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
+  --learn_pose="N" \
   --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \

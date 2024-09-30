@@ -27,7 +27,7 @@ import time
 DEBUG_ATTN = False  
 INTERPOLATION_SIZE = 512  
 BOX_RESIZING_FACTOR = 1.2 
-
+MAX_BBOX_SIZE = 128 
 
 class CustomAttentionProcessor:
     def __init__(self, name, attn_store, loss_store):
@@ -71,8 +71,8 @@ class CustomAttentionProcessor:
         weights = weights / np.sum(weights) 
         h = np.sum(vertical_sides * weights)  
         w = np.sum(horizontal_sides * weights)  
-        h = 512  
-        w = 512 
+        h = 128 
+        w = 128  
         return h, w  
 
 
@@ -134,7 +134,7 @@ class CustomAttentionProcessor:
                 B = len(encoder_hidden_states["attn_assignments"]) 
                 for batch_idx in range(B): 
                     for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
-                        assert ((idx1 == idx2) ^ (class2special_detached or special2class_detached)) 
+                        assert idx1 != idx2 
 
                         if class2special: 
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
@@ -177,8 +177,56 @@ class CustomAttentionProcessor:
 
             if DEBUG_ATTN: 
                 dataloader_idx = len(os.listdir("vis_attnmaps")) - 1  
+
+            # calculate the means of the attentions, so that attention masks can be defined 
+            all_means = [] 
+            for batch_idx in range(B): 
+                means_batch = [] 
+                for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    assert idx1 != idx2 
+                    attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
+                    attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
+                    spatial_dim = int(math.sqrt(attention_probs_idx1.shape[-1])) 
+                    assert spatial_dim * spatial_dim == attention_probs_idx1.shape[-1] 
+                    attention_probs_idx1 = attention_probs_idx1.reshape((attention_probs_idx1.shape[0], spatial_dim, spatial_dim)) 
+                    attention_probs_idx2 = attention_probs_idx2.reshape((attention_probs_idx2.shape[0], spatial_dim, spatial_dim)) 
+
+                    attention_probs_idx1_interp = F.interpolate(attention_probs_idx1.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
+                    attention_probs_idx2_interp = F.interpolate(attention_probs_idx2.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
+
+                    if "bboxes" in encoder_hidden_states.keys(): 
+                        mean_j, mean_i = (bboxes[batch_idx][asset_idx][0] + bboxes[batch_idx][asset_idx][2]) / 2, (bboxes[batch_idx][asset_idx][1] + bboxes[batch_idx][asset_idx][3]) / 2  
+                        mean_j, mean_i = INTERPOLATION_SIZE * mean_j, INTERPOLATION_SIZE * mean_i 
+                        mean_j, mean_i = mean_j.item(), mean_i.item() 
+                    else: 
+                        mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
+                    means_batch.append([mean_j, mean_i]) 
+                all_means.append(means_batch) 
+
+
+            # define the attention masks! 
+            bbox_sizes = [] 
+            for batch_idx in range(B): 
+                means_batch = all_means[batch_idx] 
+                if len(means_batch) == 1: 
+                    # only a single subject 
+                    bbox_sizes.append([MAX_BBOX_SIZE])  
+                elif len(means_batch) == 2:  
+                    x1, y1 = means_batch[0] 
+                    x2, y2 = means_batch[1] 
+                    angle = abs(y1 - y2) / abs(x1 - x2)   
+                    if angle <= 1.0:  
+                        # less than 45 degrees, great! 
+                        size = abs(x1 - x2)  
+                        size = min(size, MAX_BBOX_SIZE) 
+                    else: 
+                        raise NotImplementedError(f"tan(theta) = {angle}, this is not handled yet!")  
+                    bbox_sizes.append([size, size])  
+
+
             for batch_idx in range(B): 
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    assert idx1 != idx2 
                     attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
                     attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
                     spatial_dim = int(math.sqrt(attention_probs_idx1.shape[-1])) 
@@ -212,8 +260,11 @@ class CustomAttentionProcessor:
                         self.bbox_data = encoder_hidden_states["bbox_data"] 
                         assert "azimuths" in encoder_hidden_states.keys() 
                         assert len(encoder_hidden_states["azimuths"]) == B, f"{len(encoder_hidden_states['azimuths']) = }, {B = }"   
-                        h, w = self.find_good_bbox_size(mean_i.item(), encoder_hidden_states["azimuths"][batch_idx][asset_idx])   
-                        h, w = int(h), int(w) 
+                        # h, w = self.find_good_bbox_size(mean_i.item(), encoder_hidden_states["azimuths"][batch_idx][asset_idx])   
+                        # h, w = int(h), int(w) 
+                        size = bbox_sizes[batch_idx][asset_idx] 
+                        h = size 
+                        w = size 
                     else: 
                         raise NotImplementedError(f"one of bboxes or bbox_data must be present in the encoder_states to enable bbox_from_class_mean!") 
                     # given_bbox_max_side = max(int(INTERPOLATION_SIZE * (given_bbox[2] - given_bbox[0])), int(INTERPOLATION_SIZE * (given_bbox[3] - given_bbox[1]))) 

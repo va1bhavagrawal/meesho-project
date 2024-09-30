@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4   
+BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -72,8 +72,7 @@ BS = 4
 #     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
 # VLOG_STEPS = sorted(VLOG_STEPS) 
 VLOG_STEPS_GAP = 33000  
-SAVE_STEPS_GAP = 10000 
-    
+SAVE_STEPS_GAP = 5000  
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 # SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
 # SAVE_STEPS = [500, 1000, 5000]  
@@ -466,6 +465,12 @@ def parse_args(input_args=None):
         type=lambda x : bool(strtobool(x)),  
         required=True, 
         help="whether to use location conditioning", 
+    )
+    parser.add_argument(
+        "--learn_pose", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="learn the pose embedding",  
     )
     parser.add_argument(
         "--attn_bbox_from_class_mean", 
@@ -1725,14 +1730,20 @@ def main(args):
             text_embeddings = text_encoder(batch_item.unsqueeze(0))[0].squeeze() 
 
             attn_assignments_batchitem = {} 
-            unique_token_positions = {}  
-            for asset_idx in range(len(batch["subjects"][batch_idx])):  
-                for token_idx in range(args.merged_emb_dim // 1024): 
-                    unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                    assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
-                    unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
-                    attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
-                    unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
+            if args.learn_pose: 
+                unique_token_positions = {}  
+                for asset_idx in range(len(batch["subjects"][batch_idx])):  
+                    for token_idx in range(args.merged_emb_dim // 1024): 
+                        unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                        assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
+                        unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
+                        attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
+                        unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
+            else: 
+                for asset_idx in range(len(batch["subjects"][batch_idx])):  
+                    subject = batch["subjects"][batch_idx][asset_idx] 
+                    subject_token_idx = list(batch_item).index(TOKEN2ID[subject]) 
+                    attn_assignments_batchitem[subject_token_idx] = subject_token_idx 
 
             attn_assignments.append(attn_assignments_batchitem) 
 
@@ -1855,13 +1866,13 @@ def main(args):
                         # print(f"{n, p = } in merger is NOT bad!")
                 # if global_step < args.stage1_steps: 
                 #     assert len(bad_merger_params) < len(list(merger.parameters()))  
-                if global_step > 1: 
+                if global_step > 1 and args.learn_pose: 
                     assert len(bad_merger_params) == 0, f"{len(bad_merger_params) = }" 
                     # print(f"{len(bad_merger_params) = }") 
 
                 # checking that mlp receives gradients in stage 2 
                 # print(f"merger does receive gradients!")
-                if not args.pose_only_embedding: 
+                if not args.pose_only_embedding and args.learn_pose: 
                     bad_mlp_params = [(n, p) for (n, p) in continuous_word_model.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.tensor(0.0).to(accelerator.device))]   
                     # assert not ((len(bad_mlp_params) < len(list(continuous_word_model.parameters()))) ^ (global_step > args.stage1_steps))  
                     # assert not ((len(bad_mlp_params) == 0) ^ (global_step > args.stage1_steps))  
