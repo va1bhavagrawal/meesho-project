@@ -1,4 +1,4 @@
-export RUN_NAME="valuedetach" 
+export RUN_NAME="valuedetach_lr1e-4" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
