@@ -281,10 +281,7 @@ class DisentangleDataset(Dataset):
             else: 
                 for asset_idx in range(len(subjects)): 
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
-                    if self.args.learn_pose: 
-                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subjects[asset_idx]}") 
-                    else: 
-                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subjects[asset_idx]}") 
+                    template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subjects[asset_idx]}") 
 
             example["prompt"] = template_prompt   
             example["prompt_ids"] = self.tokenizer(
@@ -370,10 +367,7 @@ class DisentangleDataset(Dataset):
             else: 
                 for asset_idx in range(len(subjects)): 
                     assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
-                    if self.args.learn_pose: 
-                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subjects[asset_idx]}") 
-                    else: 
-                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subjects[asset_idx]}") 
+                    template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subjects[asset_idx]}") 
 
             example["prompt"] = template_prompt 
             example["prompt_ids"] = self.tokenizer( 

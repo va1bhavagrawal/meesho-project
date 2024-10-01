@@ -107,12 +107,15 @@ class CustomAttentionProcessor:
 
         if type(encoder_hidden_states) == dict: 
             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
+            key = attn.to_k(actual_encoder_hidden_states)
             value = attn.to_v(actual_encoder_hidden_states).detach()  
+            if "learn_pose" in encoder_hidden_states.keys() and encoder_hidden_states["learn_pose"] == True: 
+                special_value = torch.zeros_like(value) 
         else: 
             actual_encoder_hidden_states = encoder_hidden_states 
+            key = attn.to_k(actual_encoder_hidden_states)
             value = attn.to_v(actual_encoder_hidden_states)  
 
-        key = attn.to_k(actual_encoder_hidden_states)
 
         if type(encoder_hidden_states) == dict: 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
@@ -128,37 +131,54 @@ class CustomAttentionProcessor:
             class2special_detached = "class2special_detached" in kwargs and encoder_hidden_states["class2special_detached"] == True 
             special2class_detached = "special2class_detached" in kwargs and encoder_hidden_states["special2class_detached"] == True 
             special2class = "special2class" in kwargs and encoder_hidden_states["special2class"] == True 
-            any_replacement = class2special or special2class_detached or special2class or class2special_detached  
             
             # first performing any replacement operations, and then the attention maps are calculated! 
-            if any_replacement:  
-                B = len(encoder_hidden_states["attn_assignments"]) 
-                for batch_idx in range(B): 
-                    for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
-                        assert ((idx1 == idx2) ^ (class2special_detached or special2class_detached)) 
+            if special2class or special2class_detached: 
+                raise NotImplementedError("special2class not implemented!") 
+            elif class2special_detached:  
+                raise NotImplementedError("class2special_detached not implemented!") 
+            elif class2special: 
+                pass 
+            else: 
+                assert False 
 
-                        if class2special: 
-                            key[batch_idx][idx1] = key[batch_idx][idx2] 
+            B = len(encoder_hidden_states["attn_assignments"]) 
+            for batch_idx in range(B): 
+                for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    assert idx1 == idx2 
 
-                        elif class2special_detached: 
-                            # if DEBUG_ATTN: 
-                                # print(f"using class2special_detached!") 
-                            key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
-                        
-                        elif special2class_detached: 
-                            # if DEBUG_ATTN: 
-                                # print(f"using special2class_detached!")
-                            key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
+                    # if class2special: 
+                    #     key[batch_idx][idx1] = key[batch_idx][idx2] 
 
-                        elif special2class: 
-                            key[batch_idx][idx2] = key[batch_idx][idx1]  
-                        
-                        else: 
-                            assert False 
+                    # elif class2special_detached: 
+                    #     # if DEBUG_ATTN: 
+                    #         # print(f"using class2special_detached!") 
+                    #     key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
+                    
+                    # elif special2class_detached: 
+                    #     # if DEBUG_ATTN: 
+                    #         # print(f"using special2class_detached!")
+                    #     key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
+
+                    # elif special2class: 
+                    #     key[batch_idx][idx2] = key[batch_idx][idx1]  
+                    
+                    # else: 
+                    #     assert False 
+                    if "learn_pose" in encoder_hidden_states.keys() and encoder_hidden_states["learn_pose"] == True: 
+                        pose_embedding = encoder_hidden_states["pose_embeddings"][batch_idx][asset_idx]  
+                        assert pose_embedding.shape == (encoder_hidden_states["args"]["merged_emb_dim"], )  
+                        # filling in the special values 
+                        assert special_value.shape[-2] == 77 
+                        # using nested dropout-like approach 
+                        special_value[:, idx1, :] = pose_embedding[:special_value.shape[-1]]  
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
         value = attn.head_to_batch_dim(value)
+        if type(encoder_hidden_states) == dict: 
+            if "learn_pose" in encoder_hidden_states.keys() and encoder_hidden_states["learn_pose"] == True: 
+                special_value = attn.head_to_batch_dim(special_value) 
         attention_probs = attn.get_attention_scores(query, key, attention_mask)
 
         if type(encoder_hidden_states) == dict and ("bbox_from_class_mean" in encoder_hidden_states.keys()) and encoder_hidden_states["bbox_from_class_mean"] == True:  
@@ -180,6 +200,7 @@ class CustomAttentionProcessor:
                 dataloader_idx = len(os.listdir("vis_attnmaps")) - 1  
             for batch_idx in range(B): 
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    assert idx1 == idx2 
                     attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
                     attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
                     spatial_dim = int(math.sqrt(attention_probs_idx1.shape[-1])) 
@@ -197,12 +218,12 @@ class CustomAttentionProcessor:
                     else: 
                         mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
 
-                    if self.loss_store is not None: 
-                        # apply the centroid forcing loss 
-                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
-                        loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
-                        loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
-                        self.loss_store(loss) 
+                    mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
+                    loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
+                    loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
+                    if encoder_hidden_states["args"]["penalize_special_token_attn"] == False:  
+                        loss = loss.detach() 
+                    self.loss_store(loss) 
 
 
                     if "bboxes" in encoder_hidden_states.keys(): 
@@ -328,13 +349,20 @@ class CustomAttentionProcessor:
         if self.attn_store is not None: 
             self.attn_store(attention_probs, self.name) 
 
-        hidden_states = torch.bmm(attention_probs, value)
+        hidden_states = torch.bmm(attention_probs, value) 
         hidden_states = attn.batch_to_head_dim(hidden_states)
+        if type(encoder_hidden_states) == dict and "learn_pose" in encoder_hidden_states.keys() and encoder_hidden_states["learn_pose"] == True: 
+            special_hidden_states = torch.bmm(attention_probs, special_value) 
+            special_hidden_states = attn.batch_to_head_dim(special_hidden_states) 
 
         # linear proj
         hidden_states = attn.to_out[0](hidden_states)
         # dropout
         hidden_states = attn.to_out[1](hidden_states)
+        if type(encoder_hidden_states) == dict and "learn_pose" in encoder_hidden_states.keys() and encoder_hidden_states["learn_pose"] == True: 
+            special_hidden_states = attn.to_out[0](special_hidden_states) 
+            special_hidden_states = attn.to_out[1](special_hidden_states) 
+            return hidden_states + special_hidden_states 
 
         return hidden_states
 

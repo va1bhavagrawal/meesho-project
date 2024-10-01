@@ -852,7 +852,7 @@ def main(args):
             img_files = [img_file for img_file in img_files if img_file.find("jpg") != -1] 
             args.n_ref_imgs[subject_comb_] = len(img_files)  
 
-    assert args.merged_emb_dim % 1024 == 0 
+    # assert args.merged_emb_dim % 1024 == 0 
 
     # sanity check: for every subject there should be the same angles  
     # print(f"{subjects_ = }")
@@ -1190,8 +1190,8 @@ def main(args):
 
         # the merged token formulation 
         merger = MergedEmbedding(args.appearance_skip_connection, pose_dim=1024, appearance_dim=1024, output_dim=args.merged_emb_dim)    
-        if args.resume_training_state: 
-            merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
+        # if args.resume_training_state: 
+        #     merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
         # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
         optimizer_merger = optimizer_class(
             merger.parameters(),  
@@ -1200,8 +1200,8 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        if args.resume_training_state: 
-            optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
+        # if args.resume_training_state: 
+        #     optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
         # optimizers.append(optimizer_merger) 
         optimizers["merger"] = optimizer_merger 
 
@@ -1441,13 +1441,12 @@ def main(args):
 
     while True: 
 
-        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
+        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=True) 
         loss_store = retval["loss_store"] 
         attn_store = retval["attn_store"] 
-        if args.penalize_special_token_attn: 
-            assert loss_store is not None and attn_store is None 
-            # assert that we are beginning with an empty loss store 
-            assert loss_store.step_store["loss"] == 0.0 
+        assert loss_store is not None and attn_store is None 
+        # assert that we are beginning with an empty loss store 
+        assert loss_store.step_store["loss"] == 0.0 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
         #         steps_per_angle[angle] += 1 
@@ -1702,54 +1701,54 @@ def main(args):
 
         for batch_idx, batch_item in enumerate(input_ids): 
             # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
-            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
+            # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
-            example_merged_emb = merged_emb[batch_idx] 
-            for asset_idx, subject in enumerate(batch["subjects"][batch_idx]):   
+            # example_merged_emb = merged_emb[batch_idx] 
+            # for asset_idx, subject in enumerate(batch["subjects"][batch_idx]):   
 
-                if args.learn_class_embedding: 
-                    if batch["controlnet"][batch_idx] == True: 
-                        continue 
-                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[batch["subjects"][batch_idx][asset_idx]]] = getattr(accelerator.unwrap_model(bnha_embeds), batch["subjects"][batch_idx][asset_idx]) 
+            #     if args.learn_class_embedding: 
+            #         if batch["controlnet"][batch_idx] == True: 
+            #             continue 
+            #         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[batch["subjects"][batch_idx][asset_idx]]] = getattr(accelerator.unwrap_model(bnha_embeds), batch["subjects"][batch_idx][asset_idx]) 
                         
 
-                for token_idx in range(args.merged_emb_dim // 1024):  
-                    # replacement_emb = torch.clone(merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024])  
-                    if args.normalize_merged_embedding: 
-                        replacement_mask = torch.ones_like(example_merged_emb, requires_grad=False)      
-                        replacement_emb_norm = torch.linalg.norm(example_merged_emb[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]).detach()   
-                        org_emb_norm = torch.linalg.norm(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
-                        replacement_mask[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] = org_emb_norm / replacement_emb_norm  
-                        assert example_merged_emb.shape == replacement_mask.shape  
-                        assert torch.allclose(torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]), org_emb_norm, atol=1e-3), f"{torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]) = }, {org_emb_norm = }" 
-                        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
-                    else: 
-                        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
+            #     for token_idx in range(args.merged_emb_dim // 1024):  
+            #         # replacement_emb = torch.clone(merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024])  
+            #         if args.normalize_merged_embedding: 
+            #             replacement_mask = torch.ones_like(example_merged_emb, requires_grad=False)      
+            #             replacement_emb_norm = torch.linalg.norm(example_merged_emb[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]).detach()   
+            #             org_emb_norm = torch.linalg.norm(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
+            #             replacement_mask[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] = org_emb_norm / replacement_emb_norm  
+            #             assert example_merged_emb.shape == replacement_mask.shape  
+            #             assert torch.allclose(torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]), org_emb_norm, atol=1e-3), f"{torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]) = }, {org_emb_norm = }" 
+            #             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
+            #         else: 
+            #             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
 
             text_embeddings = text_encoder(batch_item.unsqueeze(0))[0].squeeze() 
 
             attn_assignments_batchitem = {} 
-            if args.learn_pose: 
-                unique_token_positions = {}  
-                for asset_idx in range(len(batch["subjects"][batch_idx])):  
-                    for token_idx in range(args.merged_emb_dim // 1024): 
-                        unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                        assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
-                        unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
-                        attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
-                        unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
-            else: 
-                for asset_idx in range(len(batch["subjects"][batch_idx])):  
-                    subject = batch["subjects"][batch_idx][asset_idx] 
-                    subject_token_idx = list(batch_item).index(TOKEN2ID[subject]) 
-                    attn_assignments_batchitem[subject_token_idx] = subject_token_idx 
+            # if args.learn_pose: 
+            #     unique_token_positions = {}  
+            #     for asset_idx in range(len(batch["subjects"][batch_idx])):  
+            #         for token_idx in range(args.merged_emb_dim // 1024): 
+            #             unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+            #             assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
+            #             unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
+            #             attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
+            #             unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
+            # else: 
+            for asset_idx in range(len(batch["subjects"][batch_idx])):  
+                subject = batch["subjects"][batch_idx][asset_idx] 
+                subject_token_idx = list(batch_item).index(TOKEN2ID[subject]) 
+                attn_assignments_batchitem[subject_token_idx] = subject_token_idx 
 
             attn_assignments.append(attn_assignments_batchitem) 
 
-            if args.text_encoder_bypass: 
-                for unique_token_name, position in unique_token_positions.items(): 
-                    text_embeddings[position] = text_embeddings[position] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]]  
+            # if args.text_encoder_bypass: 
+            #     for unique_token_name, position in unique_token_positions.items(): 
+            #         text_embeddings[position] = text_embeddings[position] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]]  
 
             encoder_hidden_states.append(text_embeddings)  
 
@@ -1776,16 +1775,20 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "args": args.__dict__, 
+            "bboxes": batch["bboxes"], 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 
 
-        if args.penalize_special_token_attn: 
-            encoder_states_dict["bboxes"] = batch["bboxes"] 
 
         if args.attn_bbox_from_class_mean: 
             encoder_states_dict["bbox_from_class_mean"] = True 
             encoder_states_dict["bboxes"] = batch["bboxes"] 
+
+        if args.learn_pose: 
+            encoder_states_dict["learn_pose"] = True 
+            encoder_states_dict["pose_embeddings"] = mlp_emb  
 
         # if args.replace_attn_maps is not None or args.penalize_special_token_attn or args.bbox_from_class_mean:  
         if DEBUG: 
@@ -1794,9 +1797,8 @@ def main(args):
         # else: 
         #     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-        if args.penalize_special_token_attn: 
-            assert loss_store.step_store["loss"].device == accelerator.device 
-            loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
+        assert loss_store.step_store["loss"].device == accelerator.device 
+        loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
 
         # Get the target for loss depending on the prediction type
         if noise_scheduler.config.prediction_type == "epsilon":
@@ -1829,11 +1831,10 @@ def main(args):
             losses.append(loss.detach()) 
             losses.append(torch.tensor(0.0).to(accelerator.device)) 
 
+        losses.append(loss_store.step_store["loss"].detach() * args.special_token_attn_loss_weight)  
+
         if args.penalize_special_token_attn: 
-            losses.append(loss_store.step_store["loss"].detach() * args.special_token_attn_loss_weight)  
             loss = loss + args.special_token_attn_loss_weight * loss_store.step_store["loss"] 
-        else: 
-            losses.append(torch.tensor(0.0).to(accelerator.device))   
 
         if PRINT_STUFF: 
             accelerator.print(f"MSE loss: {losses[0].item()}, the weight is 1.0")

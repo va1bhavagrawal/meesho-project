@@ -1,4 +1,4 @@
-export RUN_NAME="valuedetach_resume100000" 
+export RUN_NAME="stage2learnthepose" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -18,7 +18,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_text_encoder="N" \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
-  --learning_rate=1e-5 \
+  --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-3 \
@@ -28,11 +28,11 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special" \
-  --penalize_special_token_attn="Y" \
+  --penalize_special_token_attn="N" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
-  --merged_emb_dim=1024 \
+  --merged_emb_dim=1280 \
   --pose_only_embedding="Y" \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
@@ -43,7 +43,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
-  --learn_pose="N" \
+  --learn_pose="Y" \
   --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \
