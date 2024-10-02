@@ -870,9 +870,14 @@ def main(args):
     args.max_train_steps = args.stage1_steps + args.stage2_steps + 1  
 
     # accelerator 
+    # accelerator = Accelerator(
+    #     gradient_accumulation_steps=args.gradient_accumulation_steps,
+    #     mixed_precision=args.mixed_precision,
+    # )
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
+        kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)], 
     )
 
     # effective batch size should remain constant 
