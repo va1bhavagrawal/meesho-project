@@ -18,7 +18,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_text_encoder="N" \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
-  --learning_rate=1e-5 \
+  --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-3 \
