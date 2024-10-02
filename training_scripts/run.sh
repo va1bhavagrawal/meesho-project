@@ -1,4 +1,4 @@
-export RUN_NAME="stage2learnthepose_sharedfinetunedvalue" 
+export RUN_NAME="only_remove_text_encoder_pass" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -28,7 +28,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special" \
-  --penalize_special_token_attn="N" \
+  --penalize_special_token_attn="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -56,7 +56,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --resume_training_state="../ckpts/multiobject/__valuedetach/training_state_100000.pth" \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
+
+  # --resume_training_state="../ckpts/multiobject/__valuedetach/training_state_100000.pth" \
