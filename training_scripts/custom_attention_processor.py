@@ -71,8 +71,8 @@ class CustomAttentionProcessor:
         weights = weights / np.sum(weights) 
         h = np.sum(vertical_sides * weights)  
         w = np.sum(horizontal_sides * weights)  
-        h = 512  
-        w = 512 
+        h = 128  
+        w = 128  
         return h, w  
 
 
@@ -108,7 +108,7 @@ class CustomAttentionProcessor:
         if type(encoder_hidden_states) == dict: 
             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
             key = attn.to_k(actual_encoder_hidden_states)
-            value = attn.to_v(actual_encoder_hidden_states).detach()  
+            value = attn.to_v(actual_encoder_hidden_states)  
             if "learn_pose" in encoder_hidden_states.keys() and encoder_hidden_states["learn_pose"] == True: 
                 special_value = torch.zeros_like(value) 
         else: 
@@ -171,7 +171,8 @@ class CustomAttentionProcessor:
                         # filling in the special values 
                         assert special_value.shape[-2] == 77 
                         # using nested dropout-like approach 
-                        special_value[:, idx1, :] = pose_embedding[:special_value.shape[-1]]  
+                        # special_value[:, idx1, :] = pose_embedding[:special_value.shape[-1]]  
+                        special_value[:, idx1, :] = attn.to_v(pose_embedding) 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
@@ -218,12 +219,13 @@ class CustomAttentionProcessor:
                     else: 
                         mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
 
-                    mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
-                    loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
-                    loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
-                    if encoder_hidden_states["args"]["penalize_special_token_attn"] == False:  
-                        loss = loss.detach() 
-                    self.loss_store(loss) 
+                    if "bboxes" in encoder_hidden_states.keys(): 
+                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
+                        loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
+                        loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
+                        if encoder_hidden_states["args"]["penalize_special_token_attn"] == False:  
+                            loss = loss.detach() 
+                        self.loss_store(loss) 
 
 
                     if "bboxes" in encoder_hidden_states.keys(): 

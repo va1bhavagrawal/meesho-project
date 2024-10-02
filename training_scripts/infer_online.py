@@ -33,17 +33,17 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "teacher_forcing_0.01"  
+WHICH_MODEL = "stage2learnthepose"  
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 50000  
+WHICH_STEP = 200000  
 MAX_SUBJECTS_PER_EXAMPLE = 1    
-NUM_SAMPLES = 17  
+NUM_SAMPLES = 13     
 MODE = "all_steps" 
 
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
 
-KEYWORD = f"bbox512"   
+KEYWORD = f"bbox128_learnthepose"   
 
 ACROSS_TIMESTEPS = False  
 NUM_INFERENCE_STEPS = 50 
@@ -160,8 +160,8 @@ import wandb
 
 
 class EncoderStatesDataset(Dataset): 
-    def __init__(self, encoder_states, save_paths, attn_assignments, track_ids, interesting_token_strs, all_azimuths, all_subjects): 
-        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments) == len(interesting_token_strs) == len(all_azimuths) == len(all_subjects) > 0  
+    def __init__(self, encoder_states, save_paths, attn_assignments, track_ids, interesting_token_strs, all_azimuths, all_subjects, all_pose_embeddings): 
+        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments) == len(interesting_token_strs) == len(all_azimuths) == len(all_subjects) == len(all_pose_embeddings) > 0  
         self.encoder_states = encoder_states 
         self.save_paths = save_paths 
         self.attn_assignments = attn_assignments 
@@ -169,6 +169,7 @@ class EncoderStatesDataset(Dataset):
         self.interesting_token_strs = interesting_token_strs 
         self.azimuths = all_azimuths 
         self.subjects = all_subjects 
+        self.all_pose_embeddings = all_pose_embeddings 
 
 
     def __len__(self): 
@@ -180,7 +181,7 @@ class EncoderStatesDataset(Dataset):
         assert self.encoder_states[index] is not None 
         # print(f"dataset is sending {self.encoder_states[index] = }, {self.save_paths[index] = }")
         # (self.encoder_states[index], [self.save_paths[index]]) 
-        return (self.encoder_states[index], self.save_paths[index], self.attn_assignments[index], self.track_ids[index], self.interesting_token_strs[index], self.azimuths[index], self.subjects[index])     
+        return (self.encoder_states[index], self.save_paths[index], self.attn_assignments[index], self.track_ids[index], self.interesting_token_strs[index], self.azimuths[index], self.subjects[index], self.all_pose_embeddings[index])      
 
 
 def collate_fn(examples): 
@@ -191,6 +192,7 @@ def collate_fn(examples):
     interesting_token_strs = [example[4] for example in examples] 
     azimuths = [example[5] for example in examples] 
     subjects = [example[6] for example in examples] 
+    pose_embeddings = [example[7] for example in examples] 
     return {
         "save_paths": save_paths, 
         "encoder_states": encoder_states, 
@@ -199,6 +201,7 @@ def collate_fn(examples):
         "interesting_token_strs": interesting_token_strs, 
         "azimuths": azimuths, 
         "subjects": subjects, 
+        "pose_embeddings": pose_embeddings, 
     } 
 
 
@@ -299,6 +302,7 @@ class Infer:
             encoder_states_dict = {
                 "encoder_hidden_states": encoder_states, 
                 "attn_assignments": batch["attn_assignments"][batch_idx:batch_idx+1],  
+                "args": self.args, 
             }
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
@@ -309,6 +313,10 @@ class Infer:
                     bbox_data = pickle.load(f)  
                 encoder_states_dict["bbox_data"] = bbox_data 
                 encoder_states_dict["azimuths"] = batch["azimuths"][batch_idx:batch_idx+1]  
+
+            if self.args["learn_pose"]: 
+                encoder_states_dict["learn_pose"] = True 
+                encoder_states_dict["pose_embeddings"] = mlp_emb 
             # print(f"{self.accelerator.process_index} is doing {save_paths}") 
             # encoder_states = torch.stack(encoder_states).to(self.accelerator.device) 
             # latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device).repeat(B, 1, 1, 1)  
@@ -450,8 +458,9 @@ class Infer:
         if self.seed is not None: 
             set_seed(self.seed) 
         # latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
-        with open("best_latents.pt", "rb") as f: 
-            latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
+        latents = torch.randn(B, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype)  
+        # with open("best_latents.pt", "rb") as f: 
+        #     latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
         self.scheduler.set_timesteps(NUM_INFERENCE_STEPS) 
         retval = patch_custom_attention(self.accelerator.unwrap_model(self.unet), store_attn=self.store_attn, across_timesteps=ACROSS_TIMESTEPS, store_loss=False)    
         loss_store = retval["loss_store"] 
@@ -465,10 +474,14 @@ class Infer:
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, timestep=t)
 
             # predict the noise residual
+            uncond_pose_embeddings = [[] for _ in range(B)] 
             concat_encoder_states = torch.cat([uncond_encoder_states.repeat(B, 1, 1), encoder_states], dim=0) 
+            concat_pose_embeddings = uncond_pose_embeddings + batch["pose_embeddings"]  
+            assert len(concat_encoder_states) == len(concat_pose_embeddings) 
             encoder_states_dict = {
                 "encoder_hidden_states": concat_encoder_states, 
                 "attn_assignments": all_assignments, 
+                "args": self.args, 
             }
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
@@ -480,9 +493,13 @@ class Infer:
                 encoder_states_dict["bbox_data"] = bbox_data 
                 encoder_states_dict["azimuths"] = all_azimuths  
 
+            if self.args["learn_pose"]: 
+                encoder_states_dict["learn_pose"] = True 
+                encoder_states_dict["pose_embeddings"] = concat_pose_embeddings  
 
-            if P2P and t_idx < MAX_P2P_TIMESTEP: 
-                encoder_states_dict["p2p"] = True 
+
+            # if P2P and t_idx < MAX_P2P_TIMESTEP: 
+            #     encoder_states_dict["p2p"] = True 
 
             # if not self.replace_attn: 
             noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=encoder_states_dict).sample 
@@ -582,6 +599,7 @@ class Infer:
 
 
     def do_it(self, seed, gif_path, prompt, all_subjects_data, args):   
+        self.args = args 
         self.replace_attn = args["replace_attn_maps"] 
 
         normalize_merged_embedding = args["normalize_merged_embedding"] if "normalize_merged_embedding" in args.keys() else False  
@@ -617,6 +635,7 @@ class Infer:
             all_interesting_token_strs = [] 
             all_azimuths = [] 
             all_subjects = [] 
+            all_pose_embeddings = [] 
 
             for gif_subject_data in all_subjects_data:  
                 subjects = [] 
@@ -691,6 +710,7 @@ class Infer:
                             bnha_embs_frame.append(bnha_emb)  
 
                     mlp_embs_video.append(torch.stack(mlp_embs_frame, 0)) 
+                    all_pose_embeddings.append(torch.stack(mlp_embs_frame, 0)) 
                     if self.mlp is not None: 
                         bnha_embs_video.append(torch.stack(bnha_embs_frame, 0))  
 
@@ -724,7 +744,7 @@ class Infer:
                         #     assert subject_data['subject'] == TEXTUAL_INV 
                         #     # ti_embedding = torch.load(TI_PATH) 
                         #     # ti_embedding = ti_embedding[TEXTUAL_INV].squeeze()  
-                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subject_data['subject']}") 
+                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subject_data['subject']}") 
 
                 print(f"{template_prompt}") 
                 prompt_ids = self.tokenizer(
@@ -743,15 +763,15 @@ class Infer:
                         interesting_token_strs.append(self.tokenizer.decode(token)) 
 
                 for sample_idx in range(n_samples): 
-                    for asset_idx, subject_data in enumerate(gif_subject_data): 
-                        subject = subject_data["subject"] 
-                        for token_idx in range(self.merged_emb_dim // 1024): 
-                            replacement_emb = merged_embs_video[sample_idx][asset_idx]  
-                            if normalize_merged_embedding: 
-                                replacement_emb_norm = torch.linalg.norm(replacement_emb) 
-                                org_emb_norm = torch.linalg.norm(self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
-                                replacement_emb = replacement_emb * org_emb_norm / replacement_emb_norm 
-                            self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = replacement_emb  
+                    # for asset_idx, subject_data in enumerate(gif_subject_data): 
+                    #     subject = subject_data["subject"] 
+                    #     for token_idx in range(self.merged_emb_dim // 1024): 
+                    #         replacement_emb = merged_embs_video[sample_idx][asset_idx]  
+                    #         if normalize_merged_embedding: 
+                    #             replacement_emb_norm = torch.linalg.norm(replacement_emb) 
+                    #             org_emb_norm = torch.linalg.norm(self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
+                    #             replacement_emb = replacement_emb * org_emb_norm / replacement_emb_norm 
+                    #         self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = replacement_emb  
                     text_embeddings = self.text_encoder(prompt_ids)[0].squeeze() 
                     all_encoder_states.append(text_embeddings) 
                     all_save_paths.append(osp.join(self.tmp_dir, subjects_string, f"{str(sample_idx).zfill(3)}.jpg")) 
@@ -761,25 +781,29 @@ class Infer:
                     all_interesting_token_strs.append(interesting_token_strs) 
 
                     attn_assignments = {} 
-                    unique_token_positions = {} 
-                    for asset_idx, subject_data in enumerate(gif_subject_data): 
-                        for token_idx in range(self.merged_emb_dim // 1024): 
-                            unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                            assert TOKEN2ID[unique_token] in prompt_ids 
-                            # print(f"{list(prompt_ids) = }") 
-                            # print(f"{TOKEN2ID[unique_token] = }") 
-                            # print(f"{TOKEN2ID[unique_token] = }")
-                            # print(f"{prompt_ids = }")
-                            assert len(prompt_ids) == 1 
-                            unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
-                            unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
-                            attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+                    # for asset_idx, subject_data in enumerate(gif_subject_data): 
+                    #     for token_idx in range(self.merged_emb_dim // 1024): 
+                    #         unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                    #         assert TOKEN2ID[unique_token] in prompt_ids 
+                    #         # print(f"{list(prompt_ids) = }") 
+                    #         # print(f"{TOKEN2ID[unique_token] = }") 
+                    #         # print(f"{TOKEN2ID[unique_token] = }")
+                    #         # print(f"{prompt_ids = }")
+                    #         assert len(prompt_ids) == 1 
+                    #         unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
+                    #         unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
+                    #         attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+                    for asset_idx, subject_data in enumerate(gif_subject_data):  
+                        subject = subject_data["subject"]  
+                        subject_token_idx = list(prompt_ids.squeeze()).index(TOKEN2ID[subject]) 
+                        attn_assignments[subject_token_idx] = subject_token_idx 
+                        
                     
                     all_attn_assignments.append(attn_assignments) 
 
-                    if text_encoder_bypass: 
-                        for unique_token_name, position in unique_token_positions.items(): 
-                            text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]] 
+                    # if text_encoder_bypass: 
+                    #     for unique_token_name, position in unique_token_positions.items(): 
+                    #         text_embeddings[position] = text_embeddings[position] + self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]] 
                     
 
             self.accelerator.wait_for_everyone() 
@@ -798,6 +822,7 @@ class Infer:
                 all_interesting_token_strs_permuted = [] 
                 all_subjects_permuted = [] 
                 all_azimuths_permuted = [] 
+                all_pose_embeddings_permuted = [] 
 
                 stride = NUM_SAMPLES - 1  
                 for start_idx in range(NUM_SAMPLES - 1): 
@@ -809,6 +834,7 @@ class Infer:
                         all_interesting_token_strs_permuted.append(all_interesting_token_strs[sample_idx]) 
                         all_subjects_permuted.append(all_subjects[sample_idx]) 
                         all_azimuths_permuted.append(all_azimuths[sample_idx]) 
+                        all_pose_embeddings_permuted.append(all_pose_embeddings[sample_idx]) 
 
                 all_encoder_states = all_encoder_states_permuted 
                 all_save_paths = all_save_paths_permuted 
@@ -817,9 +843,10 @@ class Infer:
                 all_interesting_token_strs = all_interesting_token_strs_permuted 
                 all_subjects = all_subjects_permuted 
                 all_azimuths = all_azimuths_permuted  
+                all_pose_embeddings = all_pose_embeddings_permuted 
 
 
-            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths, all_attn_assignments, all_track_ids, all_interesting_token_strs, all_azimuths, all_subjects)      
+            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths, all_attn_assignments, all_track_ids, all_interesting_token_strs, all_azimuths, all_subjects, all_pose_embeddings)       
 
             dataloader = DataLoader(dataset, batch_size=self.bs, collate_fn=collate_fn)  
             dataloader = self.accelerator.prepare(dataloader)  
@@ -1105,7 +1132,7 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "suv", 
+                    "subject": "tractor", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 

@@ -1,4 +1,4 @@
-export RUN_NAME="stage2learnthepose__lr1e-5" 
+export RUN_NAME="stage2learnthepose_sharedfinetunedvalue" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -32,7 +32,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
-  --merged_emb_dim=1280 \
+  --merged_emb_dim=1024 \
   --pose_only_embedding="Y" \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
