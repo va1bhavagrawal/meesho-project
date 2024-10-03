@@ -878,7 +878,7 @@ def main(args):
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
-        kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)], 
+        # kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)], 
     )
 
     # effective batch size should remain constant 

@@ -1,4 +1,4 @@
-export RUN_NAME="valuedetach_lr1e-4" 
+export RUN_NAME="stage2learnthepose_withtextencoder" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -43,7 +43,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
-  --learn_pose="N" \
+  --learn_pose="Y" \
   --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \
@@ -56,7 +56,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
 

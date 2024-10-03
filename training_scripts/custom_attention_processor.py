@@ -107,7 +107,7 @@ class CustomAttentionProcessor:
 
         if type(encoder_hidden_states) == dict: 
             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
-            value = attn.to_v(actual_encoder_hidden_states).detach()  
+            value = attn.to_v(actual_encoder_hidden_states)  
         else: 
             actual_encoder_hidden_states = encoder_hidden_states 
             value = attn.to_v(actual_encoder_hidden_states)  
@@ -135,7 +135,7 @@ class CustomAttentionProcessor:
                 B = len(encoder_hidden_states["attn_assignments"]) 
                 for batch_idx in range(B): 
                     for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
-                        assert ((idx1 == idx2) ^ (class2special_detached or special2class_detached)) 
+                        # assert ((idx1 == idx2) ^ (class2special_detached or special2class_detached)) 
 
                         if class2special: 
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
