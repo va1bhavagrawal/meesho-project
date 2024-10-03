@@ -107,12 +107,19 @@ class CustomAttentionProcessor:
 
         if type(encoder_hidden_states) == dict: 
             actual_encoder_hidden_states = encoder_hidden_states["encoder_hidden_states"] 
-            value = attn.to_v(actual_encoder_hidden_states).detach()  
         else: 
             actual_encoder_hidden_states = encoder_hidden_states 
-            value = attn.to_v(actual_encoder_hidden_states)  
 
+        # value_proj_with_lora = attn.to_v 
+        # print(f"{value_proj_with_lora = }") 
+        # sys.exit(0) 
         key = attn.to_k(actual_encoder_hidden_states)
+        value_lora = attn.to_v(actual_encoder_hidden_states) 
+        value_proj_org = attn.to_v.linear 
+        value = value_proj_org(actual_encoder_hidden_states) 
+        if type(encoder_hidden_states) != dict: 
+            # self attention 
+            value = value_lora 
 
         if type(encoder_hidden_states) == dict: 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
@@ -131,30 +138,33 @@ class CustomAttentionProcessor:
             any_replacement = class2special or special2class_detached or special2class or class2special_detached  
             
             # first performing any replacement operations, and then the attention maps are calculated! 
-            if any_replacement:  
-                B = len(encoder_hidden_states["attn_assignments"]) 
-                for batch_idx in range(B): 
-                    for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
-                        assert ((idx1 == idx2) ^ (class2special_detached or special2class_detached)) 
+            B = len(encoder_hidden_states["attn_assignments"]) 
+            for batch_idx in range(B): 
+                for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
 
-                        if class2special: 
-                            key[batch_idx][idx1] = key[batch_idx][idx2] 
+                    if idx1 != idx2: 
+                        # this condition means that we are learning the pose 
+                        # the value for idx1 (the special idx)
+                        value[batch_idx][idx1] = value_lora[batch_idx][idx1]  
 
-                        elif class2special_detached: 
-                            # if DEBUG_ATTN: 
-                                # print(f"using class2special_detached!") 
-                            key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
-                        
-                        elif special2class_detached: 
-                            # if DEBUG_ATTN: 
-                                # print(f"using special2class_detached!")
-                            key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
+                    if class2special: 
+                        key[batch_idx][idx1] = key[batch_idx][idx2] 
 
-                        elif special2class: 
-                            key[batch_idx][idx2] = key[batch_idx][idx1]  
-                        
-                        else: 
-                            assert False 
+                    elif class2special_detached: 
+                        # if DEBUG_ATTN: 
+                            # print(f"using class2special_detached!") 
+                        key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
+                    
+                    elif special2class_detached: 
+                        # if DEBUG_ATTN: 
+                            # print(f"using special2class_detached!")
+                        key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
+
+                    elif special2class: 
+                        key[batch_idx][idx2] = key[batch_idx][idx1]  
+                    
+                    else: 
+                        assert False 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
