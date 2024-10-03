@@ -56,7 +56,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
+  --wandb \
+  --resume_training_state="../ckpts/multiobject/__valuedetach_lr1e-4/training_state_100000.pth" \
   --class_data_dir=$CLASS_DATA_DIR 
 
-
-  # --resume_training_state="../ckpts/multiobject/__class2special_detached__noloc_cond/training_state_390000.pth" \
