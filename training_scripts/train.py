@@ -1190,7 +1190,7 @@ def main(args):
 
         # the merged token formulation 
         merger = MergedEmbedding(args.appearance_skip_connection, pose_dim=1024, appearance_dim=1024, output_dim=args.merged_emb_dim)    
-        if args.resume_training_state: 
+        if not args.learn_pose and args.resume_training_state: 
             merger.load_state_dict(training_state_ckpt["merger"]["model"]) 
         # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
         optimizer_merger = optimizer_class(
@@ -1200,7 +1200,7 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        if args.resume_training_state: 
+        if not args.learn_pose and args.resume_training_state: 
             optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
         # optimizers.append(optimizer_merger) 
         optimizers["merger"] = optimizer_merger 
@@ -1215,7 +1215,7 @@ def main(args):
         # REMEMBER THAT THERE IS A RANDOM PROJECTION IN THE GAUSSIAN FOURIER FEATURES, AND HENCE THAT IS NOT LEARNABLE 
         #     print(f"{name = }, {p.shape = }, {p.requires_grad = }") 
 
-        if args.resume_training_state: 
+        if not args.learn_pose and args.resume_training_state: 
             merger.load_state_dict(training_state_ckpt["merger"]["model"], strict=False)  
         # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
         optimizer_merger = optimizer_class(
@@ -1225,7 +1225,7 @@ def main(args):
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
-        if args.resume_training_state: 
+        if not args.learn_pose and args.resume_training_state: 
             optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
         # optimizers.append(optimizer_merger) 
         optimizers["merger"] = optimizer_merger 

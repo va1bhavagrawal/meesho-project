@@ -1,4 +1,4 @@
-export RUN_NAME="noloraforvalue_stage2_normalized" 
+export RUN_NAME="noloraforvalue_stage2_resume25000_nodecay" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -29,7 +29,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special" \
   --penalize_special_token_attn="Y" \
-  --normalize_merged_embedding="Y" \
+  --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
@@ -38,7 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --stage1_steps=0 \
-  --stage2_steps=150000 \
+  --stage2_steps=100000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
@@ -57,6 +57,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --wandb \
-  --resume_training_state="../ckpts/multiobject/__noloraforvalue/training_state_100000.pth" \
+  --resume_training_state="../ckpts/multiobject/__noloraforvalue/training_state_25000.pth" \
   --class_data_dir=$CLASS_DATA_DIR 
 
