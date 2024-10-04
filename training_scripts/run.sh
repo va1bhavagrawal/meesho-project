@@ -1,4 +1,4 @@
-export RUN_NAME="noloraforvalue_stage2" 
+export RUN_NAME="noloraforvalue_stage2_normalized" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -29,7 +29,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special" \
   --penalize_special_token_attn="Y" \
-  --normalize_merged_embedding="N" \
+  --normalize_merged_embedding="Y" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
