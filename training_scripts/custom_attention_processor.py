@@ -71,8 +71,8 @@ class CustomAttentionProcessor:
         weights = weights / np.sum(weights) 
         h = np.sum(vertical_sides * weights)  
         w = np.sum(horizontal_sides * weights)  
-        h = 512  
-        w = 512 
+        h = 128  
+        w = 128  
         return h, w  
 
 
@@ -100,8 +100,6 @@ class CustomAttentionProcessor:
 
     def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
 
-        query = attn.to_q(hidden_states)
-
         is_cross = encoder_hidden_states is not None
         encoder_hidden_states = encoder_hidden_states if encoder_hidden_states is not None else hidden_states
 
@@ -110,6 +108,30 @@ class CustomAttentionProcessor:
         else: 
             actual_encoder_hidden_states = encoder_hidden_states 
 
+        if type(encoder_hidden_states) == dict and "args" in encoder_hidden_states.keys() and encoder_hidden_states["args"]["add_pose_and_class_output_embeddings"] == True: 
+            B = len(encoder_hidden_states["attn_assignments"]) 
+            assert actual_encoder_hidden_states.shape == (B, 77, 1024) 
+            output_class_embeddings = torch.zeros_like(actual_encoder_hidden_states).detach() 
+            for batch_idx in range(B): 
+                for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
+                    assert idx1 != idx2  
+                    if idx1 != idx2: 
+                        output_class_embeddings[batch_idx][idx1] = actual_encoder_hidden_states[batch_idx][idx2].detach() 
+
+            if DEBUG_ATTN: 
+                actual_encoder_hidden_states_safe = torch.clone(actual_encoder_hidden_states) 
+            actual_encoder_hidden_states = actual_encoder_hidden_states + output_class_embeddings  
+
+            # TODO this would have been the idea addition, but this causes in-place modification error in autograd 
+            if DEBUG_ATTN: 
+                for batch_idx in range(B): 
+                    for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
+                        if idx1 != idx2: 
+                            assert torch.allclose(actual_encoder_hidden_states[batch_idx][idx1], actual_encoder_hidden_states_safe[batch_idx][idx1] + actual_encoder_hidden_states_safe[batch_idx][idx2])  
+                            print(f"adding class and pose embeddings is working!")  
+
+
+        query = attn.to_q(hidden_states)
         # value_proj_with_lora = attn.to_v 
         # print(f"{value_proj_with_lora = }") 
         # sys.exit(0) 

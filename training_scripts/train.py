@@ -455,6 +455,12 @@ def parse_args(input_args=None):
         help="whether to only use pose in the merged embedding?", 
     )
     parser.add_argument(
+        "--add_pose_and_class_output_embeddings", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to add pose and class output embeddings",  
+    )
+    parser.add_argument(
         "--normalize_merged_embedding", 
         type=lambda x : bool(strtobool(x)),  
         required=True, 
@@ -1776,6 +1782,7 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "args": args.__dict__, 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 
