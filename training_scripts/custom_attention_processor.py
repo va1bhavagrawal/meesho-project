@@ -109,6 +109,8 @@ class CustomAttentionProcessor:
             actual_encoder_hidden_states = encoder_hidden_states 
 
         if type(encoder_hidden_states) == dict and "args" in encoder_hidden_states.keys() and encoder_hidden_states["args"]["add_pose_and_class_output_embeddings"] == True: 
+            if DEBUG_ATTN: 
+                assert False 
             B = len(encoder_hidden_states["attn_assignments"]) 
             assert actual_encoder_hidden_states.shape == (B, 77, 1024) 
             output_class_embeddings = torch.zeros_like(actual_encoder_hidden_states).detach() 
@@ -136,12 +138,12 @@ class CustomAttentionProcessor:
         # print(f"{value_proj_with_lora = }") 
         # sys.exit(0) 
         key = attn.to_k(actual_encoder_hidden_states)
-        value_lora = attn.to_v(actual_encoder_hidden_states) 
-        value_proj_org = attn.to_v.linear 
-        value = value_proj_org(actual_encoder_hidden_states) 
-        if type(encoder_hidden_states) != dict: 
-            # self attention 
-            value = value_lora 
+        value = attn.to_v(actual_encoder_hidden_states) 
+        # value_proj_org = attn.to_v.linear 
+        # value = value_proj_org(actual_encoder_hidden_states) 
+        # if type(encoder_hidden_states) != dict: 
+        #     # self attention 
+        #     value = value_lora 
 
         if type(encoder_hidden_states) == dict: 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
@@ -164,10 +166,10 @@ class CustomAttentionProcessor:
             for batch_idx in range(B): 
                 for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
 
-                    if idx1 != idx2: 
-                        # this condition means that we are learning the pose 
-                        # the value for idx1 (the special idx)
-                        value[batch_idx][idx1] = value_lora[batch_idx][idx1]  
+                    # if idx1 != idx2: 
+                    #     # this condition means that we are learning the pose 
+                    #     # the value for idx1 (the special idx)
+                    #     value[batch_idx][idx1] = value_lora[batch_idx][idx1]  
 
                     if class2special: 
                         key[batch_idx][idx1] = key[batch_idx][idx2] 
