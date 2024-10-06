@@ -1,4 +1,4 @@
-export RUN_NAME="add_class_and_pose_embeddings"  
+export RUN_NAME="zero123_again"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -16,7 +16,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
-  --use_controlnet_images="Y" \
+  --use_controlnet_images="N" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
@@ -27,24 +27,23 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
-  --replace_attn_maps="class2special" \
-  --penalize_special_token_attn="Y" \
+  --penalize_special_token_attn="N" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
-  --pose_only_embedding="Y" \
-  --with_prior_preservation="Y" \
+  --pose_only_embedding="N" \
+  --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=0 \
-  --stage2_steps=200000 \
+  --stage1_steps=200000 \
+  --stage2_steps=0 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --learn_pose="Y" \
-  --attn_bbox_from_class_mean="Y" \
+  --attn_bbox_from_class_mean="N" \
   --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
@@ -56,7 +55,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --add_pose_and_class_output_embeddings="Y" \
-  --wandb \
+  --add_pose_and_class_output_embeddings="N" \
   --class_data_dir=$CLASS_DATA_DIR 
 

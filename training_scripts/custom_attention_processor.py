@@ -186,7 +186,9 @@ class CustomAttentionProcessor:
                         key[batch_idx][idx2] = key[batch_idx][idx1]  
                     
                     else: 
-                        assert False 
+                        if DEBUG_ATTN: 
+                            print(f"no attention replacement, as expected!") 
+                        pass 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
@@ -194,6 +196,8 @@ class CustomAttentionProcessor:
         attention_probs = attn.get_attention_scores(query, key, attention_mask)
 
         if type(encoder_hidden_states) == dict and ("bbox_from_class_mean" in encoder_hidden_states.keys()) and encoder_hidden_states["bbox_from_class_mean"] == True:  
+            if DEBUG_ATTN: 
+                assert False 
             B = len(encoder_hidden_states["attn_assignments"]) 
             attention_probs_batch_split = list(torch.chunk(attention_probs, chunks=B, dim=0))  
             if "bboxes" in encoder_hidden_states.keys(): 
