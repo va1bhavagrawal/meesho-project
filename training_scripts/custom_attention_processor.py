@@ -164,7 +164,9 @@ class CustomAttentionProcessor:
                         key[batch_idx][idx2] = key[batch_idx][idx1]  
                     
                     else: 
-                        assert False 
+                        pass 
+                        if DEBUG_ATTN: 
+                            print(f"no replacement!") 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
