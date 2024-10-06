@@ -249,7 +249,7 @@ class CustomAttentionProcessor:
 
                     if "bboxes" in encoder_hidden_states.keys(): 
                         given_bbox = bboxes[batch_idx][asset_idx] 
-                        h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
+                        h, w = given_bbox[3] - given_bbox[1], given_bbox[2] - given_bbox[0] 
                         h, w = int(h * INTERPOLATION_SIZE), int(w * INTERPOLATION_SIZE) 
                     elif "bbox_data" in encoder_hidden_states.keys(): 
                         self.bbox_data = encoder_hidden_states["bbox_data"] 
