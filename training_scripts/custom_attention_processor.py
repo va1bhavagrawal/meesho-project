@@ -141,7 +141,7 @@ class CustomAttentionProcessor:
         value_lora = attn.to_v(actual_encoder_hidden_states) 
         value_proj_org = attn.to_v.linear 
         value = value_proj_org(actual_encoder_hidden_states) 
-        if type(encoder_hidden_states) != dict or encoder_hidden_states["args"]["loraforclassvalue"] == True:  
+        if type(encoder_hidden_states) != dict or encoder_hidden_states["args"]["lora_for_class_value"] == True:  
             # self attention 
             value = value_lora 
 
@@ -166,7 +166,7 @@ class CustomAttentionProcessor:
             for batch_idx in range(B): 
                 for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
 
-                    if idx1 != idx2 and encoder_hidden_states["args"]["loraforclassvalue"] == False: 
+                    if idx1 != idx2 and encoder_hidden_states["args"]["lora_for_class_value"] == False: 
                         # this condition means that we are learning the pose 
                         # the value for idx1 (the special idx)
                         value[batch_idx][idx1] = value_lora[batch_idx][idx1]  

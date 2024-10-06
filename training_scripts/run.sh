@@ -1,4 +1,4 @@
-export RUN_NAME="zero123_again_loraforclassvalue"  
+export RUN_NAME="zero123_again_withcontrolnet"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -16,7 +16,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
-  --use_controlnet_images="N" \
+  --use_controlnet_images="Y" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
@@ -42,7 +42,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
-  --loraforclassvalue="N" \
+  --lora_for_class_value="Y" \
   --learn_pose="Y" \
   --attn_bbox_from_class_mean="N" \
   --prior_loss_weight=1.0 \
