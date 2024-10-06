@@ -16,6 +16,7 @@ from diffusers.utils.import_utils import is_torch_npu_available, is_xformers_ava
 from diffusers.utils.torch_utils import maybe_allow_in_graph
 from diffusers.models.attention_processor import Attention 
 
+import random 
 import numpy as np 
 import cv2 
 from PIL import Image 
@@ -26,7 +27,6 @@ import time
 
 DEBUG_ATTN = False  
 INTERPOLATION_SIZE = 512  
-BOX_RESIZING_FACTOR = 1.2 
 
 
 class CustomAttentionProcessor:
@@ -219,14 +219,20 @@ class CustomAttentionProcessor:
 
                     if "bboxes" in encoder_hidden_states.keys(): 
                         given_bbox = bboxes[batch_idx][asset_idx] 
-                        h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
+                        h, w = given_bbox[3] - given_bbox[1], given_bbox[2] - given_bbox[0] 
                         h, w = int(h * INTERPOLATION_SIZE), int(w * INTERPOLATION_SIZE) 
+                        max_side = max(h, w) 
+                        h = max_side 
+                        w = max_side 
                     elif "bbox_data" in encoder_hidden_states.keys(): 
                         self.bbox_data = encoder_hidden_states["bbox_data"] 
                         assert "azimuths" in encoder_hidden_states.keys() 
                         assert len(encoder_hidden_states["azimuths"]) == B, f"{len(encoder_hidden_states['azimuths']) = }, {B = }"   
                         h, w = self.find_good_bbox_size(mean_i.item(), encoder_hidden_states["azimuths"][batch_idx][asset_idx])   
                         h, w = int(h), int(w) 
+                        max_side = max(h, w) 
+                        h = max_side 
+                        w = max_side 
                     else: 
                         raise NotImplementedError(f"one of bboxes or bbox_data must be present in the encoder_states to enable bbox_from_class_mean!") 
                     # given_bbox_max_side = max(int(INTERPOLATION_SIZE * (given_bbox[2] - given_bbox[0])), int(INTERPOLATION_SIZE * (given_bbox[3] - given_bbox[1]))) 
@@ -234,10 +240,11 @@ class CustomAttentionProcessor:
                     
                     attention_mask_ = torch.zeros((INTERPOLATION_SIZE, INTERPOLATION_SIZE)).to(attention_probs) 
                     # attention_mask_[mean_i - given_bbox_max_side // 2 : mean_i + given_bbox_max_side // 2, mean_j - given_bbox_max_side // 2 : mean_j + given_bbox_max_side // 2] = 1   
-                    i_min = int(max(0, mean_i - int(BOX_RESIZING_FACTOR * h / 2)))  
-                    i_max = int(min(INTERPOLATION_SIZE - 1, mean_i + int(BOX_RESIZING_FACTOR * h / 2)))  
-                    j_min = int(max(0, mean_j - int(BOX_RESIZING_FACTOR * w / 2)))  
-                    j_max = int(min(INTERPOLATION_SIZE - 1, mean_j + int(BOX_RESIZING_FACTOR * w / 2)))  
+                    box_resizing_factor = 0.75 + 1.25 * random.random()  
+                    i_min = int(max(0, mean_i - int(box_resizing_factor * h / 2)))  
+                    i_max = int(min(INTERPOLATION_SIZE - 1, mean_i + int(box_resizing_factor * h / 2)))  
+                    j_min = int(max(0, mean_j - int(box_resizing_factor * w / 2)))  
+                    j_max = int(min(INTERPOLATION_SIZE - 1, mean_j + int(box_resizing_factor * w / 2)))  
                     attention_mask_[i_min : i_max, j_min : j_max] = 1  
 
                     if DEBUG_ATTN: 
@@ -262,6 +269,7 @@ class CustomAttentionProcessor:
 
                     attention_probs_idx1_masked = F.interpolate(attention_probs_idx1_interp.unsqueeze(0), attention_probs_idx1.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx1.shape[0], spatial_dim * spatial_dim)  
                     attention_probs_idx2_masked = F.interpolate(attention_probs_idx2_interp.unsqueeze(0), attention_probs_idx2.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx2.shape[0], spatial_dim * spatial_dim)  
+                    attention_probs_idx2_masked = F.softmax(attention_probs_idx2_masked, dim=-1) 
                     
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(attention_probs)  
                     idx1_mask[idx1] = 1  

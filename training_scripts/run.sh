@@ -1,4 +1,4 @@
-export RUN_NAME="noloraforvalue_withpose_noreplacement" 
+export RUN_NAME="noreplacement_squarebboxes_randomlyresized" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -55,6 +55,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 

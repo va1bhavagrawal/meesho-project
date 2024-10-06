@@ -61,9 +61,9 @@ from custom_attention_processor import patch_custom_attention
 # }
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
-DEBUG = False  
-PRINT_STUFF = False  
-BS = 4  
+DEBUG = True  
+PRINT_STUFF = True  
+BS = 1  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -957,7 +957,7 @@ def main(args):
         with open(pkl_path, "wb") as f: 
             pickle.dump(args.__dict__, f) 
 
-    SAVE_STEPS = [500, 1000, 5000]  
+    SAVE_STEPS = [10, 500, 1000, 5000]  
     for save_step in range(SAVE_STEPS_GAP, args.max_train_steps + 1, SAVE_STEPS_GAP): 
         SAVE_STEPS.append(save_step) 
     SAVE_STEPS = sorted(SAVE_STEPS) 
