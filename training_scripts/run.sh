@@ -1,4 +1,4 @@
-export RUN_NAME="no_replacement" 
+export RUN_NAME="no_replacement_loraonlyforspecialtoken" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -46,8 +46,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learn_pose="Y" \
   --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
-  --lora_only_for_special_value="N" \
-  --lora_only_for_special_key="N" \
+  --lora_only_for_special_value="Y" \
+  --lora_only_for_special_key="Y" \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
@@ -58,5 +58,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
