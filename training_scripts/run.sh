@@ -1,4 +1,4 @@
-export RUN_NAME="noloraforvalue_stage2_resume25000_nodecay" 
+export RUN_NAME="no_replacement" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -27,8 +27,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
-  --replace_attn_maps="class2special" \
-  --penalize_special_token_attn="Y" \
+  --penalize_special_token_attn="N" \
+  --penalize_class_token_attn="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -38,7 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --stage1_steps=0 \
-  --stage2_steps=100000 \
+  --stage2_steps=200000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
@@ -46,6 +46,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --learn_pose="Y" \
   --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
+  --lora_only_for_special_value="N" \
+  --lora_only_for_special_key="N" \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
@@ -56,7 +58,5 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --wandb \
-  --resume_training_state="../ckpts/multiobject/__noloraforvalue/training_state_25000.pth" \
   --class_data_dir=$CLASS_DATA_DIR 
 

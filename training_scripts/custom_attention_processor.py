@@ -26,7 +26,7 @@ import time
 
 DEBUG_ATTN = False  
 INTERPOLATION_SIZE = 512  
-BOX_RESIZING_FACTOR = 1.2 
+BOX_RESIZING_FACTOR = 1.2  
 
 
 class CustomAttentionProcessor:
@@ -71,8 +71,8 @@ class CustomAttentionProcessor:
         weights = weights / np.sum(weights) 
         h = np.sum(vertical_sides * weights)  
         w = np.sum(horizontal_sides * weights)  
-        h = 512  
-        w = 512 
+        h = 128  
+        w = 128  
         return h, w  
 
 
@@ -113,13 +113,20 @@ class CustomAttentionProcessor:
         # value_proj_with_lora = attn.to_v 
         # print(f"{value_proj_with_lora = }") 
         # sys.exit(0) 
-        key = attn.to_k(actual_encoder_hidden_states)
+        key_lora = attn.to_k(actual_encoder_hidden_states)
+        key_proj_org = attn.to_k.linear 
+        key = key_proj_org(actual_encoder_hidden_states) 
+
         value_lora = attn.to_v(actual_encoder_hidden_states) 
         value_proj_org = attn.to_v.linear 
         value = value_proj_org(actual_encoder_hidden_states) 
-        if type(encoder_hidden_states) != dict: 
+        if type(encoder_hidden_states) != dict or ("lora_only_for_special_value" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["lora_only_for_special_value"] == False):  
             # self attention 
             value = value_lora 
+        if type(encoder_hidden_states) != dict or ("lora_only_for_special_key" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["lora_only_for_special_key"] == False):  
+            # self attention 
+            key = key_lora 
+        
 
         if type(encoder_hidden_states) == dict: 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
@@ -136,15 +143,27 @@ class CustomAttentionProcessor:
             special2class_detached = "special2class_detached" in kwargs and encoder_hidden_states["special2class_detached"] == True 
             special2class = "special2class" in kwargs and encoder_hidden_states["special2class"] == True 
             any_replacement = class2special or special2class_detached or special2class or class2special_detached  
+
+            if DEBUG_ATTN: 
+                assert not any_replacement 
             
             # first performing any replacement operations, and then the attention maps are calculated! 
             B = len(encoder_hidden_states["attn_assignments"]) 
             for batch_idx in range(B): 
                 for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
 
-                    if idx1 != idx2: 
+                    if idx1 != idx2 and ("lora_only_for_special_value" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["lora_only_for_special_value"] == True): 
                         # this condition means that we are learning the pose 
                         # the value for idx1 (the special idx)
+                        if DEBUG_ATTN: 
+                            print(f"replacing the special value by the LoRA finetuned value!") 
+                        key[batch_idx][idx1] = key_lora[batch_idx][idx1]  
+
+                    if idx1 != idx2 and ("lora_only_for_special_key" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["lora_only_for_special_key"] == True): 
+                        # this condition means that we are learning the pose 
+                        # the value for idx1 (the special idx)
+                        if DEBUG_ATTN: 
+                            print(f"replacing the special key by the LoRA finetuned key!") 
                         value[batch_idx][idx1] = value_lora[batch_idx][idx1]  
 
                     if class2special: 
@@ -164,7 +183,9 @@ class CustomAttentionProcessor:
                         key[batch_idx][idx2] = key[batch_idx][idx1]  
                     
                     else: 
-                        assert False 
+                        if DEBUG_ATTN: 
+                            print(f"no replacement is being used!") 
+                        pass 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
@@ -205,11 +226,22 @@ class CustomAttentionProcessor:
                         mean_j, mean_i = INTERPOLATION_SIZE * mean_j, INTERPOLATION_SIZE * mean_i 
                         mean_j, mean_i = mean_j.item(), mean_i.item() 
                     else: 
-                        mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
+                        if encoder_hidden_states["args"]["penalize_class_token_attn"] and encoder_hidden_states["args"]["penalize_special_token_attn"]: 
+                            raise NotImplementedError(f"both special and class token attnetion maps cannot be penalized yet!") 
+                        elif encoder_hidden_states["args"]["penalize_special_token_attn"]: 
+                            mean_i, mean_j = self.find_attention_mean(attention_probs_idx1_interp)   
+                        elif encoder_hidden_states["args"]["penalize_class_token_attn"]: 
+                            mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp) 
 
                     if self.loss_store is not None: 
                         # apply the centroid forcing loss 
-                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
+                        if encoder_hidden_states["args"]["penalize_class_token_attn"] and encoder_hidden_states["args"]["penalize_special_token_attn"]: 
+                            raise NotImplementedError(f"both special and class token attnetion maps cannot be penalized yet!") 
+                        elif encoder_hidden_states["args"]["penalize_special_token_attn"]: 
+                            mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx1_interp)   
+                        elif encoder_hidden_states["args"]["penalize_class_token_attn"]: 
+                            mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
+
                         loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
                         loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
                         self.loss_store(loss) 
@@ -260,20 +292,23 @@ class CustomAttentionProcessor:
 
                     attention_probs_idx1_masked = F.interpolate(attention_probs_idx1_interp.unsqueeze(0), attention_probs_idx1.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx1.shape[0], spatial_dim * spatial_dim)  
                     attention_probs_idx2_masked = F.interpolate(attention_probs_idx2_interp.unsqueeze(0), attention_probs_idx2.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx2.shape[0], spatial_dim * spatial_dim)  
+                    attention_probs_idx1_masked = F.softmax(attention_probs_idx1_masked, dim=-1) 
                     
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(attention_probs)  
                     idx1_mask[idx1] = 1  
                     assert idx1_mask.requires_grad == False 
                     # TODO weird error with in place replacement, that is coming up when performing in place replacement for idx1, but not for idx2, must check! 
-                    replacement_attn_maps_example = attention_probs_batch_split[batch_idx] * (1 - idx1_mask) + idx1_mask * attention_probs_idx1_masked[..., None].expand(-1, -1, 77)  
+                    attention_probs_idx1_changed = attention_probs_batch_split[batch_idx] * (1 - idx1_mask) + idx1_mask * attention_probs_idx1_masked[..., None].expand(-1, -1, 77)  
                     # assert replacement_attn_maps_example.requires_grad 
-                    attention_probs_batch_split[batch_idx] = replacement_attn_maps_example  
+                    attention_probs_batch_split[batch_idx] = attention_probs_idx1_changed  
                     # attention_probs_batch_split[batch_idx][..., idx1] = attention_probs_idx1_masked 
                     # assert attention_probs_batch_split[batch_idx].requires_grad == True 
                     # assert attention_probs_idx2_masked.requires_grad == True 
                     attention_probs_batch_split[batch_idx][..., idx2] = attention_probs_idx2_masked 
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx1], attention_probs_idx1_masked)   
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx2], attention_probs_idx2_masked)   
+                    if DEBUG_ATTN: 
+                        assert not torch.allclose(attention_probs_batch_split[batch_idx][..., idx1], attention_probs_batch_split[batch_idx][..., idx2]) 
 
             attention_probs = torch.cat(attention_probs_batch_split, dim=0) 
 

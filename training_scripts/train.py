@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4  
+BS = 4    
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -461,6 +461,18 @@ def parse_args(input_args=None):
         help="whether to normalize the merged embedding, would normalize even when include_class_in_prompt is True", 
     )
     parser.add_argument(
+        "--lora_only_for_special_key", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="if yes, then lora finetuning will only be used for the special token's key features", 
+    )
+    parser.add_argument(
+        "--lora_only_for_special_value", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="if yes, then lora finetuning will be used only for the special token's value features",  
+    )
+    parser.add_argument(
         "--use_location_conditioning", 
         type=lambda x : bool(strtobool(x)),  
         required=True, 
@@ -507,6 +519,12 @@ def parse_args(input_args=None):
         type=str, 
         choices=["special2class", "special2class_detached", "class2special", "class2special_detached"], 
         help="whether to replace the special token attention maps by the class token attention maps", 
+    ) 
+    parser.add_argument(
+        "--penalize_class_token_attn", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to penalize the attention maps of the class token against the class token", 
     ) 
     parser.add_argument(
         "--penalize_special_token_attn", 
@@ -1440,14 +1458,12 @@ def main(args):
 
 
     while True: 
-
-        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
+        
+        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=True)  
         loss_store = retval["loss_store"] 
         attn_store = retval["attn_store"] 
-        if args.penalize_special_token_attn: 
-            assert loss_store is not None and attn_store is None 
-            # assert that we are beginning with an empty loss store 
-            assert loss_store.step_store["loss"] == 0.0 
+        assert loss_store is not None and attn_store is None 
+        assert loss_store.step_store["loss"] == 0.0 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
         #         steps_per_angle[angle] += 1 
@@ -1776,12 +1792,12 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "args": args.__dict__, 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 
 
-        if args.penalize_special_token_attn: 
-            encoder_states_dict["bboxes"] = batch["bboxes"] 
+        encoder_states_dict["bboxes"] = batch["bboxes"] 
 
         if args.attn_bbox_from_class_mean: 
             encoder_states_dict["bbox_from_class_mean"] = True 
@@ -1794,9 +1810,8 @@ def main(args):
         # else: 
         #     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-        if args.penalize_special_token_attn: 
-            assert loss_store.step_store["loss"].device == accelerator.device 
-            loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
+        assert loss_store.step_store["loss"].device == accelerator.device 
+        loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
 
         # Get the target for loss depending on the prediction type
         if noise_scheduler.config.prediction_type == "epsilon":
@@ -1829,11 +1844,9 @@ def main(args):
             losses.append(loss.detach()) 
             losses.append(torch.tensor(0.0).to(accelerator.device)) 
 
-        if args.penalize_special_token_attn: 
-            losses.append(loss_store.step_store["loss"].detach() * args.special_token_attn_loss_weight)  
+        losses.append(loss_store.step_store["loss"].detach() * args.special_token_attn_loss_weight)  
+        if args.penalize_special_token_attn or args.penalize_class_token_attn: 
             loss = loss + args.special_token_attn_loss_weight * loss_store.step_store["loss"] 
-        else: 
-            losses.append(torch.tensor(0.0).to(accelerator.device))   
 
         if PRINT_STUFF: 
             accelerator.print(f"MSE loss: {losses[0].item()}, the weight is 1.0")
