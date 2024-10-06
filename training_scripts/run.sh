@@ -1,4 +1,4 @@
-export RUN_NAME="zero123_again"  
+export RUN_NAME="zero123_again_loraforclassvalue"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -42,6 +42,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
+  --loraforclassvalue="N" \
   --learn_pose="Y" \
   --attn_bbox_from_class_mean="N" \
   --prior_loss_weight=1.0 \
@@ -56,5 +57,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --add_pose_and_class_output_embeddings="N" \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 

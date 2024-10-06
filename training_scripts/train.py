@@ -479,6 +479,12 @@ def parse_args(input_args=None):
         help="learn the pose embedding",  
     )
     parser.add_argument(
+        "--lora_for_class_value", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to use the lora patched value matrix for the class tokens (and the other tokens) also or only for the special tokens?",  
+    )
+    parser.add_argument(
         "--attn_bbox_from_class_mean", 
         type=lambda x : bool(strtobool(x)),  
         required=True, 
