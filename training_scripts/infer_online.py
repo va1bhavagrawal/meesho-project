@@ -33,9 +33,9 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "teacher_forcing_0.1"  
+WHICH_MODEL = "zero123_again_withcontrolnet"  
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 30000  
+WHICH_STEP = 175000  
 MAX_SUBJECTS_PER_EXAMPLE = 1    
 NUM_SAMPLES = 13  
 MODE = "all_steps" 
@@ -299,6 +299,7 @@ class Infer:
             encoder_states_dict = {
                 "encoder_hidden_states": encoder_states, 
                 "attn_assignments": batch["attn_assignments"][batch_idx:batch_idx+1],  
+                "args": self.args,  
             }
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
@@ -470,6 +471,7 @@ class Infer:
             encoder_states_dict = {
                 "encoder_hidden_states": concat_encoder_states, 
                 "attn_assignments": all_assignments, 
+                "args": self.args, 
             }
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
@@ -583,6 +585,7 @@ class Infer:
 
 
     def do_it(self, seed, gif_path, prompt, all_subjects_data, args):   
+        self.args = args  
         self.replace_attn = args["replace_attn_maps"] 
 
         normalize_merged_embedding = args["normalize_merged_embedding"] if "normalize_merged_embedding" in args.keys() else False  
@@ -993,7 +996,7 @@ if __name__ == "__main__":
 
         pipeline = StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1") 
         pose_mlp = None 
-        if "pose_only_embedding" not in args.keys(): 
+        if "pose_only_embedding" not in args.keys() or args["pose_only_embedding"] == False: 
             pose_mlp = continuous_word_mlp(2, 1024) 
             merger = MergedEmbedding(args['appearance_skip_connection'], 1024, 1024, args['merged_emb_dim'])  
         else: 
