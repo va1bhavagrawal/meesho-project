@@ -16,7 +16,6 @@ from diffusers.utils.import_utils import is_torch_npu_available, is_xformers_ava
 from diffusers.utils.torch_utils import maybe_allow_in_graph
 from diffusers.models.attention_processor import Attention 
 
-import random 
 import numpy as np 
 import cv2 
 from PIL import Image 
@@ -27,7 +26,8 @@ import time
 
 DEBUG_ATTN = False  
 INTERPOLATION_SIZE = 512  
-
+BOX_RESIZING_FACTOR = 1.2 
+MAX_BBOX_SIZE = 128 
 
 class CustomAttentionProcessor:
     def __init__(self, name, attn_store, loss_store):
@@ -71,8 +71,8 @@ class CustomAttentionProcessor:
         weights = weights / np.sum(weights) 
         h = np.sum(vertical_sides * weights)  
         w = np.sum(horizontal_sides * weights)  
-        h = 512  
-        w = 512 
+        h = 128 
+        w = 128  
         return h, w  
 
 
@@ -110,16 +110,8 @@ class CustomAttentionProcessor:
         else: 
             actual_encoder_hidden_states = encoder_hidden_states 
 
-        # value_proj_with_lora = attn.to_v 
-        # print(f"{value_proj_with_lora = }") 
-        # sys.exit(0) 
         key = attn.to_k(actual_encoder_hidden_states)
-        value_lora = attn.to_v(actual_encoder_hidden_states) 
-        value_proj_org = attn.to_v.linear 
-        value = value_proj_org(actual_encoder_hidden_states) 
-        if type(encoder_hidden_states) != dict: 
-            # self attention 
-            value = value_lora 
+        value = attn.to_v(actual_encoder_hidden_states) 
 
         if type(encoder_hidden_states) == dict: 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
@@ -138,35 +130,30 @@ class CustomAttentionProcessor:
             any_replacement = class2special or special2class_detached or special2class or class2special_detached  
             
             # first performing any replacement operations, and then the attention maps are calculated! 
-            B = len(encoder_hidden_states["attn_assignments"]) 
-            for batch_idx in range(B): 
-                for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
+            if any_replacement:  
+                B = len(encoder_hidden_states["attn_assignments"]) 
+                for batch_idx in range(B): 
+                    for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
+                        assert idx1 != idx2 
 
-                    if idx1 != idx2: 
-                        # this condition means that we are learning the pose 
-                        # the value for idx1 (the special idx)
-                        value[batch_idx][idx1] = value_lora[batch_idx][idx1]  
+                        if class2special: 
+                            key[batch_idx][idx1] = key[batch_idx][idx2] 
 
-                    if class2special: 
-                        key[batch_idx][idx1] = key[batch_idx][idx2] 
+                        elif class2special_detached: 
+                            # if DEBUG_ATTN: 
+                                # print(f"using class2special_detached!") 
+                            key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
+                        
+                        elif special2class_detached: 
+                            # if DEBUG_ATTN: 
+                                # print(f"using special2class_detached!")
+                            key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
 
-                    elif class2special_detached: 
-                        # if DEBUG_ATTN: 
-                            # print(f"using class2special_detached!") 
-                        key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
-                    
-                    elif special2class_detached: 
-                        # if DEBUG_ATTN: 
-                            # print(f"using special2class_detached!")
-                        key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
-
-                    elif special2class: 
-                        key[batch_idx][idx2] = key[batch_idx][idx1]  
-                    
-                    else: 
-                        pass 
-                        if DEBUG_ATTN: 
-                            print(f"no replacement!") 
+                        elif special2class: 
+                            key[batch_idx][idx2] = key[batch_idx][idx1]  
+                        
+                        else: 
+                            assert False 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
@@ -190,8 +177,13 @@ class CustomAttentionProcessor:
 
             if DEBUG_ATTN: 
                 dataloader_idx = len(os.listdir("vis_attnmaps")) - 1  
+
+            # calculate the means of the attentions, so that attention masks can be defined 
+            all_means = [] 
             for batch_idx in range(B): 
+                means_batch = [] 
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    assert idx1 != idx2 
                     attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
                     attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
                     spatial_dim = int(math.sqrt(attention_probs_idx1.shape[-1])) 
@@ -202,20 +194,59 @@ class CustomAttentionProcessor:
                     attention_probs_idx1_interp = F.interpolate(attention_probs_idx1.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
                     attention_probs_idx2_interp = F.interpolate(attention_probs_idx2.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
 
-                    if ("use_attn_centroid" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["use_attn_centroid"]): 
-                        mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
-
-                    elif "bboxes" in encoder_hidden_states.keys():  
+                    if "bboxes" in encoder_hidden_states.keys(): 
                         mean_j, mean_i = (bboxes[batch_idx][asset_idx][0] + bboxes[batch_idx][asset_idx][2]) / 2, (bboxes[batch_idx][asset_idx][1] + bboxes[batch_idx][asset_idx][3]) / 2  
                         mean_j, mean_i = INTERPOLATION_SIZE * mean_j, INTERPOLATION_SIZE * mean_i 
                         mean_j, mean_i = mean_j.item(), mean_i.item() 
+                    else: 
+                        mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
+                    means_batch.append([mean_j, mean_i]) 
+                all_means.append(means_batch) 
 
-                    else:  
-                        assert False, "either use_attn_centroid should be True, or bboxes must be passed" 
+
+            # define the attention masks! 
+            bbox_sizes = [] 
+            for batch_idx in range(B): 
+                means_batch = all_means[batch_idx] 
+                if len(means_batch) == 1: 
+                    # only a single subject 
+                    bbox_sizes.append([MAX_BBOX_SIZE])  
+                elif len(means_batch) == 2:  
+                    x1, y1 = means_batch[0] 
+                    x2, y2 = means_batch[1] 
+                    angle = abs(y1 - y2) / abs(x1 - x2)   
+                    if angle <= 1.0:  
+                        # less than 45 degrees, great! 
+                        size = abs(x1 - x2)  
+                        size = min(size, MAX_BBOX_SIZE) 
+                    else: 
+                        raise NotImplementedError(f"tan(theta) = {angle}, this is not handled yet!")  
+                    bbox_sizes.append([size, size])  
+
+
+            for batch_idx in range(B): 
+                for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    assert idx1 != idx2 
+                    attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
+                    attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
+                    spatial_dim = int(math.sqrt(attention_probs_idx1.shape[-1])) 
+                    assert spatial_dim * spatial_dim == attention_probs_idx1.shape[-1] 
+                    attention_probs_idx1 = attention_probs_idx1.reshape((attention_probs_idx1.shape[0], spatial_dim, spatial_dim)) 
+                    attention_probs_idx2 = attention_probs_idx2.reshape((attention_probs_idx2.shape[0], spatial_dim, spatial_dim)) 
+
+                    attention_probs_idx1_interp = F.interpolate(attention_probs_idx1.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
+                    attention_probs_idx2_interp = F.interpolate(attention_probs_idx2.unsqueeze(0), INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
+
+                    if "bboxes" in encoder_hidden_states.keys(): 
+                        mean_j, mean_i = (bboxes[batch_idx][asset_idx][0] + bboxes[batch_idx][asset_idx][2]) / 2, (bboxes[batch_idx][asset_idx][1] + bboxes[batch_idx][asset_idx][3]) / 2  
+                        mean_j, mean_i = INTERPOLATION_SIZE * mean_j, INTERPOLATION_SIZE * mean_i 
+                        mean_j, mean_i = mean_j.item(), mean_i.item() 
+                    else: 
+                        mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
 
                     if self.loss_store is not None: 
                         # apply the centroid forcing loss 
-                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_interp) 
+                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx1_interp) 
                         loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
                         loss = loss / (INTERPOLATION_SIZE * INTERPOLATION_SIZE) 
                         self.loss_store(loss) 
@@ -223,20 +254,17 @@ class CustomAttentionProcessor:
 
                     if "bboxes" in encoder_hidden_states.keys(): 
                         given_bbox = bboxes[batch_idx][asset_idx] 
-                        h, w = given_bbox[3] - given_bbox[1], given_bbox[2] - given_bbox[0] 
+                        h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
                         h, w = int(h * INTERPOLATION_SIZE), int(w * INTERPOLATION_SIZE) 
-                        max_side = max(h, w) 
-                        h = max_side 
-                        w = max_side 
                     elif "bbox_data" in encoder_hidden_states.keys(): 
                         self.bbox_data = encoder_hidden_states["bbox_data"] 
                         assert "azimuths" in encoder_hidden_states.keys() 
                         assert len(encoder_hidden_states["azimuths"]) == B, f"{len(encoder_hidden_states['azimuths']) = }, {B = }"   
-                        h, w = self.find_good_bbox_size(mean_i.item(), encoder_hidden_states["azimuths"][batch_idx][asset_idx])   
-                        h, w = int(h), int(w) 
-                        max_side = max(h, w) 
-                        h = max_side 
-                        w = max_side 
+                        # h, w = self.find_good_bbox_size(mean_i.item(), encoder_hidden_states["azimuths"][batch_idx][asset_idx])   
+                        # h, w = int(h), int(w) 
+                        size = bbox_sizes[batch_idx][asset_idx] 
+                        h = size 
+                        w = size 
                     else: 
                         raise NotImplementedError(f"one of bboxes or bbox_data must be present in the encoder_states to enable bbox_from_class_mean!") 
                     # given_bbox_max_side = max(int(INTERPOLATION_SIZE * (given_bbox[2] - given_bbox[0])), int(INTERPOLATION_SIZE * (given_bbox[3] - given_bbox[1]))) 
@@ -244,11 +272,10 @@ class CustomAttentionProcessor:
                     
                     attention_mask_ = torch.zeros((INTERPOLATION_SIZE, INTERPOLATION_SIZE)).to(attention_probs) 
                     # attention_mask_[mean_i - given_bbox_max_side // 2 : mean_i + given_bbox_max_side // 2, mean_j - given_bbox_max_side // 2 : mean_j + given_bbox_max_side // 2] = 1   
-                    box_resizing_factor = 0.75 + 0.75 * random.random()  
-                    i_min = int(max(0, mean_i - int(box_resizing_factor * h / 2)))  
-                    i_max = int(min(INTERPOLATION_SIZE - 1, mean_i + int(box_resizing_factor * h / 2)))  
-                    j_min = int(max(0, mean_j - int(box_resizing_factor * w / 2)))  
-                    j_max = int(min(INTERPOLATION_SIZE - 1, mean_j + int(box_resizing_factor * w / 2)))  
+                    i_min = int(max(0, mean_i - int(BOX_RESIZING_FACTOR * h / 2)))  
+                    i_max = int(min(INTERPOLATION_SIZE - 1, mean_i + int(BOX_RESIZING_FACTOR * h / 2)))  
+                    j_min = int(max(0, mean_j - int(BOX_RESIZING_FACTOR * w / 2)))  
+                    j_max = int(min(INTERPOLATION_SIZE - 1, mean_j + int(BOX_RESIZING_FACTOR * w / 2)))  
                     attention_mask_[i_min : i_max, j_min : j_max] = 1  
 
                     if DEBUG_ATTN: 
@@ -273,7 +300,6 @@ class CustomAttentionProcessor:
 
                     attention_probs_idx1_masked = F.interpolate(attention_probs_idx1_interp.unsqueeze(0), attention_probs_idx1.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx1.shape[0], spatial_dim * spatial_dim)  
                     attention_probs_idx2_masked = F.interpolate(attention_probs_idx2_interp.unsqueeze(0), attention_probs_idx2.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx2.shape[0], spatial_dim * spatial_dim)  
-                    attention_probs_idx2_masked = F.softmax(attention_probs_idx2_masked, dim=-1) 
                     
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(attention_probs)  
                     idx1_mask[idx1] = 1  

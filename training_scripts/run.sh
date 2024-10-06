@@ -44,6 +44,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_location_conditioning="N" \
   --learn_pose="Y" \
   --attn_bbox_from_class_mean="Y" \
+  --use_attn_centroid="Y" \
   --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \

@@ -479,6 +479,12 @@ def parse_args(input_args=None):
         help="whether to use the class attention map's mean to make a bounding box attention mask for both the special token and the class token",  
     )
     parser.add_argument(
+        "--use_attn_centroid", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to use the centroid of the class cross attention map for centering the mask",  
+    )
+    parser.add_argument(
         "--use_ref_images", 
         type=lambda x : bool(strtobool(x)),  
         required=True, 
