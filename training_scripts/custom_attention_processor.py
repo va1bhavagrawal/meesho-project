@@ -112,7 +112,8 @@ class CustomAttentionProcessor:
             class2special_detached = "class2special_detached" in kwargs and encoder_hidden_states["class2special_detached"] == True 
             special2class_detached = "special2class_detached" in kwargs and encoder_hidden_states["special2class_detached"] == True 
             special2class = "special2class" in kwargs and encoder_hidden_states["special2class"] == True 
-            any_replacement = class2special or special2class_detached or special2class or class2special_detached  
+            class2special_soft = "class2special_soft" in kwargs and encoder_hidden_states["class2special_soft"] == True 
+            any_replacement = class2special or special2class_detached or special2class or class2special_detached or class2special_soft  
             
             # first performing any replacement operations, and then the attention maps are calculated! 
             if any_replacement:  
@@ -136,6 +137,9 @@ class CustomAttentionProcessor:
 
                         elif special2class: 
                             key[batch_idx][idx2] = key[batch_idx][idx1]  
+
+                        elif class2special_soft: 
+                            key[batch_idx][idx1] = key[batch_idx][idx1] + key[batch_idx][idx2] 
                         
                         else: 
                             assert False 
@@ -151,13 +155,23 @@ class CustomAttentionProcessor:
             if "bboxes" in encoder_hidden_states.keys(): 
                 bboxes = encoder_hidden_states["bboxes"] 
             else: 
-                # bboxes = [] 
-                # for i in range(B): 
-                #     bboxes_batch = [] 
-                #     for asset_idx in range(len(encoder_hidden_states["attn_assignments"])):  
-                #         bboxes_batch.append(torch.tensor([0.25, 0.25, 0.75, 0.75])) 
-                #     bboxes.append(bboxes_batch) 
-                pass 
+                bboxes = [] 
+                for batch_idx in range(B): 
+                    bboxes_example = [] 
+                    for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                        assert idx1 != idx2 
+                        # format is x1, y1, x2, y2 
+                        bboxes_example.append(torch.tensor([0.25, 0.25, 0.75, 0.75]))  
+                    bboxes.append(bboxes_example) 
+
+            # else: 
+            #     # bboxes = [] 
+            #     # for i in range(B): 
+            #     #     bboxes_batch = [] 
+            #     #     for asset_idx in range(len(encoder_hidden_states["attn_assignments"])):  
+            #     #         bboxes_batch.append(torch.tensor([0.25, 0.25, 0.75, 0.75])) 
+            #     #     bboxes.append(bboxes_batch) 
+            #     pass 
 
 
             if DEBUG_ATTN: 
@@ -189,8 +203,11 @@ class CustomAttentionProcessor:
 
 
                     given_bbox = bboxes[batch_idx][asset_idx] 
-                    h, w = given_bbox[2] - given_bbox[0], given_bbox[3] - given_bbox[1] 
+                    h, w = given_bbox[3] - given_bbox[1], given_bbox[2] - given_bbox[0] 
                     h, w = int(h * INTERPOLATION_SIZE), int(w * INTERPOLATION_SIZE) 
+                    max_side = max(h, w) 
+                    h = max_side 
+                    w = max_side 
                     # given_bbox_max_side = max(int(INTERPOLATION_SIZE * (given_bbox[2] - given_bbox[0])), int(INTERPOLATION_SIZE * (given_bbox[3] - given_bbox[1]))) 
                     # assert 0 < given_bbox_max_side < INTERPOLATION_SIZE 
                     
@@ -230,11 +247,11 @@ class CustomAttentionProcessor:
                     assert idx1_mask.requires_grad == False 
                     # TODO weird error with in place replacement, that is coming up when performing in place replacement for idx1, but not for idx2, must check! 
                     replacement_attn_maps_example = attention_probs_batch_split[batch_idx] * (1 - idx1_mask) + idx1_mask * attention_probs_idx1_masked[..., None].expand(-1, -1, 77)  
-                    assert replacement_attn_maps_example.requires_grad 
+                    # assert replacement_attn_maps_example.requires_grad 
                     attention_probs_batch_split[batch_idx] = replacement_attn_maps_example  
                     # attention_probs_batch_split[batch_idx][..., idx1] = attention_probs_idx1_masked 
-                    assert attention_probs_batch_split[batch_idx].requires_grad == True 
-                    assert attention_probs_idx2_masked.requires_grad == True 
+                    # assert attention_probs_batch_split[batch_idx].requires_grad == True 
+                    # assert attention_probs_idx2_masked.requires_grad == True 
                     attention_probs_batch_split[batch_idx][..., idx2] = attention_probs_idx2_masked 
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx1], attention_probs_idx1_masked)   
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx2], attention_probs_idx2_masked)   

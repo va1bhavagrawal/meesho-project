@@ -500,7 +500,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--replace_attn_maps", 
         type=str, 
-        choices=["special2class", "special2class_detached", "class2special", "class2special_detached"], 
+        choices=["special2class", "special2class_detached", "class2special", "class2special_detached", "class2special_soft"], 
         help="whether to replace the special token attention maps by the class token attention maps", 
     ) 
     parser.add_argument(

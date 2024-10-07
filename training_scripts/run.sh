@@ -1,13 +1,13 @@
-export RUN_NAME="teacher_forcing_0.1" 
+export RUN_NAME="teacher_forcing_0.1_withsquarebboxes" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_2509/ref_imgs_1subject"  
-export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_2509/ref_imgs_2subjects" 
-export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_2509/controlnet_imgs_1subject"
-export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_2509/controlnet_imgs_2subjects"
+export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_3009/ref_imgs_1subject"  
+export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_3009/ref_imgs_2subjects" 
+export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_3009/controlnet_imgs_1subject"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_3009/controlnet_imgs_2subjects"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_2subjects_2509/prior_imgs" 
+export CLASS_DATA_DIR="../training_data_2subjects_3009/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
@@ -38,7 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --stage1_steps=0 \
-  --stage2_steps=500000 \
+  --stage2_steps=150000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
@@ -55,7 +55,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --online_inference \
   --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
