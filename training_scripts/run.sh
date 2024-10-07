@@ -1,4 +1,4 @@
-export RUN_NAME="some_freedom_to_the_keys" 
+export RUN_NAME="class_key_weight=0.5" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -28,6 +28,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special_soft" \
+  --class_key_weight=0.5 \
   --penalize_special_token_attn="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
@@ -40,7 +41,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=0 \
   --stage2_steps=150000 \
   --resolution=512 \
-  --train_batch_size=1 \
+  --train_batch_size=2 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --attn_bbox_from_class_mean="Y" \

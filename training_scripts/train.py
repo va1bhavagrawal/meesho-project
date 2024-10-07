@@ -528,6 +528,12 @@ def parse_args(input_args=None):
         help="The weight of prior preservation loss.",
     )
     parser.add_argument(
+        "--class_key_weight",
+        type=float,
+        required=False, 
+        help="The weight of class key when using class2special_soft replacement.",
+    )
+    parser.add_argument(
         "--vis_dir",
         type=str,
         help="the directory where the intermediate visualizations and inferences are stored",
@@ -1765,6 +1771,7 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "args": args.__dict__, 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 

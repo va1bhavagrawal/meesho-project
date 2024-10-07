@@ -139,7 +139,12 @@ class CustomAttentionProcessor:
                             key[batch_idx][idx2] = key[batch_idx][idx1]  
 
                         elif class2special_soft: 
-                            key[batch_idx][idx1] = key[batch_idx][idx1] + key[batch_idx][idx2] 
+                            class_key_weight = 1.0 
+                            if "args" in encoder_hidden_states.keys(): 
+                                args = encoder_hidden_states["args"] 
+                                if "class_key_weight" in args.keys(): 
+                                    class_key_weight = args["class_key_weight"] 
+                            key[batch_idx][idx1] = key[batch_idx][idx1] + key[batch_idx][idx2] * class_key_weight  
                         
                         else: 
                             assert False 
