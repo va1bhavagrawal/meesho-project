@@ -71,8 +71,8 @@ class CustomAttentionProcessor:
         weights = weights / np.sum(weights) 
         h = np.sum(vertical_sides * weights)  
         w = np.sum(horizontal_sides * weights)  
-        h = 512  
-        w = 512 
+        h = 128  
+        w = 128  
         return h, w  
 
 
@@ -194,6 +194,11 @@ class CustomAttentionProcessor:
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
                     attention_probs_idx1 = attention_probs_batch_split[batch_idx][..., idx1]  
                     attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
+
+                    attention_idx1_sum_before = torch.clone(torch.sum(attention_probs_idx1, dim=-1)).detach()   
+                    if DEBUG_ATTN: 
+                        print(f"{attention_idx1_sum_before = }") 
+
                     spatial_dim = int(math.sqrt(attention_probs_idx1.shape[-1])) 
                     assert spatial_dim * spatial_dim == attention_probs_idx1.shape[-1] 
                     attention_probs_idx1 = attention_probs_idx1.reshape((attention_probs_idx1.shape[0], spatial_dim, spatial_dim)) 
@@ -204,6 +209,8 @@ class CustomAttentionProcessor:
 
                     if ("use_attn_centroid" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["use_attn_centroid"]): 
                         mean_i, mean_j = self.find_attention_mean(attention_probs_idx2_interp)   
+                        if DEBUG_ATTN: 
+                            print(f"using the attention centroid!") 
 
                     elif "bboxes" in encoder_hidden_states.keys():  
                         mean_j, mean_i = (bboxes[batch_idx][asset_idx][0] + bboxes[batch_idx][asset_idx][2]) / 2, (bboxes[batch_idx][asset_idx][1] + bboxes[batch_idx][asset_idx][3]) / 2  
@@ -273,7 +280,14 @@ class CustomAttentionProcessor:
 
                     attention_probs_idx1_masked = F.interpolate(attention_probs_idx1_interp.unsqueeze(0), attention_probs_idx1.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx1.shape[0], spatial_dim * spatial_dim)  
                     attention_probs_idx2_masked = F.interpolate(attention_probs_idx2_interp.unsqueeze(0), attention_probs_idx2.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx2.shape[0], spatial_dim * spatial_dim)  
-                    attention_probs_idx2_masked = F.softmax(attention_probs_idx2_masked, dim=-1) 
+
+                    ratio = attention_idx1_sum_before / torch.clone(torch.sum(attention_probs_idx1_masked, dim=-1)).detach()  
+                    if DEBUG_ATTN: 
+                        print(f"the scaling factor for special token attention is {ratio}") 
+                    attention_probs_idx1_masked = attention_probs_idx1_masked * ratio.unsqueeze(-1)  
+
+                    if DEBUG_ATTN: 
+                        print(f"{torch.sum(attention_probs_idx1_masked, dim=-1) = }") 
                     
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(attention_probs)  
                     idx1_mask[idx1] = 1  

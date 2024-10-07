@@ -61,9 +61,9 @@ from custom_attention_processor import patch_custom_attention
 # }
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
-DEBUG = True  
-PRINT_STUFF = True  
-BS = 1  
+DEBUG = False 
+PRINT_STUFF = False  
+BS = 4  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -1782,6 +1782,7 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "args": args.__dict__, 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 
