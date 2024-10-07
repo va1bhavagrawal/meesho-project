@@ -1,4 +1,4 @@
-export RUN_NAME="squareboxes" 
+export RUN_NAME="squarebboxes" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
