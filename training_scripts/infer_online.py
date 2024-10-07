@@ -35,7 +35,7 @@ from lora_diffusion import patch_pipe
 
 WHICH_MODEL = "noreplacement_squarebboxes_randomlyresized"  
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 500   
+WHICH_STEP = 20000  
 MAX_SUBJECTS_PER_EXAMPLE = 2  
 NUM_SAMPLES = 13  
 MODE = "single_step" 
