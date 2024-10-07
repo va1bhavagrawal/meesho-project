@@ -35,7 +35,7 @@ from lora_diffusion import patch_pipe
 
 WHICH_MODEL = "noreplacement_squarebboxes_randomlyresized"  
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 10  
+WHICH_STEP = 500   
 MAX_SUBJECTS_PER_EXAMPLE = 2  
 NUM_SAMPLES = 13  
 MODE = "single_step" 
@@ -308,6 +308,7 @@ class Infer:
             encoder_states_dict = {
                 "encoder_hidden_states": encoder_states, 
                 "attn_assignments": batch["attn_assignments"][batch_idx:batch_idx+1],  
+                "args": self.args, 
             }
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
@@ -480,6 +481,7 @@ class Infer:
             encoder_states_dict = {
                 "encoder_hidden_states": concat_encoder_states, 
                 "attn_assignments": all_assignments, 
+                "args": self.args, 
             }
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
@@ -593,6 +595,7 @@ class Infer:
 
 
     def do_it(self, seed, gif_path, prompt, all_subjects_data, args):   
+        self.args = args 
         self.replace_attn = args["replace_attn_maps"] 
 
         normalize_merged_embedding = args["normalize_merged_embedding"] if "normalize_merged_embedding" in args.keys() else False  

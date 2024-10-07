@@ -1,4 +1,4 @@
-export RUN_NAME="noreplacement_squarebboxes_randomlyresized" 
+export RUN_NAME="noreplacement_squarebboxes_randomlyresized_teacherforcing" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -44,7 +44,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_location_conditioning="N" \
   --learn_pose="Y" \
   --attn_bbox_from_class_mean="Y" \
-  --use_attn_centroid="Y" \
+  --use_attn_centroid="N" \
   --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
