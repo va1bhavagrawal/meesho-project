@@ -197,7 +197,7 @@ class CustomAttentionProcessor:
 
                     attention_idx1_sum_before = torch.clone(torch.sum(attention_probs_idx1, dim=-1)).detach()   
                     if DEBUG_ATTN: 
-                        print(f"{attention_idx1_sum_before = }") 
+                        print(f"special token attention sum before: {attention_idx1_sum_before}") 
 
                     spatial_dim = int(math.sqrt(attention_probs_idx1.shape[-1])) 
                     assert spatial_dim * spatial_dim == attention_probs_idx1.shape[-1] 
@@ -281,13 +281,13 @@ class CustomAttentionProcessor:
                     attention_probs_idx1_masked = F.interpolate(attention_probs_idx1_interp.unsqueeze(0), attention_probs_idx1.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx1.shape[0], spatial_dim * spatial_dim)  
                     attention_probs_idx2_masked = F.interpolate(attention_probs_idx2_interp.unsqueeze(0), attention_probs_idx2.shape[-1], mode="bilinear", align_corners=True).squeeze().reshape(attention_probs_idx2.shape[0], spatial_dim * spatial_dim)  
 
-                    ratio = attention_idx1_sum_before / torch.clone(torch.sum(attention_probs_idx1_masked, dim=-1)).detach()  
-                    if DEBUG_ATTN: 
-                        print(f"the scaling factor for special token attention is {ratio}") 
+                    ratio = attention_idx1_sum_before / (torch.clone(torch.sum(attention_probs_idx1_masked, dim=-1)).detach() + 1e-4) 
+                    # if DEBUG_ATTN: 
+                    #     print(f"the scaling factor for special token attention is {ratio}") 
                     attention_probs_idx1_masked = attention_probs_idx1_masked * ratio.unsqueeze(-1)  
 
                     if DEBUG_ATTN: 
-                        print(f"{torch.sum(attention_probs_idx1_masked, dim=-1) = }") 
+                        print(f"special token attention sum after: {torch.sum(attention_probs_idx1_masked, dim=-1)}") 
                     
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(attention_probs)  
                     idx1_mask[idx1] = 1  
@@ -300,7 +300,7 @@ class CustomAttentionProcessor:
                     # assert attention_probs_batch_split[batch_idx].requires_grad == True 
                     # assert attention_probs_idx2_masked.requires_grad == True 
                     attention_probs_batch_split[batch_idx][..., idx2] = attention_probs_idx2_masked 
-                    assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx1], attention_probs_idx1_masked)   
+                    assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx1], attention_probs_idx1_masked), f"{torch.sum(attention_probs_batch_split[batch_idx][..., idx1]), torch.sum(attention_probs_idx1_masked) = }" 
                     assert torch.allclose(attention_probs_batch_split[batch_idx][..., idx2], attention_probs_idx2_masked)   
 
             attention_probs = torch.cat(attention_probs_batch_split, dim=0) 
