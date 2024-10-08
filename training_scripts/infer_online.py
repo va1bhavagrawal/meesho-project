@@ -33,11 +33,11 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "some_freedom_to_the_keys"   
+WHICH_MODEL = "proper_attn_masks"    
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 3   
+WHICH_STEP = 4    
 MAX_SUBJECTS_PER_EXAMPLE = 2  
-NUM_SAMPLES = 20  
+NUM_SAMPLES = 2  
 MODE = "single_step" 
 
 P2P = False  
@@ -386,8 +386,8 @@ class Infer:
             org_images = [img] 
 
             if self.store_attn: 
-                attn_maps_batch = get_attention_maps(self.attn_store, batch["track_ids"][batch_idx], uncond_attn_also=True, res=16, batch_size=self.bs)   
-                attn_maps = attn_maps_batch[batch_idx] 
+                attn_maps_batch = get_attention_maps(self.attn_store, batch["track_ids"], uncond_attn_also=True, res=16, batch_size=1)   
+                attn_maps = attn_maps_batch[0] 
 
                 path, tail = osp.split(batch["save_paths"][batch_idx])  
                 _, subjects_string = osp.split(path) 
@@ -522,7 +522,7 @@ class Infer:
             # for name, attns in self.attn_store.step_store.items(): 
             #     assert len(attns) == len(self.scheduler.timesteps) 
 
-            attn_maps_batch = get_attention_maps(self.attn_store, batch["track_ids"][batch_idx], uncond_attn_also=True, res=16, batch_size=self.bs)   
+            attn_maps_batch = get_attention_maps(self.attn_store, batch["track_ids"], uncond_attn_also=True, res=16, batch_size=self.bs)   
             for batch_idx in range(len(batch["save_paths"])):  
                 attn_maps = attn_maps_batch[batch_idx] 
 

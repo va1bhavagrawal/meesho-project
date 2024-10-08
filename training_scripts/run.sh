@@ -1,4 +1,4 @@
-export RUN_NAME="some_freedom_to_the_keys" 
+export RUN_NAME="proper_attn_masks" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
