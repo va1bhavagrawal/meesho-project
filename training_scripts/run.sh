@@ -1,4 +1,4 @@
-export RUN_NAME="bboxattnloss0.001" 
+export RUN_NAME="tightbboxloss0.01" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -40,12 +40,12 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=0 \
   --stage2_steps=150000 \
   --resolution=512 \
-  --train_batch_size=2 \
+  --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
-  --special_token_attn_loss_weight=0.001 \
+  --special_token_attn_loss_weight=0.01 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
   --pretrained_model_name_or_path=$MODEL_NAME  \

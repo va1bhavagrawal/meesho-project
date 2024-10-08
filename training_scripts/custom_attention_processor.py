@@ -214,6 +214,7 @@ class CustomAttentionProcessor:
                     if resize_box: 
                         h, w = torch.round(h * BOX_RESIZING_FACTOR), torch.round(w * BOX_RESIZING_FACTOR) 
                     h, w = h.to(dtype=torch.long), w.to(dtype=torch.long) 
+                    h_tight, w_tight = h, w 
                     max_side = max(h, w) 
                     h = max_side 
                     w = max_side 
@@ -226,11 +227,17 @@ class CustomAttentionProcessor:
                     # assert i_max > i_min and j_max > j_min, f"{i_min = }, {i_max = }, {j_min = }, {j_max = }, {bbox * spatial_dim = }"  
 
                     if self.loss_store is not None: 
+                        i_min_tight = torch.round(max(torch.tensor(0), mean_i - h_tight // 2)).to(dtype=torch.long) 
+                        i_max_tight = torch.round(min(torch.tensor(spatial_dim) - 1, mean_i + h_tight // 2)).to(dtype=torch.long) 
+                        j_min_tight = torch.round(max(torch.tensor(0), mean_j - w_tight // 2)).to(dtype=torch.long) 
+                        j_max_tight = torch.round(min(torch.tensor(spatial_dim) - 1, mean_j + w_tight // 2)).to(dtype=torch.long)  
+                        attention_mask_tight = torch.ones_like(attention_scores_idx1).detach() 
+                        attention_mask_tight[:, i_min_tight : i_max_tight, j_min_tight : j_max_tight] = 0 
                         attention_probs_unmasked = F.softmax(attention_scores_idx2, dim=-1) 
-                        inside_attn_sum = torch.sum(attention_probs_unmasked[:, i_min : i_max, j_min : j_max]) 
+                        inside_attn_sum = torch.sum(attention_probs_unmasked[:, i_min_tight : i_max_tight, j_min_tight : j_max_tight]) 
                         outside_attn_sum = torch.sum(attention_probs_unmasked) - inside_attn_sum  
-                        num_inside_pixels = torch.sum(1 - attention_mask_)  
-                        num_outside_pixels = torch.sum(attention_mask_) 
+                        num_inside_pixels = torch.sum(1 - attention_mask_tight)  
+                        num_outside_pixels = torch.sum(attention_mask_tight) 
                         if num_outside_pixels == 0 or num_inside_pixels == 0:  
                             loss = torch.tensor(0.0).to(device=attention_mask_.device)  
                         else: 
