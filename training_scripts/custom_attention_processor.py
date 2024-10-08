@@ -109,28 +109,6 @@ class CustomAttentionProcessor:
         return mean_i, mean_j 
 
 
-    # def bbox_attn_loss_func(self, bboxes, attn_maps): 
-    #     loss = 0.0 
-    #     B = len(bboxes) 
-    #     assert len(attn_maps) == B 
-    #     for batch_idx in range(B): 
-    #         for asset_idx in range(len(bboxes[batch_idx])):  
-    #             bbox = (bboxes[batch_idx][asset_idx] * INTERPOLATION_SIZE).to(dtype=torch.int32)  
-    #             attn_maps_for_asset = attn_maps[batch_idx][asset_idx] 
-    #             # print(f"{attn_maps_for_asset.shape = }") 
-    #             interpolated_attn_maps = F.interpolate(attn_maps_for_asset.unsqueeze(0), size=INTERPOLATION_SIZE, mode="bilinear", align_corners=True).squeeze()  
-    #             assert interpolated_attn_maps.shape[-1] == INTERPOLATION_SIZE 
-    #             assert interpolated_attn_maps.shape[-2] == INTERPOLATION_SIZE 
-    #             assert torch.all(bbox >= 0) and torch.all(bbox <= INTERPOLATION_SIZE)   
-    #             attn_inside_bbox = interpolated_attn_maps[..., bbox[1] : bbox[3], bbox[0] : bbox[2]]  
-    #             # print(f"{attn_inside_bbox.shape = }") 
-    #             assert attn_inside_bbox.shape == (interpolated_attn_maps.shape[0], bbox[3] - bbox[1], bbox[2] - bbox[0]) 
-    #             loss_asset = torch.sum(attn_inside_bbox) / torch.sum(interpolated_attn_maps)  
-    #             assert loss_asset <= 1 
-    #             loss = loss + loss_asset  
-    #     return loss 
-
-
     def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
 
         query = attn.to_q(hidden_states)
@@ -245,6 +223,24 @@ class CustomAttentionProcessor:
                     j_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_j + w // 2)).to(dtype=torch.long)  
                     attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
                     attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
+                    # assert i_max > i_min and j_max > j_min, f"{i_min = }, {i_max = }, {j_min = }, {j_max = }, {bbox * spatial_dim = }"  
+
+                    if self.loss_store is not None: 
+                        attention_probs_unmasked = F.softmax(attention_scores_idx2, dim=-1) 
+                        inside_attn_sum = torch.sum(attention_probs_unmasked[:, i_min : i_max, j_min : j_max]) 
+                        outside_attn_sum = torch.sum(attention_probs_unmasked) - inside_attn_sum  
+                        num_inside_pixels = torch.sum(1 - attention_mask_)  
+                        num_outside_pixels = torch.sum(attention_mask_) 
+                        if num_outside_pixels == 0 or num_inside_pixels == 0:  
+                            loss = torch.tensor(0.0).to(device=attention_mask_.device)  
+                        else: 
+                            assert num_inside_pixels + num_outside_pixels == spatial_dim * spatial_dim * n_heads  
+                            loss = outside_attn_sum / num_outside_pixels - inside_attn_sum / num_inside_pixels  
+                            loss = loss / n_heads 
+                            loss = loss + 1.0 
+                            assert loss >= 0.0, f"{loss = }"  
+                        self.loss_store(loss) 
+
                     attention_mask_ = attention_mask_ * -INFINITY  
 
                     attention_scores_idx1 = attention_scores_idx1 + attention_mask_ 
@@ -268,11 +264,12 @@ class CustomAttentionProcessor:
             attention_scores = torch.cat(attention_scores_batch_split, dim=0) 
             attention_probs = F.softmax(attention_scores, dim=-1) 
 
-            if self.loss_store is not None: 
-                mean_i_attn, mean_j_attn = self.find_attention_mean(attention_scores_idx2)  
-                loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
-                loss = loss / (spatial_dim * spatial_dim) 
-                self.loss_store(loss) 
+            # THE FLAWED CENTROID FORCING LOSS 
+            # if self.loss_store is not None: 
+            #     mean_i_attn, mean_j_attn = self.find_attention_mean(attention_scores_idx2)  
+            #     loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
+            #     loss = loss / (spatial_dim * spatial_dim) 
+            #     self.loss_store(loss) 
         else: 
             attention_probs = F.softmax(attention_scores, dim=-1) 
             # if DEBUG_ATTN: 
