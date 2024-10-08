@@ -1,4 +1,4 @@
-export RUN_NAME="proper_attn_masks" 
+export RUN_NAME="proper_attn_masks_noattnloss" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -28,7 +28,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special_soft" \
-  --penalize_special_token_attn="Y" \
+  --penalize_special_token_attn="N" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
