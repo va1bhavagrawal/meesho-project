@@ -1,4 +1,4 @@
-export RUN_NAME="push_centroid_0.1" 
+export RUN_NAME="no_gt_bbox_masking" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
