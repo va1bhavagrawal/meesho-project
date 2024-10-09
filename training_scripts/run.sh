@@ -1,4 +1,4 @@
-export RUN_NAME="no_gt_bbox_masking" 
+export RUN_NAME="no_gt_bbox_masking_lr_drop" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -19,7 +19,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
   --layout_only="Y" \
-  --learning_rate=1e-4 \
+  --learning_rate=1e-5 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
   --learning_rate_emb=1e-3 \
@@ -41,7 +41,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=0 \
   --stage2_steps=150000 \
   --resolution=512 \
-  --train_batch_size=1 \
+  --train_batch_size=2 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --attn_bbox_from_class_mean="Y" \
@@ -56,7 +56,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
+  --resume_training_state="../ckpts/multiobject/__no_gt_bbox_masking/training_state_25000.pth" \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
-
-  # --resume_training_state="../ckpts/multiobject/__class2special_detached__noloc_cond/training_state_390000.pth" \

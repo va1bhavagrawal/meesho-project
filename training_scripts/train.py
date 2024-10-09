@@ -2358,7 +2358,9 @@ def main(args):
             if len(SAVE_STEPS) > 0 and global_step >= SAVE_STEPS[0]: 
                 save_step = SAVE_STEPS[0] 
                 SAVE_STEPS.pop(0) 
-                if accelerator.is_main_process:
+                if global_step - save_step > 100: 
+                    pass 
+                elif accelerator.is_main_process:
                     # newer versions of accelerate allow the 'keep_fp32_wrapper' arg. without passing
                     # it, the models will be unwrapped, and when they are then used for further training,
                     # we will crash. pass this, but only to newer versions of accelerate. fixes
