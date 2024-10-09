@@ -168,7 +168,9 @@ class CustomAttentionProcessor:
                 B = len(encoder_hidden_states["attn_assignments"]) 
                 for batch_idx in range(B): 
                     for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
-                        assert idx1 != idx2 
+                        # assert idx1 != idx2 
+                        if idx1 == idx2: 
+                            continue 
 
                         if class2special: 
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
@@ -197,10 +199,12 @@ class CustomAttentionProcessor:
         value = attn.head_to_batch_dim(value)
         # not using the attention probs at this stage, as these need to be masked 
         attention_scores = get_attention_scores(attn, query, key, attention_mask)
+        attention_probs_without_mask = F.softmax(attention_scores, dim=-1) 
 
         if type(encoder_hidden_states) == dict and ("bbox_from_class_mean" in encoder_hidden_states.keys()) and encoder_hidden_states["bbox_from_class_mean"] == True:  
             B = len(encoder_hidden_states["attn_assignments"]) 
             attention_scores_batch_split = list(torch.chunk(attention_scores, chunks=B, dim=0))  
+            attention_probs_without_mask_batch_split = list(torch.chunk(attention_probs_without_mask, chunks=B, dim=0)) 
             if "bboxes" in encoder_hidden_states.keys(): 
                 bboxes = encoder_hidden_states["bboxes"] 
                 resize_box = True 
@@ -217,7 +221,7 @@ class CustomAttentionProcessor:
 
             for batch_idx in range(B): 
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
-                    assert idx1 != idx2 
+                    # assert idx1 != idx2 
                     assert attention_scores_batch_split[batch_idx].ndim == 3  
                     assert attention_scores_batch_split[batch_idx].shape[-1] == 77 
                     attention_scores_idx1 = attention_scores_batch_split[batch_idx][..., idx1] 
@@ -247,8 +251,18 @@ class CustomAttentionProcessor:
                     attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
                     attention_mask_ = attention_mask_ * -INFINITY  
 
+                    if self.loss_store is not None: 
+                        attention_probs_idx2_without_mask = attention_probs_without_mask_batch_split[batch_idx][..., idx2] 
+                        mean_i_attn, mean_j_attn = self.find_attention_mean(attention_probs_idx2_without_mask.reshape(n_heads, spatial_dim, spatial_dim))   
+                        loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
+                        loss = loss / (spatial_dim * spatial_dim) 
+                        self.loss_store(loss) 
+
                     attention_scores_idx1 = attention_scores_idx1 + attention_mask_ 
                     attention_scores_idx2 = attention_scores_idx2 + attention_mask_  
+
+                    if "layout_only" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["layout_only"] == True: 
+                        assert torch.allclose(attention_scores_idx1, attention_scores_idx2) 
 
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
                     idx1_mask[idx1] = 1 
@@ -268,11 +282,6 @@ class CustomAttentionProcessor:
             attention_scores = torch.cat(attention_scores_batch_split, dim=0) 
             attention_probs = F.softmax(attention_scores, dim=-1) 
 
-            if self.loss_store is not None: 
-                mean_i_attn, mean_j_attn = self.find_attention_mean(attention_scores_idx2)  
-                loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
-                loss = loss / (spatial_dim * spatial_dim) 
-                self.loss_store(loss) 
         else: 
             attention_probs = F.softmax(attention_scores, dim=-1) 
             # if DEBUG_ATTN: 

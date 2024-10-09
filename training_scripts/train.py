@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4   
+BS = 4     
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -592,6 +592,12 @@ def parse_args(input_args=None):
         type=lambda x : bool(strtobool(x)),  
         required=True, 
         help="whether to learn the class embeddings and use the learnt ones for the reference images?",
+    )
+    parser.add_argument(
+        "--layout_only",
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="only learn the layout?",
     )
     parser.add_argument(
         "--online_inference", 
@@ -1729,10 +1735,14 @@ def main(args):
             for asset_idx in range(len(batch["subjects"][batch_idx])):  
                 for token_idx in range(args.merged_emb_dim // 1024): 
                     unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                    assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
-                    unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
-                    attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
-                    unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
+                    if not args.layout_only: 
+                        assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
+                        unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
+                        attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
+                        unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
+                    else: 
+                        class_token_idx = list(batch_item).index(TOKEN2ID[batch["subjects"][batch_idx][asset_idx]])  
+                        attn_assignments_batchitem[class_token_idx] = class_token_idx 
 
             attn_assignments.append(attn_assignments_batchitem) 
 
@@ -1765,6 +1775,7 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "args": args.__dict__, 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 
@@ -1855,7 +1866,7 @@ def main(args):
                         # print(f"{n, p = } in merger is NOT bad!")
                 # if global_step < args.stage1_steps: 
                 #     assert len(bad_merger_params) < len(list(merger.parameters()))  
-                if global_step > 1: 
+                if not args.layout_only and global_step > 1: 
                     assert len(bad_merger_params) == 0, f"{len(bad_merger_params) = }" 
                     # print(f"{len(bad_merger_params) = }") 
 
@@ -2051,6 +2062,8 @@ def main(args):
 
         # lora_before = [torch.clone(p) for p in list(itertools.chain(*unet_lora_params))] 
         for name, optimizer in optimizers.items(): 
+            if args.layout_only and name == "merger":  
+                continue 
             optimizer.step() 
 
         # calculating weight norms 
@@ -2168,12 +2181,13 @@ def main(args):
                     bnha_after = [p1 - p2 for p1, p2 in zip(bnha_before, bnha_after)]   
                     del bnha_before 
 
-                change = False 
-                for p_diff in merger_after: 
-                    if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
-                        change = True 
-                        break 
-                assert change 
+                if not args.layout_only: 
+                    change = False 
+                    for p_diff in merger_after: 
+                        if not torch.allclose(p_diff, torch.zeros_like(p_diff)):  
+                            change = True 
+                            break 
+                    assert change 
 
                 # change = False 
                 # for p_diff in mlp_after:  

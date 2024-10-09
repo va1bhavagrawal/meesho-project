@@ -1,4 +1,4 @@
-export RUN_NAME="proper_attn_masks_noattnloss" 
+export RUN_NAME="push_centroid_0.1" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -18,6 +18,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_text_encoder="N" \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
+  --layout_only="Y" \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
@@ -28,7 +29,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special_soft" \
-  --penalize_special_token_attn="N" \
+  --penalize_special_token_attn="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -55,7 +56,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
 
