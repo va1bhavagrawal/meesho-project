@@ -214,9 +214,10 @@ class CustomAttentionProcessor:
                 for batch_idx in range(B): 
                     bboxes_example = [] 
                     for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
-                        assert idx1 != idx2 
+                        # assert idx1 != idx2 
                         # format is x1, y1, x2, y2 
-                        bboxes_example.append(torch.tensor([0.25, 0.25, 0.75, 0.75]))  
+                        # bboxes_example.append(torch.tensor([0.25, 0.25, 0.75, 0.75]))  
+                        bboxes_example.append(torch.tensor([0.0, 0.0, 1.0, 1.0]))   
                     bboxes.append(bboxes_example) 
 
             for batch_idx in range(B): 

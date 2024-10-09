@@ -33,12 +33,12 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "proper_attn_masks"    
+WHICH_MODEL = "push_centroid_0.1"    
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 4    
+WHICH_STEP = 20000     
 MAX_SUBJECTS_PER_EXAMPLE = 2  
-NUM_SAMPLES = 2  
-MODE = "single_step" 
+NUM_SAMPLES = 4   
+MODE = "all_steps" 
 
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
@@ -735,7 +735,10 @@ class Infer:
                         #     assert subject_data['subject'] == TEXTUAL_INV 
                         #     # ti_embedding = torch.load(TI_PATH) 
                         #     # ti_embedding = ti_embedding[TEXTUAL_INV].squeeze()  
-                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subject_data['subject']}") 
+                        if ("layout_only" not in self.args.keys()) or (self.args["layout_only"] == False): 
+                            template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subject_data['subject']}") 
+                        else: 
+                            template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subject_data['subject']}") 
 
                 print(f"{template_prompt}") 
                 prompt_ids = self.tokenizer(
@@ -775,16 +778,21 @@ class Infer:
                     unique_token_positions = {} 
                     for asset_idx, subject_data in enumerate(gif_subject_data): 
                         for token_idx in range(self.merged_emb_dim // 1024): 
-                            unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                            assert TOKEN2ID[unique_token] in prompt_ids 
-                            # print(f"{list(prompt_ids) = }") 
-                            # print(f"{TOKEN2ID[unique_token] = }") 
-                            # print(f"{TOKEN2ID[unique_token] = }")
-                            # print(f"{prompt_ids = }")
-                            assert len(prompt_ids) == 1 
-                            unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
-                            unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
-                            attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+                            if ("layout_only" not in self.args.keys()) or (self.args["layout_only"] == False): 
+                                unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                                assert TOKEN2ID[unique_token] in prompt_ids 
+                                # print(f"{list(prompt_ids) = }") 
+                                # print(f"{TOKEN2ID[unique_token] = }") 
+                                # print(f"{TOKEN2ID[unique_token] = }")
+                                # print(f"{prompt_ids = }")
+                                assert len(prompt_ids) == 1 
+                                unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
+                                unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
+                                attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+                            else: 
+                                subject = subject_data["subject"] 
+                                class_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[subject])  
+                                attn_assignments[class_token_idx] = class_token_idx 
                     
                     all_attn_assignments.append(attn_assignments) 
 
@@ -1080,7 +1088,7 @@ if __name__ == "__main__":
             pipeline.text_encoder.get_input_embeddings().weight[special_token_ids[0]] = ti_embedding    
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=True, bs=4)     
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=True, bs=2)     
 
 
         subjects = [
@@ -1131,13 +1139,13 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
-            "a photo of PLACEHOLDER in front of a dark background", 
-            # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            # "a photo of PLACEHOLDER in front of a dark background", 
+            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
             # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
             # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
             # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
         ]
         for prompt in prompts: 
 
