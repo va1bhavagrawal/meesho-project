@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4     
+BS = 2      
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -823,6 +823,61 @@ def parse_args(input_args=None):
     return args
 
 
+def patch_bbox_predictors(unet): 
+    bbox_predictors = [] 
+    for down_block in unet.down_blocks:  
+        if hasattr(down_block, "attentions"): 
+            assert len(down_block.attentions) == 2 
+            for transformer_model in down_block.attentions: 
+                assert "Transformer2DModel" in str(type(transformer_model))  
+                assert len(transformer_model.transformer_blocks) == 1 
+                for transformer_block in transformer_model.transformer_blocks:  
+                    inp_dim = transformer_block.attn2.to_q.linear.out_features  
+                    bbox_predictor = nn.Sequential(
+                        nn.Linear(inp_dim, inp_dim),  
+                        nn.ReLU(), 
+                        nn.Linear(inp_dim, 2), 
+                        nn.Tanh(), 
+                    ) 
+                    transformer_block.attn2.bbox_predictor = bbox_predictor  
+                    bbox_predictors.append(bbox_predictor) 
+
+    for up_block in unet.up_blocks: 
+        if hasattr(up_block, "attentions"): 
+            assert len(up_block.attentions) == 3 
+            for transformer_model in up_block.attentions: 
+                assert "Transformer2DModel" in str(type(transformer_model)) 
+                assert len(transformer_model.transformer_blocks) == 1 
+                for transformer_block in transformer_model.transformer_blocks: 
+                    inp_dim = transformer_block.attn2.to_q.linear.out_features 
+                    bbox_predictor = nn.Sequential(
+                        nn.Linear(inp_dim, inp_dim), 
+                        nn.ReLU(), 
+                        nn.Linear(inp_dim, 2), 
+                        nn.Tanh(), 
+                    ) 
+                    transformer_block.attn2.bbox_predictor = bbox_predictor 
+                    bbox_predictors.append(bbox_predictor) 
+
+    assert len(unet.mid_block.attentions) == 1 
+    for transformer_model in unet.mid_block.attentions: 
+        assert "Transformer2DModel" in str(type(transformer_model)) 
+        assert len(transformer_model.transformer_blocks) == 1 
+        for transformer_block in transformer_model.transformer_blocks: 
+            inp_dim = transformer_block.attn2.to_q.linear.out_features 
+            bbox_predictor = nn.Sequential(
+                nn.Linear(inp_dim, inp_dim), 
+                nn.ReLU(), 
+                nn.Linear(inp_dim, 2),  
+                nn.Tanh(), 
+            ) 
+            transformer_block.attn2.bbox_predictor = bbox_predictor 
+            bbox_predictors.append(bbox_predictor) 
+
+    print(f"patched {len(bbox_predictors) = }")
+    return bbox_predictors 
+
+
 def main(args): 
 
     if osp.exists(args.instance_data_dir_1subject): 
@@ -1003,17 +1058,34 @@ def main(args):
         # print(f"{len(unet_lora_params) = }") 
         # sys.exit(0) 
 
+
+        bbox_predictors = patch_bbox_predictors(unet) 
+
         if args.resume_training_state: 
             # with torch.no_grad(): 
             unet_state_dict = unet.state_dict() 
             lora_state_dict = training_state_ckpt["unet"]["lora"] 
+            if "bbox_predictors" in training_state_ckpt["unet"].keys(): 
+                bbox_predictors_state_dict = training_state_ckpt["unet"]["bbox_predictors"] 
             for name, param in unet_state_dict.items(): 
                 if name.find("lora") == -1: 
                     assert name not in lora_state_dict.keys() 
-                    continue 
-                assert name in lora_state_dict.keys() 
-                unet_state_dict[name] = lora_state_dict[name]  
+                else: 
+                    assert name in lora_state_dict.keys() 
+                    unet_state_dict[name] = lora_state_dict[name]  
+                
+                if "bbox_predictors" in training_state_ckpt["unet"].keys(): 
+                    if name.find("bbox_predictor") == -1: 
+                        assert name not in bbox_predictors_state_dict.keys() 
+                    else: 
+                        assert name in bbox_predictors_state_dict.keys() 
+                        unet_state_dict[name] = bbox_predictors_state_dict[name] 
+
             unet.load_state_dict(unet_state_dict) 
+
+        # all_unet_trainable_params = [p for n, p in unet.named_parameters() if ("lora" in n or "bbox_predictor" in n)] 
+        # print(f"{len(all_unet_trainable_params) = }")
+        bbox_predictor_params = [p for n, p in unet.named_parameters() if ("bbox_predictor" in n)] 
 
     # retval = patch_custom_attention(unet, store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
     # if args.penalize_special_token_attn: 
@@ -1121,6 +1193,18 @@ def main(args):
         # optimizers.append(optimizer_unet) 
         optimizers["unet"] = optimizer_unet 
 
+        optimizer_bbox = optimizer_class(
+            bbox_predictor_params, 
+            lr=args.learning_rate,
+            betas=(args.adam_beta1, args.adam_beta2),
+            weight_decay=args.adam_weight_decay,
+            eps=args.adam_epsilon,
+        )
+        if args.resume_training_state and "optimizer_bbox" in training_state_ckpt["unet"].keys(): 
+            optimizer_bbox.load_state_dict(training_state_ckpt["unet"]["optimizer_bbox"]) 
+        # optimizers.append(optimizer_unet) 
+        optimizers["unet_bbox"] = optimizer_bbox  
+
     if args.train_text_encoder: 
         optimizer_text_encoder = optimizer_class(
             itertools.chain(*text_encoder_lora_params),  
@@ -1138,7 +1222,6 @@ def main(args):
         # the appearance embeddings 
         bnha_embeds = {} 
         args.subjects = [
-            "pickup truck", 
             "jeep", 
             "motorbike", 
             "bus", 
@@ -1915,23 +1998,27 @@ def main(args):
                 #         assert not torch.allclose(p.grad, torch.zeros_like(p.grad))  
                 #     # assert some_grad_is_good 
 
-                # # checking whether the unet will receive gradients 
+                # checking whether the unet will receive gradients 
                 # if args.train_unet: 
                 #     # some_grad_is_good = False 
                 #     # for p in list(itertools.chain(*unet_lora_params)):    
                 #     for n, p in list(unet.named_parameters()):    
-                #         if p.grad is None: 
-                #             continue 
-                #         # print(f"{torch.zeros_like(p.grad) = }, {p.grad = }")
-                #         # print(f"something is not none also!")
-                #         if not torch.allclose(p.grad, torch.zeros_like(p.grad)):  
-                #             # print(f"{n = } has a gradient!")
-                #             some_grad_is_good = True 
-                #         else: 
-                #             # assert not torch.allclose(p.grad, torch.zeros_like(p.grad)) 
-                #             # print(f"{n = } DOES NOT HAVE GRADIENT...")
-                #             pass 
-                #     assert some_grad_is_good 
+                #         # if p.grad is None: 
+                #         #     continue 
+                #         # # print(f"{torch.zeros_like(p.grad) = }, {p.grad = }")
+                #         # # print(f"something is not none also!")
+                #         # if not torch.allclose(p.grad, torch.zeros_like(p.grad)):  
+                #         #     # print(f"{n = } has a gradient!")
+                #         #     some_grad_is_good = True 
+                #         # else: 
+                #         #     # assert not torch.allclose(p.grad, torch.zeros_like(p.grad)) 
+                #         #     # print(f"{n = } DOES NOT HAVE GRADIENT...")
+                #         #     pass 
+                #         if n.find("bbox_predictor") != -1: 
+                #             if (p.grad is not None) and not torch.allclose(torch.zeros_like(p.grad), p.grad):  
+                #                 print(f"{n} received a gradient!") 
+                #             else: 
+                #                 print(f"{n} did NOT receive a gradient!") 
 
 
                 # while debugging, go all controlnet, and then this assertion must pass 
@@ -2358,7 +2445,9 @@ def main(args):
             if len(SAVE_STEPS) > 0 and global_step >= SAVE_STEPS[0]: 
                 save_step = SAVE_STEPS[0] 
                 SAVE_STEPS.pop(0) 
-                if accelerator.is_main_process:
+                if global_step > save_step + BS * 2:   
+                    pass 
+                elif accelerator.is_main_process:
                     # newer versions of accelerate allow the 'keep_fp32_wrapper' arg. without passing
                     # it, the models will be unwrapped, and when they are then used for further training,
                     # we will crash. pass this, but only to newer versions of accelerate. fixes
@@ -2409,10 +2498,12 @@ def main(args):
 
                     if args.train_unet: 
                         unet_lora_state_dict = {} 
+                        bbox_predictors_state_dict = {} 
                         for name, param in accelerator.unwrap_model(unet).state_dict().items(): 
-                            if name.find(f"lora") == -1: 
-                                continue 
-                            unet_lora_state_dict[name] = param 
+                            if name.find(f"lora") != -1: 
+                                unet_lora_state_dict[name] = param 
+                            elif name.find(f"bbox_predictor") != -1: 
+                                bbox_predictors_state_dict[name] = param 
 
                     if args.train_text_encoder: 
                         text_encoder_lora_state_dict = {} 
@@ -2434,9 +2525,11 @@ def main(args):
 
                     if args.train_unet: 
                         training_state["unet"]["optimizer"] = optimizers["unet"].state_dict() 
+                        training_state["unet"]["optimizer_bbox"] = optimizers["unet_bbox"].state_dict() 
                         training_state["unet"]["model"] = args.pretrained_model_name_or_path  
                         # training_state["unet"]["lora"] = list(itertools.chain(*unet_lora_params)) 
                         training_state["unet"]["lora"] = unet_lora_state_dict  
+                        training_state["unet"]["bbox_predictors"] = bbox_predictors_state_dict  
 
                     if args.train_text_encoder: 
                         training_state["text_encoder"]["optimizer"] = optimizers["text_encoder"].state_dict() 

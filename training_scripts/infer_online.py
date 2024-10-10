@@ -37,8 +37,8 @@ WHICH_MODEL = "push_centroid_0.1"
 # WHICH_MODEL = "replace_attn_maps"  
 WHICH_STEP = 20000     
 MAX_SUBJECTS_PER_EXAMPLE = 2  
-NUM_SAMPLES = 4   
-MODE = "all_steps" 
+NUM_SAMPLES = 20    
+MODE = "single_step" 
 
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
@@ -155,8 +155,61 @@ from continuous_word_mlp import continuous_word_mlp, MergedEmbedding
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
-import wandb 
 
+
+def patch_bbox_predictors(unet): 
+    bbox_predictors = [] 
+    for down_block in unet.down_blocks:  
+        if hasattr(down_block, "attentions"): 
+            assert len(down_block.attentions) == 2 
+            for transformer_model in down_block.attentions: 
+                assert "Transformer2DModel" in str(type(transformer_model))  
+                assert len(transformer_model.transformer_blocks) == 1 
+                for transformer_block in transformer_model.transformer_blocks:  
+                    inp_dim = transformer_block.attn2.to_q.linear.out_features  
+                    bbox_predictor = nn.Sequential(
+                        nn.Linear(inp_dim, inp_dim),  
+                        nn.ReLU(), 
+                        nn.Linear(inp_dim, 2), 
+                        nn.Tanh(), 
+                    ) 
+                    transformer_block.attn2.bbox_predictor = bbox_predictor  
+                    bbox_predictors.append(bbox_predictor) 
+
+    for up_block in unet.up_blocks: 
+        if hasattr(up_block, "attentions"): 
+            assert len(up_block.attentions) == 3 
+            for transformer_model in up_block.attentions: 
+                assert "Transformer2DModel" in str(type(transformer_model)) 
+                assert len(transformer_model.transformer_blocks) == 1 
+                for transformer_block in transformer_model.transformer_blocks: 
+                    inp_dim = transformer_block.attn2.to_q.linear.out_features 
+                    bbox_predictor = nn.Sequential(
+                        nn.Linear(inp_dim, inp_dim), 
+                        nn.ReLU(), 
+                        nn.Linear(inp_dim, 2), 
+                        nn.Tanh(), 
+                    ) 
+                    transformer_block.attn2.bbox_predictor = bbox_predictor 
+                    bbox_predictors.append(bbox_predictor) 
+
+    assert len(unet.mid_block.attentions) == 1 
+    for transformer_model in unet.mid_block.attentions: 
+        assert "Transformer2DModel" in str(type(transformer_model)) 
+        assert len(transformer_model.transformer_blocks) == 1 
+        for transformer_block in transformer_model.transformer_blocks: 
+            inp_dim = transformer_block.attn2.to_q.linear.out_features 
+            bbox_predictor = nn.Sequential(
+                nn.Linear(inp_dim, inp_dim), 
+                nn.ReLU(), 
+                nn.Linear(inp_dim, 2),  
+                nn.Tanh(), 
+            ) 
+            transformer_block.attn2.bbox_predictor = bbox_predictor 
+            bbox_predictors.append(bbox_predictor) 
+
+    print(f"patched {len(bbox_predictors) = }")
+    return bbox_predictors 
 
 
 class EncoderStatesDataset(Dataset): 
@@ -1042,11 +1095,15 @@ if __name__ == "__main__":
                 _, _ = inject_trainable_lora(pipeline.unet, r=args['lora_rank']) 
             unet_state_dict = pipeline.unet.state_dict() 
             pretrained_unet_state_dict = training_state["unet"]["lora"]
+            if "bbox_predictors" in training_state["unet"].keys(): 
+                bbox_predictors_state_dict = training_state["unet"]["bbox_predictors"] 
             for name, param in unet_state_dict.items(): 
-                if name.find("lora") == -1: 
-                    continue 
-                assert name in pretrained_unet_state_dict.keys()  
-                unet_state_dict[name] = pretrained_unet_state_dict[name] 
+                if name.find("lora") != -1: 
+                    assert name in pretrained_unet_state_dict.keys()  
+                    unet_state_dict[name] = pretrained_unet_state_dict[name] 
+                elif name.find("bbox_predictor") != -1: 
+                    assert name in bbox_predictors_state_dict.keys()  
+                    unet_state_dict[name] = bbox_predictors_state_dict[name] 
             pipeline.unet.load_state_dict(unet_state_dict) 
 
         if "pose_only_embedding" not in args.keys() or not args['pose_only_embedding']: 
