@@ -516,6 +516,18 @@ def parse_args(input_args=None):
         help="the weight of the special token attention loss", 
     ) 
     parser.add_argument(
+        "--bbox_dims_loss", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to use the bbox dims loss", 
+    ) 
+    parser.add_argument(
+        "--bbox_dims_loss_weight", 
+        type=float, 
+        required=True, 
+        help="the weight of the bbox dims attention loss", 
+    ) 
+    parser.add_argument(
         "--with_prior_preservation",
         type=lambda x : bool(strtobool(x)),  
         required=True, 
@@ -636,7 +648,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--log_every",
         type=int,
-        default=25,
+        default=10,
         help="wandb log every ddp steps",
     )
     parser.add_argument(
@@ -1012,7 +1024,7 @@ def main(args):
         with open(pkl_path, "wb") as f: 
             pickle.dump(args.__dict__, f) 
 
-    SAVE_STEPS = [500, 1000, 5000]  
+    SAVE_STEPS = [0, 500, 1000, 5000]  
     for save_step in range(SAVE_STEPS_GAP, args.max_train_steps + 1, SAVE_STEPS_GAP): 
         SAVE_STEPS.append(save_step) 
     SAVE_STEPS = sorted(SAVE_STEPS) 
@@ -1530,8 +1542,6 @@ def main(args):
         attn_store = retval["attn_store"] 
         if args.penalize_special_token_attn: 
             assert loss_store is not None and attn_store is None 
-            # assert that we are beginning with an empty loss store 
-            assert loss_store.step_store["loss"] == 0.0 
         # for batch_idx, angle in enumerate(batch["anagles"]): 
         #     if angle in steps_per_angle.keys(): 
         #         steps_per_angle[angle] += 1 
@@ -1878,8 +1888,10 @@ def main(args):
         #     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
         if args.penalize_special_token_attn: 
-            assert loss_store.step_store["loss"].device == accelerator.device 
-            loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
+            # assert loss_store.step_store["loss"].device == accelerator.device 
+            # loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
+            for k, v in loss_store.step_store.items(): 
+                loss_store.step_store[k] = loss_store.step_store[k] / args.train_batch_size 
 
         # Get the target for loss depending on the prediction type
         if noise_scheduler.config.prediction_type == "epsilon":
@@ -1913,15 +1925,22 @@ def main(args):
             losses.append(torch.tensor(0.0).to(accelerator.device)) 
 
         if args.penalize_special_token_attn: 
-            losses.append(loss_store.step_store["loss"].detach() * args.special_token_attn_loss_weight)  
-            loss = loss + args.special_token_attn_loss_weight * loss_store.step_store["loss"] 
+            losses.append(loss_store.step_store["centroid"].detach() * args.special_token_attn_loss_weight)  
+            loss = loss + args.special_token_attn_loss_weight * loss_store.step_store["centroid"] 
+        else: 
+            losses.append(torch.tensor(0.0).to(accelerator.device))   
+
+        if args.bbox_dims_loss: 
+            losses.append(loss_store.step_store["bbox_dims"].detach() * args.bbox_dims_loss_weight)  
+            loss = loss + args.bbox_dims_loss_weight * loss_store.step_store["bbox_dims"] 
         else: 
             losses.append(torch.tensor(0.0).to(accelerator.device))   
 
         if PRINT_STUFF: 
             accelerator.print(f"MSE loss: {losses[0].item()}, the weight is 1.0")
             accelerator.print(f"prior loss: {losses[1].item()}, {args.prior_loss_weight = }") 
-            accelerator.print(f"special token attn loss: {losses[2].item()}, {args.special_token_attn_loss_weight = }") 
+            accelerator.print(f"centroid attn loss: {losses[2].item()}, {args.special_token_attn_loss_weight = }") 
+            accelerator.print(f"bbox dims attn loss: {losses[3].item()}, {args.bbox_dims_loss_weight = }") 
 
 
         losses = torch.stack(losses).to(accelerator.device) 
@@ -2619,6 +2638,7 @@ def main(args):
             wandb_log_data["scaled_mse_loss"] = gathered_losses[0]   
             wandb_log_data["scaled_prior_loss"] = gathered_losses[1] 
             wandb_log_data["scaled_special_token_attn_loss"] = gathered_losses[2] 
+            wandb_log_data["scaled_bbox_dims_loss"] = gathered_losses[3] 
 
         if args.wandb: 
             # finally logging!

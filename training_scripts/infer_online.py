@@ -33,9 +33,9 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "push_centroid_0.1"    
+WHICH_MODEL = "testing_predbbox2"     
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 20000     
+WHICH_STEP = 2  
 MAX_SUBJECTS_PER_EXAMPLE = 2  
 NUM_SAMPLES = 20    
 MODE = "single_step" 
@@ -43,7 +43,8 @@ MODE = "single_step"
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
 
-KEYWORD = f""   
+from custom_attention_processor import INFINITY
+KEYWORD = f"infinity_{INFINITY}"   
 
 ACROSS_TIMESTEPS = False  
 NUM_INFERENCE_STEPS = 50 
@@ -1093,6 +1094,7 @@ if __name__ == "__main__":
         if args['train_unet']: 
             with torch.no_grad(): 
                 _, _ = inject_trainable_lora(pipeline.unet, r=args['lora_rank']) 
+                patch_bbox_predictors(pipeline.unet) 
             unet_state_dict = pipeline.unet.state_dict() 
             pretrained_unet_state_dict = training_state["unet"]["lora"]
             if "bbox_predictors" in training_state["unet"].keys(): 
@@ -1151,14 +1153,14 @@ if __name__ == "__main__":
         subjects = [
             [
                 {
-                    "subject": "horse", 
+                    "subject": "elephant", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 
                     "y": 0.6,  
                 }, 
                 {
-                    "subject": "jeep", 
+                    "subject": "horse", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.7, 
                     "y": 0.7,  
@@ -1166,14 +1168,14 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "elephant", 
+                    "subject": "bus", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.4, 
                     "y": 0.6, 
                 }, 
                 {
-                    "subject": "lion", 
+                    "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.8, 
                     "y": 0.9, 
@@ -1188,21 +1190,51 @@ if __name__ == "__main__":
                     "y": 0.5, 
                 }, 
                 {
-                    "subject": "bus", 
+                    "subject": "horse", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.7, 
                     "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "horse", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.6,  
+                }, 
+                {
+                    "subject": "elephant", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,  
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "motorbike", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.6,  
+                }, 
+                {
+                    "subject": "bus", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,  
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
-            # "a photo of PLACEHOLDER in front of a dark background", 
-            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            "a photo of PLACEHOLDER in front of a dark background", 
+            # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
             # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
             # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
             # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
         ]
         for prompt in prompts: 
 

@@ -1,4 +1,4 @@
-export RUN_NAME="testing_predbbox1" 
+export RUN_NAME="bbox_predictors" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -30,6 +30,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special_soft" \
   --penalize_special_token_attn="Y" \
+  --bbox_dims_loss="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -47,6 +48,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \
+  --bbox_dims_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
   --pretrained_model_name_or_path=$MODEL_NAME  \
@@ -57,6 +59,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
   --wandb \
-  --resume_training_state="../ckpts/multiobject/__no_gt_bbox_masking/training_state_20000.pth" \
+  --resume_training_state="../ckpts/multiobject/__no_gt_bbox_masking/training_state_100000.pth" \
   --class_data_dir=$CLASS_DATA_DIR 
 
