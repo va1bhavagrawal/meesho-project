@@ -25,7 +25,7 @@ import os.path as osp
 import time 
 
 DEBUG_ATTN = False  
-INFINITY = 10.0  
+INFINITY = 15.0  
 
 
 def generate_attention_scores_mask(bbox, attention_map_size, temperature=1.0):

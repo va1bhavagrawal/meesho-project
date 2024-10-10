@@ -1,4 +1,4 @@
-export RUN_NAME="bbox_predictors" 
+export RUN_NAME="bbox_predictors_inf15" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
