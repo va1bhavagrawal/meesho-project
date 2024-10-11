@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import os 
 import os.path as osp 
 import time 
+import random 
 
 DEBUG_ATTN = False  
 BOX_RESIZING_FACTOR = 1.2 
