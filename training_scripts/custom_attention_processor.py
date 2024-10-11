@@ -25,7 +25,7 @@ import os.path as osp
 import time 
 
 DEBUG_ATTN = False  
-INFINITY = 15.0  
+INFINITY = 10.0  
 
 
 def generate_attention_scores_mask(bbox, attention_map_size, temperature=1.0):
@@ -315,7 +315,7 @@ class CustomAttentionProcessor:
                     query_centroid_feature = query_batch[mean_i_attn, mean_j_attn] 
 
                     bbox_dims_normalized = attn.bbox_predictor(query_centroid_feature.unsqueeze(0)).squeeze()  
-                    bbox_dims_normalized = bbox_dims_normalized * 0.5 + 0.5 
+                    bbox_dims_normalized = bbox_dims_normalized * 0.4 + 0.6 
                     assert bbox_dims_normalized.shape == (2, ) 
 
                     h, w = bbox_dims_normalized[0], bbox_dims_normalized[1]  
