@@ -1,4 +1,4 @@
-export RUN_NAME="proper_attn_masks_noattnloss" 
+export RUN_NAME="noattnloss_randombbox" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
