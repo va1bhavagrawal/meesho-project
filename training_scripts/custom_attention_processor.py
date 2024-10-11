@@ -239,6 +239,10 @@ class CustomAttentionProcessor:
                     max_side = max(h, w) 
                     h = max_side 
                     w = max_side 
+                    random_scaling_factor = 0.75 + random.random()   
+                    h = h * random_scaling_factor 
+                    random_scaling_factor = 0.75 + random.random()   
+                    w = w * random_scaling_factor 
                     i_min = torch.round(max(torch.tensor(0), mean_i - h // 2)).to(dtype=torch.long) 
                     i_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_i + h // 2)).to(dtype=torch.long) 
                     j_min = torch.round(max(torch.tensor(0), mean_j - w // 2)).to(dtype=torch.long) 
