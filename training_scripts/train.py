@@ -951,7 +951,7 @@ def main(args):
         with open(pkl_path, "wb") as f: 
             pickle.dump(args.__dict__, f) 
 
-    SAVE_STEPS = [500, 1000, 5000]  
+    SAVE_STEPS = [4, 500, 1000, 5000]  
     for save_step in range(SAVE_STEPS_GAP, args.max_train_steps + 1, SAVE_STEPS_GAP): 
         SAVE_STEPS.append(save_step) 
     SAVE_STEPS = sorted(SAVE_STEPS) 

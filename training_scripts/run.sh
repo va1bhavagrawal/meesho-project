@@ -1,4 +1,4 @@
-export RUN_NAME="noattnloss_randombbox_0.75_1.25"  
+export RUN_NAME="noattnloss_0.75_1.25_softmask"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"

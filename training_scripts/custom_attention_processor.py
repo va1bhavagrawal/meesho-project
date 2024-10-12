@@ -27,7 +27,69 @@ import random
 
 DEBUG_ATTN = False  
 BOX_RESIZING_FACTOR = 1.2 
-INFINITY = 1e9
+INFINITY = 15.0  
+
+def generate_attention_scores_mask(bbox, attention_map_size, temperature=1.0):
+    """
+    Generates a stable attention mask based on predicted bounding box.
+    
+    bbox: Tensor of shape [batch_size, 4] (x_min, y_min, x_max, y_max)
+    attention_map_size: (H, W) of the attention map to be masked
+    temperature: controls the softness of the mask (lower = sharper)
+    large_neg: large negative value to penalize areas outside the bounding box
+
+    Returns:
+    - A mask of shape [batch_size, H, W], with values between large_neg and 0.
+    """
+    batch_size = bbox.shape[0]
+    H, W = attention_map_size
+
+    # Create a grid of coordinates
+    y_grid, x_grid = torch.meshgrid(torch.linspace(0, 1, H), torch.linspace(0, 1, W))
+    y_grid, x_grid = y_grid.to(bbox.device), x_grid.to(bbox.device)
+
+    # Reshape the grid to [1, H, W] so it can broadcast with bbox
+    x_grid = x_grid.unsqueeze(0)
+    y_grid = y_grid.unsqueeze(0)
+
+    # Unpack bounding box coordinates
+    x_min, y_min, x_max, y_max = bbox[:, 0], bbox[:, 1], bbox[:, 2], bbox[:, 3] 
+
+    # Create soft masks for x and y dimensions using sigmoid for differentiability
+    x_mask = torch.sigmoid(temperature * (x_grid - x_min.unsqueeze(1).unsqueeze(2))) * \
+             torch.sigmoid(temperature * (x_max.unsqueeze(1).unsqueeze(2) - x_grid)) 
+
+    y_mask = torch.sigmoid(temperature * (y_grid - y_min.unsqueeze(1).unsqueeze(2))) * \
+             torch.sigmoid(temperature * (y_max.unsqueeze(1).unsqueeze(2) - y_grid)) 
+
+    x_mask = (x_mask - torch.min(x_mask)) / (torch.max(x_mask) - torch.min(x_mask)) 
+    y_mask = (y_mask - torch.min(y_mask)) / (torch.max(y_mask) - torch.min(y_mask)) 
+    x_mask = torch.max(x_mask, torch.tensor(1e-6)) 
+    y_mask = torch.max(y_mask, torch.tensor(1e-6))  
+
+    # plt.imshow(x_mask.squeeze().detach().cpu().numpy()) 
+    # plt.colorbar() 
+    # plt.savefig(f"x_mask.jpg") 
+    # plt.close() 
+
+    # plt.imshow(y_mask.squeeze().detach().cpu().numpy()) 
+    # plt.colorbar() 
+    # plt.savefig(f"y_mask.jpg") 
+    # plt.close() 
+
+    # Combine x and y masks to create a final soft mask
+    soft_mask = x_mask * y_mask
+
+    # Rescale the mask to be in [large_neg, 0]
+    attention_mask = (1 - soft_mask) * (-INFINITY) 
+
+
+    # plt.imshow(attention_mask.detach().squeeze().cpu().numpy()) 
+    # plt.colorbar() 
+    # plt.savefig(f"attention_mask.jpg") 
+    # plt.close() 
+
+    return attention_mask  
 
 
 def get_attention_scores(
@@ -248,9 +310,13 @@ class CustomAttentionProcessor:
                     i_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_i + h // 2)).to(dtype=torch.long) 
                     j_min = torch.round(max(torch.tensor(0), mean_j - w // 2)).to(dtype=torch.long) 
                     j_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_j + w // 2)).to(dtype=torch.long)  
-                    attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
-                    attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
-                    attention_mask_ = attention_mask_ * -INFINITY  
+                    # attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
+                    # attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
+                    # attention_mask_ = attention_mask_ * -INFINITY  
+                    bbox = torch.tensor([j_min, i_min, j_max, i_max]).to(attention_scores.device) 
+                    bbox = bbox / spatial_dim 
+                    attention_mask_ = generate_attention_scores_mask(bbox.unsqueeze(0), (spatial_dim, spatial_dim)) 
+                    
 
                     attention_scores_idx1 = attention_scores_idx1 + attention_mask_ 
                     attention_scores_idx2 = attention_scores_idx2 + attention_mask_  

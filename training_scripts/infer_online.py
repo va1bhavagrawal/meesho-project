@@ -33,12 +33,12 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "noattnloss_randombbox"    
+WHICH_MODEL = "noattnloss_0.75_1.25_softmask"    
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 80000   
+WHICH_STEP = 4  
 MAX_SUBJECTS_PER_EXAMPLE = 2        
-NUM_SAMPLES = 17      
-MODE = "all_steps" 
+NUM_SAMPLES = 20  
+MODE = "single_step" 
 
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
@@ -1100,14 +1100,14 @@ if __name__ == "__main__":
         subjects = [
             [
                 {
-                    "subject": "tractor", 
+                    "subject": "horse", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 
                     "y": 0.6,  
                 }, 
                 {
-                    "subject": "sedan", 
+                    "subject": "elephant", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.7, 
                     "y": 0.7,  
@@ -1115,14 +1115,14 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "tractor", 
+                    "subject": "elephant", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.4, 
                     "y": 0.6, 
                 }, 
                 {
-                    "subject": "bicycle", 
+                    "subject": "lion", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.8, 
                     "y": 0.9, 
@@ -1130,34 +1130,34 @@ if __name__ == "__main__":
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
             [
                 {
-                    "subject": "sedan", 
+                    "subject": "bus", 
                     "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 
                     "y": 0.5, 
                 }, 
                 {
-                    "subject": "suv", 
+                    "subject": "jeep", 
                     "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
                     "x": 0.7, 
                     "y": 0.7,   
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            # [
-            #     {
-            #         "subject": "man", 
-            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-            #         "appearance_type": "class", 
-            #         "x": 0.3, 
-            #         "y": 0.5, 
-            #     }, 
-            #     {
-            #         "subject": "sedan", 
-            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-            #         "x": 0.7, 
-            #         "y": 0.7,   
-            #     }
-            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            [
+                {
+                    "subject": "bus", 
+                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                    "appearance_type": "class", 
+                    "x": 0.3, 
+                    "y": 0.5, 
+                }, 
+                {
+                    "subject": "motorbike", 
+                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "x": 0.7, 
+                    "y": 0.7,   
+                }
+            ][:MAX_SUBJECTS_PER_EXAMPLE],  
             # [
             #     {
             #         "subject": "racecar", 
