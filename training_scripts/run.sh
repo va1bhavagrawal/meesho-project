@@ -1,4 +1,4 @@
-export RUN_NAME="voronoi_hard_stage1_1e-5"  
+export RUN_NAME="voronoi_hard_staged_1e-5"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
