@@ -1,4 +1,4 @@
-export RUN_NAME="noattnloss_0.75_1.25_softmask"  
+export RUN_NAME="voronoi_hard"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -29,6 +29,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special_soft" \
   --penalize_special_token_attn="N" \
+  --teacher_force_centroid="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -48,6 +49,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
+  --infinity=1000.0 \
+  --temperature=1000.0 \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --controlnet_data_dir_2subjects=$CONTROLNET_DIR_2SUBJECTS \
   --controlnet_data_dir_1subject=$CONTROLNET_DIR_1SUBJECT \
@@ -55,7 +58,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
 

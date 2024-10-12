@@ -33,10 +33,10 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "noattnloss_0.75_1.25_softmask"    
+WHICH_MODEL = "voronoi_hard"    
 # WHICH_MODEL = "replace_attn_maps"  
 WHICH_STEP = 4  
-MAX_SUBJECTS_PER_EXAMPLE = 2        
+MAX_SUBJECTS_PER_EXAMPLE = 2  
 NUM_SAMPLES = 20  
 MODE = "single_step" 
 
@@ -1175,13 +1175,13 @@ if __name__ == "__main__":
             # ][:MAX_SUBJECTS_PER_EXAMPLE],  
         ]
         prompts = [
-            # "a photo of PLACEHOLDER in front of a dark background", 
-            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            "a photo of PLACEHOLDER in front of a dark background", 
+            # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
             # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
             # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
             # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
         ]
         for prompt in prompts: 
 

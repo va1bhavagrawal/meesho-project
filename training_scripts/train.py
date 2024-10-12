@@ -510,10 +510,28 @@ def parse_args(input_args=None):
         help="whether to penalize the attention maps of the special token against the class token", 
     ) 
     parser.add_argument(
+        "--teacher_force_centroid", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to teacher force centroid",  
+    ) 
+    parser.add_argument(
         "--special_token_attn_loss_weight", 
         type=float, 
         required=True, 
         help="the weight of the special token attention loss", 
+    ) 
+    parser.add_argument(
+        "--infinity", 
+        type=float, 
+        required=True, 
+        help="the infinity to use for masking out the attention", 
+    ) 
+    parser.add_argument(
+        "--temperature", 
+        type=float, 
+        required=True, 
+        help="the temperature to use for the soft attention",  
     ) 
     parser.add_argument(
         "--with_prior_preservation",
@@ -1765,6 +1783,7 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "args": args.__dict__, 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 

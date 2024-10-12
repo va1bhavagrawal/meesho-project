@@ -26,8 +26,27 @@ import time
 import random 
 
 DEBUG_ATTN = False  
-BOX_RESIZING_FACTOR = 1.2 
-INFINITY = 15.0  
+
+def make_voronoi_attention_mask(centroids, attention_map_size, temperature, infinity): 
+    i_grid, j_grid = torch.meshgrid(torch.linspace(0, 1, attention_map_size[0]), torch.linspace(0, 1, attention_map_size[1]), indexing="ij") 
+    ij_grid = torch.stack((i_grid, j_grid), dim=-1).to(centroids.device)  
+    dists = torch.sum((ij_grid.unsqueeze(0) - centroids.unsqueeze(1).unsqueeze(1)) ** 2, dim=-1)  
+    spatial_dim = dists.shape[-1] 
+    if len(centroids) == 2:  
+        masks = torch.stack([dists[0] - dists[1], dists[1] - dists[0]], dim=0) 
+    else: 
+        raise NotImplementedError() 
+    masks = F.sigmoid(temperature * masks.flatten(1, ))  
+    minval = torch.min(masks, dim=-1).values.unsqueeze(-1)  
+    maxval = torch.max(masks, dim=-1).values.unsqueeze(-1)  
+    masks = (masks - minval) / (maxval - minval)  
+    masks = masks.reshape(masks.shape[0], spatial_dim, spatial_dim) 
+    for mask in masks: 
+        assert torch.max(mask) == 1 and torch.min(mask) == 0 
+    masks = masks * (-infinity) 
+    return masks 
+
+
 
 def generate_attention_scores_mask(bbox, attention_map_size, temperature=1.0):
     """
@@ -167,7 +186,6 @@ class CustomAttentionProcessor:
             mean_j_ = int(mean_j_ / torch.sum(across_heads_attention_map)) 
             assert int(mean_i) == mean_i_, f"{mean_i = }, {mean_i_ = }"  
             assert int(mean_j) == mean_j_, f"{mean_j = }, {mean_j_ = }" 
-            print(f"passed mean calculation checks!") 
         
         return mean_i, mean_j 
 
@@ -279,6 +297,9 @@ class CustomAttentionProcessor:
                     bboxes.append(bboxes_example) 
 
             for batch_idx in range(B): 
+                # contains normalized centroids in the form of i, j (NOT x, y)  
+                attn_means = [] 
+                bbox_centers = [] 
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
                     assert idx1 != idx2 
                     assert attention_scores_batch_split[batch_idx].ndim == 3  
@@ -294,32 +315,55 @@ class CustomAttentionProcessor:
                     attention_scores_idx2 = attention_scores_idx2.reshape(n_heads, spatial_dim, spatial_dim)  
 
                     bbox = bboxes[batch_idx][asset_idx] 
-                    mean_i, mean_j = torch.round(spatial_dim * ((bbox[1] + bbox[3]) / 2)), torch.round(spatial_dim * ((bbox[0] + bbox[2]) / 2))  
-                    h, w = torch.round((bbox[3] - bbox[1]) * spatial_dim), torch.round((bbox[2] - bbox[0]) * spatial_dim) 
-                    if resize_box: 
-                        h, w = torch.round(h * BOX_RESIZING_FACTOR), torch.round(w * BOX_RESIZING_FACTOR) 
-                    h, w = h.to(dtype=torch.long), w.to(dtype=torch.long) 
-                    max_side = max(h, w) 
-                    h = max_side 
-                    w = max_side 
-                    random_scaling_factor = 0.75 + random.random() * 0.5  
-                    h = h * random_scaling_factor 
-                    random_scaling_factor = 0.75 + random.random() * 0.5  
-                    w = w * random_scaling_factor 
-                    i_min = torch.round(max(torch.tensor(0), mean_i - h // 2)).to(dtype=torch.long) 
-                    i_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_i + h // 2)).to(dtype=torch.long) 
-                    j_min = torch.round(max(torch.tensor(0), mean_j - w // 2)).to(dtype=torch.long) 
-                    j_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_j + w // 2)).to(dtype=torch.long)  
-                    # attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
-                    # attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
-                    # attention_mask_ = attention_mask_ * -INFINITY  
-                    bbox = torch.tensor([j_min, i_min, j_max, i_max]).to(attention_scores.device) 
-                    bbox = bbox / spatial_dim 
-                    attention_mask_ = generate_attention_scores_mask(bbox.unsqueeze(0), (spatial_dim, spatial_dim)) 
-                    
+                    mean_i, mean_j = (bbox[1] + bbox[3]) / 2, (bbox[0] + bbox[2]) / 2   
+                    bbox_centers.append(torch.stack([mean_i, mean_j], dim=0)) 
 
-                    attention_scores_idx1 = attention_scores_idx1 + attention_mask_ 
-                    attention_scores_idx2 = attention_scores_idx2 + attention_mask_  
+                    mean_i_attn, mean_j_attn = self.find_attention_mean(attention_scores_idx2)  
+                    mean_i_attn, mean_j_attn = mean_i_attn / spatial_dim, mean_j_attn / spatial_dim 
+                    attn_means.append(torch.stack([mean_i_attn, mean_j_attn], dim=0)) 
+
+                if len(bbox_centers) == 2: 
+                    bbox_centers = torch.stack(bbox_centers, dim=0)  
+                    attn_means = torch.stack(attn_means, dim=0)  
+                    temperature = encoder_hidden_states["args"]["temperature"] if "temperature" in encoder_hidden_states["args"].keys() else 1.0  
+                    if "teacher_force_centroid" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["teacher_force_centroid"] == True: 
+                        attention_masks = make_voronoi_attention_mask(bbox_centers, (spatial_dim, spatial_dim), temperature=temperature, infinity=encoder_hidden_states["args"]["infinity"])  
+                    else: 
+                        attention_masks = make_voronoi_attention_mask(attn_means, (spatial_dim, spatial_dim), temperature=temperature, infinity=encoder_hidden_states["args"]["infinity"])  
+                elif len(bbox_centers) == 1: 
+                    bbox_centers = torch.stack(bbox_centers, dim=0)  
+                    attn_means = torch.stack(attn_means, dim=0)  
+                    attention_masks = torch.zeros((1, spatial_dim, spatial_dim)).to(attention_scores.device) 
+
+                # import matplotlib.pyplot as plt 
+                # fig, axs = plt.subplots(1, 2, figsize=(20, 5)) 
+                # axs[0].imshow(attention_masks[0].cpu().numpy()) 
+                # # axs[0].scatter([j1], [i1]) 
+                # # axs[0].scatter([j2], [i2]) 
+                # axs[1].imshow(attention_masks[1].cpu().numpy()) 
+                # # axs[1].scatter([j1], [i1]) 
+                # # axs[1].scatter([j2], [i2]) 
+                # plt.savefig(f"mask.jpg") 
+                # plt.close() 
+                # sys.exit(0) 
+
+
+                for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    assert idx1 != idx2 
+                    assert attention_scores_batch_split[batch_idx].ndim == 3  
+                    assert attention_scores_batch_split[batch_idx].shape[-1] == 77 
+                    attention_scores_idx1 = attention_scores_batch_split[batch_idx][..., idx1] 
+                    attention_scores_idx2 = attention_scores_batch_split[batch_idx][..., idx2]  
+                    spatial_dim = int(math.sqrt(attention_scores.shape[-2])) 
+                    assert spatial_dim * spatial_dim == attention_scores_idx1.shape[-1] == attention_scores_idx2.shape[-1], f"{spatial_dim = }, {attention_scores_idx1.shape = }, {attention_scores_idx1.shape = }" 
+                    n_heads = attention_scores_idx1.shape[0] 
+                    assert attention_scores_idx2.shape[0] == n_heads 
+
+                    attention_scores_idx1 = attention_scores_idx1.reshape(n_heads, spatial_dim, spatial_dim)  
+                    attention_scores_idx2 = attention_scores_idx2.reshape(n_heads, spatial_dim, spatial_dim)  
+
+                    attention_scores_idx1 = attention_scores_idx1 + attention_masks[asset_idx] 
+                    attention_scores_idx2 = attention_scores_idx2 + attention_masks[asset_idx]  
 
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
                     idx1_mask[idx1] = 1 
