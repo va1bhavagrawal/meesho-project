@@ -1,4 +1,4 @@
-export RUN_NAME="bbox_predictors_noforcing" 
+export RUN_NAME="bbox_predictors_0.75_1.25_usegt" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -18,7 +18,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_text_encoder="N" \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
-  --layout_only="Y" \
+  --layout_only="N" \
   --learning_rate=1e-4 \
   --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
@@ -30,7 +30,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --include_class_in_prompt="Y" \
   --replace_attn_maps="class2special_soft" \
   --penalize_special_token_attn="N" \
-  --bbox_dims_loss="N" \
+  --bbox_dims_loss="Y" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
@@ -47,6 +47,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_location_conditioning="N" \
   --attn_bbox_from_class_mean="Y" \
   --prior_loss_weight=1.0 \
+  --use_gt_centroid="Y" \
+  --use_gt_bbox_dims="Y" \
   --special_token_attn_loss_weight=0.1 \
   --bbox_dims_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \

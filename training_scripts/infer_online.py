@@ -33,9 +33,9 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "testing_predbbox2"     
+WHICH_MODEL = "bbox_predictors_0.75_1.25_usegt"     
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 2  
+WHICH_STEP = 2    
 MAX_SUBJECTS_PER_EXAMPLE = 2  
 NUM_SAMPLES = 20    
 MODE = "single_step" 
@@ -169,9 +169,9 @@ def patch_bbox_predictors(unet):
                 for transformer_block in transformer_model.transformer_blocks:  
                     inp_dim = transformer_block.attn2.to_q.linear.out_features  
                     bbox_predictor = nn.Sequential(
-                        nn.Linear(inp_dim, inp_dim),  
+                        nn.Linear(inp_dim + 2048, inp_dim + 2048),  
                         nn.ReLU(), 
-                        nn.Linear(inp_dim, 2), 
+                        nn.Linear(inp_dim + 2048, 2), 
                         nn.Tanh(), 
                     ) 
                     transformer_block.attn2.bbox_predictor = bbox_predictor  
@@ -186,9 +186,9 @@ def patch_bbox_predictors(unet):
                 for transformer_block in transformer_model.transformer_blocks: 
                     inp_dim = transformer_block.attn2.to_q.linear.out_features 
                     bbox_predictor = nn.Sequential(
-                        nn.Linear(inp_dim, inp_dim), 
+                        nn.Linear(inp_dim + 2048, inp_dim + 2048), 
                         nn.ReLU(), 
-                        nn.Linear(inp_dim, 2), 
+                        nn.Linear(inp_dim + 2048, 2), 
                         nn.Tanh(), 
                     ) 
                     transformer_block.attn2.bbox_predictor = bbox_predictor 
@@ -201,9 +201,9 @@ def patch_bbox_predictors(unet):
         for transformer_block in transformer_model.transformer_blocks: 
             inp_dim = transformer_block.attn2.to_q.linear.out_features 
             bbox_predictor = nn.Sequential(
-                nn.Linear(inp_dim, inp_dim), 
+                nn.Linear(inp_dim + 2048, inp_dim + 2048), 
                 nn.ReLU(), 
-                nn.Linear(inp_dim, 2),  
+                nn.Linear(inp_dim + 2048, 2),  
                 nn.Tanh(), 
             ) 
             transformer_block.attn2.bbox_predictor = bbox_predictor 

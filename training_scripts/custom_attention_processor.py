@@ -23,9 +23,10 @@ import matplotlib.pyplot as plt
 import os 
 import os.path as osp 
 import time 
+import random 
 
 DEBUG_ATTN = False  
-INFINITY = 10.0  
+INFINITY = 15.0  
 
 
 def generate_attention_scores_mask(bbox, attention_map_size, temperature=1.0):
@@ -166,7 +167,7 @@ class CustomAttentionProcessor:
             mean_j_ = int(mean_j_ / torch.sum(across_heads_attention_map)) 
             assert int(mean_i) == mean_i_, f"{mean_i = }, {mean_i_ = }"  
             assert int(mean_j) == mean_j_, f"{mean_j = }, {mean_j_ = }" 
-            print(f"passed mean calculation checks!") 
+            # print(f"passed mean calculation checks!") 
         
         return mean_i, mean_j 
 
@@ -285,14 +286,17 @@ class CustomAttentionProcessor:
             for batch_idx in range(B): 
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
                     # assert idx1 != idx2 
-                    assert attention_scores_batch_split[batch_idx].ndim == 3  
-                    assert attention_scores_batch_split[batch_idx].shape[-1] == 77 
+                    if DEBUG_ATTN: 
+                        assert attention_scores_batch_split[batch_idx].ndim == 3  
+                        assert attention_scores_batch_split[batch_idx].shape[-1] == 77 
                     attention_scores_idx1 = attention_scores_batch_split[batch_idx][..., idx1] 
                     attention_scores_idx2 = attention_scores_batch_split[batch_idx][..., idx2]  
                     spatial_dim = int(math.sqrt(attention_scores.shape[-2])) 
-                    assert spatial_dim * spatial_dim == attention_scores_idx1.shape[-1] == attention_scores_idx2.shape[-1], f"{spatial_dim = }, {attention_scores_idx1.shape = }, {attention_scores_idx1.shape = }" 
+                    if DEBUG_ATTN: 
+                        assert spatial_dim * spatial_dim == attention_scores_idx1.shape[-1] == attention_scores_idx2.shape[-1], f"{spatial_dim = }, {attention_scores_idx1.shape = }, {attention_scores_idx1.shape = }" 
                     n_heads = attention_scores.shape[0] // B  
-                    assert attention_scores_idx2.shape[0] == n_heads == attention_scores_idx1.shape[0]  
+                    if DEBUG_ATTN: 
+                        assert attention_scores_idx2.shape[0] == n_heads == attention_scores_idx1.shape[0]  
 
                     attention_scores_idx1 = attention_scores_idx1.reshape(n_heads, spatial_dim, spatial_dim)  
                     attention_scores_idx2 = attention_scores_idx2.reshape(n_heads, spatial_dim, spatial_dim)  
@@ -309,16 +313,57 @@ class CustomAttentionProcessor:
                     #     mean_i_attn, mean_j_attn = mean_i, mean_j 
 
                     query_batch = attn.batch_to_head_dim(query)  
-                    assert query_batch.shape[0] == B 
-                    query_batch = query_batch[batch_idx].reshape(spatial_dim, spatial_dim, attn.bbox_predictor[0].in_features)   
+                    if DEBUG_ATTN: 
+                        assert query_batch.shape[0] == B 
+                    query_batch = query_batch[batch_idx].reshape(spatial_dim, spatial_dim, -1)    
 
                     query_centroid_feature = query_batch[mean_i_attn, mean_j_attn] 
-
-                    bbox_dims_normalized = attn.bbox_predictor(query_centroid_feature.unsqueeze(0)).squeeze()  
+                    bbox_predictor_input = torch.cat([query_centroid_feature, actual_encoder_hidden_states[batch_idx, idx1], actual_encoder_hidden_states[batch_idx, idx2]], dim=0) 
+                    bbox_dims_normalized = attn.bbox_predictor(bbox_predictor_input.unsqueeze(0)).squeeze()  
                     bbox_dims_normalized = bbox_dims_normalized * 0.4 + 0.6 
-                    assert bbox_dims_normalized.shape == (2, ) 
+                    if DEBUG_ATTN: 
+                        assert bbox_dims_normalized.shape == (2, ) 
 
                     h, w = bbox_dims_normalized[0], bbox_dims_normalized[1]  
+
+
+                    if self.loss_store is not None: 
+                        attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
+                        # centroid_loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
+                        # centroid_loss = centroid_loss / (spatial_dim * spatial_dim) 
+
+                        # bbox_dims_loss = (h - h_gt) ** 2 + (w - w_gt) ** 2 
+
+                        # loss = {
+                        #     "centroid": centroid_loss, 
+                        #     "bbox_dims": bbox_dims_loss, 
+                        # } 
+                        pred_corners = torch.stack([mean_j_attn / spatial_dim - w / 2, mean_i_attn / spatial_dim - h / 2, mean_j_attn / spatial_dim + w / 2, mean_i_attn / spatial_dim + h / 2], dim=0).to(attention_scores.device)  
+                        gt_corners = torch.stack([mean_j / spatial_dim - w_gt / 2, mean_i / spatial_dim - h_gt / 2, mean_j / spatial_dim + w_gt / 2, mean_i / spatial_dim + h_gt / 2], dim=0).to(attention_scores.device)  
+                        bbox_dims_loss = torch.sum((pred_corners - gt_corners) ** 2)  
+                        loss = {
+                            "centroid": torch.tensor(0.0).to(bbox_dims_loss.device),  
+                            "bbox_dims": bbox_dims_loss,  
+                        }
+                        self.loss_store(loss) 
+
+
+                    use_gt_centroid = "use_gt_centroid" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["use_gt_centroid"] == True  
+                    use_gt_bbox_dims = "use_gt_bbox_dims" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["use_gt_bbox_dims"] == True  
+                    if use_gt_centroid:  
+                        mean_i_attn, mean_j_attn = mean_i, mean_j 
+                    if use_gt_bbox_dims:  
+                        h, w = h_gt, w_gt 
+                    
+                    if use_gt_centroid or use_gt_bbox_dims:  
+                        max_side = max(h, w) 
+                        h = max_side 
+                        w = max_side 
+                        random_scaling_factor = 0.75 + random.random() * 0.5  
+                        h = h * random_scaling_factor 
+                        random_scaling_factor = 0.75 + random.random() * 0.5  
+                        w = w * random_scaling_factor 
+
                     # if DEBUG_ATTN: 
                     #     h, w = h_gt, w_gt 
                     i_min = torch.max(torch.tensor(0.0), mean_i_attn / spatial_dim - h / 2).to(dtype=torch.float32)  
@@ -340,36 +385,27 @@ class CustomAttentionProcessor:
                     attention_scores_idx1 = attention_scores_idx1 + attention_mask_  
                     attention_scores_idx2 = attention_scores_idx2 + attention_mask_  
 
-                    if "layout_only" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["layout_only"] == True: 
+                    if DEBUG_ATTN and ("layout_only" in encoder_hidden_states["args"].keys() and encoder_hidden_states["args"]["layout_only"] == True): 
                         assert torch.allclose(attention_scores_idx1, attention_scores_idx2) 
 
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
                     idx1_mask[idx1] = 1 
                     replacement = attention_scores_batch_split[batch_idx] * (1 - idx1_mask) + attention_scores_idx1.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx1_mask) 
-                    assert replacement.shape == attention_scores_batch_split[batch_idx].shape 
+                    if DEBUG_ATTN: 
+                        assert replacement.shape == attention_scores_batch_split[batch_idx].shape 
                     attention_scores_batch_split[batch_idx] = replacement  
 
                     idx2_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
                     idx2_mask[idx2] = 1  
                     replacement = attention_scores_batch_split[batch_idx] * (1 - idx2_mask) + attention_scores_idx2.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx2_mask) 
-                    assert attention_scores_batch_split[batch_idx].shape == replacement.shape 
+                    if DEBUG_ATTN: 
+                        assert attention_scores_batch_split[batch_idx].shape == replacement.shape 
                     attention_scores_batch_split[batch_idx] = replacement  
 
-                    assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx1], attention_scores_idx1.flatten(1,)) 
-                    assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx2], attention_scores_idx2.flatten(1,))   
+                    if DEBUG_ATTN: 
+                        assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx1], attention_scores_idx1.flatten(1,)) 
+                        assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx2], attention_scores_idx2.flatten(1,))   
 
-                    if self.loss_store is not None: 
-                        attention_probs_idx2 = attention_probs_batch_split[batch_idx][..., idx2] 
-                        centroid_loss = (mean_i_attn - mean_i) ** 2 + (mean_j_attn - mean_j) ** 2 
-                        centroid_loss = centroid_loss / (spatial_dim * spatial_dim) 
-
-                        bbox_dims_loss = (h - h_gt) ** 2 + (w - w_gt) ** 2 
-
-                        loss = {
-                            "centroid": centroid_loss, 
-                            "bbox_dims": bbox_dims_loss, 
-                        } 
-                        self.loss_store(loss) 
 
             attention_scores = torch.cat(attention_scores_batch_split, dim=0) 
             attention_probs = F.softmax(attention_scores, dim=-1) 

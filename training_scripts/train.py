@@ -456,6 +456,18 @@ def parse_args(input_args=None):
         help="whether to only use pose in the merged embedding?", 
     )
     parser.add_argument(
+        "--use_gt_centroid", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to use the gt centroid", 
+    )
+    parser.add_argument(
+        "--use_gt_bbox_dims", 
+        type=lambda x : bool(strtobool(x)),  
+        required=True, 
+        help="whether to use the gt bbox dims during training", 
+    )
+    parser.add_argument(
         "--normalize_merged_embedding", 
         type=lambda x : bool(strtobool(x)),  
         required=True, 
@@ -846,9 +858,9 @@ def patch_bbox_predictors(unet):
                 for transformer_block in transformer_model.transformer_blocks:  
                     inp_dim = transformer_block.attn2.to_q.linear.out_features  
                     bbox_predictor = nn.Sequential(
-                        nn.Linear(inp_dim, inp_dim),  
+                        nn.Linear(inp_dim + 2048, inp_dim + 2048),  
                         nn.ReLU(), 
-                        nn.Linear(inp_dim, 2), 
+                        nn.Linear(inp_dim + 2048, 2), 
                         nn.Tanh(), 
                     ) 
                     transformer_block.attn2.bbox_predictor = bbox_predictor  
@@ -863,9 +875,9 @@ def patch_bbox_predictors(unet):
                 for transformer_block in transformer_model.transformer_blocks: 
                     inp_dim = transformer_block.attn2.to_q.linear.out_features 
                     bbox_predictor = nn.Sequential(
-                        nn.Linear(inp_dim, inp_dim), 
+                        nn.Linear(inp_dim + 2048, inp_dim + 2048), 
                         nn.ReLU(), 
-                        nn.Linear(inp_dim, 2), 
+                        nn.Linear(inp_dim + 2048, 2), 
                         nn.Tanh(), 
                     ) 
                     transformer_block.attn2.bbox_predictor = bbox_predictor 
@@ -878,9 +890,9 @@ def patch_bbox_predictors(unet):
         for transformer_block in transformer_model.transformer_blocks: 
             inp_dim = transformer_block.attn2.to_q.linear.out_features 
             bbox_predictor = nn.Sequential(
-                nn.Linear(inp_dim, inp_dim), 
+                nn.Linear(inp_dim + 2048, inp_dim + 2048), 
                 nn.ReLU(), 
-                nn.Linear(inp_dim, 2),  
+                nn.Linear(inp_dim + 2048, 2),  
                 nn.Tanh(), 
             ) 
             transformer_block.attn2.bbox_predictor = bbox_predictor 
@@ -1537,7 +1549,7 @@ def main(args):
 
     while True: 
 
-        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
+        retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn or args.bbox_dims_loss)   
         loss_store = retval["loss_store"] 
         attn_store = retval["attn_store"] 
         if args.penalize_special_token_attn: 
