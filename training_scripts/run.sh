@@ -1,4 +1,4 @@
-export RUN_NAME="noreplacement_withpriorpreservation"  
+export RUN_NAME="noreplacement_nopriorpreservation"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -19,7 +19,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
-  --learning_rate_merger=1e-3 \
+  --learning_rate_merger=1e-4 \
   --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
@@ -32,7 +32,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
   --pose_only_embedding="Y" \
-  --with_prior_preservation="Y" \
+  --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --stage1_steps=150000 \
