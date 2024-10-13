@@ -1,4 +1,4 @@
-export RUN_NAME="voronoi_hard_staged"  
+export RUN_NAME="voronoi_hard_staged_1e-4_1e-4"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -19,9 +19,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
-  --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
-  --learning_rate_emb=1e-3 \
   --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
