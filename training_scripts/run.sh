@@ -33,7 +33,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
   --pose_only_embedding="Y" \
-  --with_prior_preservation="Y" \
+  --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --stage1_steps=150000 \
