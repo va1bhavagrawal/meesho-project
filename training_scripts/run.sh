@@ -1,4 +1,4 @@
-export RUN_NAME="voronoi_hard_staged_1e-4_1e-4"  
+export RUN_NAME="noreplacement"  
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -19,13 +19,12 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
-  --learning_rate_merger=1e-4 \
+  --learning_rate_merger=1e-3 \
   --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
-  --replace_attn_maps="class2special_soft" \
   --penalize_special_token_attn="N" \
   --teacher_force_centroid="Y" \
   --normalize_merged_embedding="N" \
@@ -39,7 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=150000 \
   --stage2_steps=100000 \
   --resolution=512 \
-  --train_batch_size=2 \
+  --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --attn_bbox_from_class_mean="Y" \

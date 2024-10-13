@@ -4,7 +4,8 @@
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
 #SBATCH --mem=300G  
-#SBATCH --gres=gpu:7      
+#SBATCH --gres=gpu:6        
 #SBATCH --partition=short  
+#SBATCH -w cn4 
 
 accelerate launch --config_file accelerate_config.yaml infer_online.py  
