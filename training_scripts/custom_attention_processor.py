@@ -227,7 +227,7 @@ class CustomAttentionProcessor:
         key = attn.to_k(actual_encoder_hidden_states)
         value = attn.to_v(actual_encoder_hidden_states) 
 
-        if type(encoder_hidden_states) == dict: 
+        if type(encoder_hidden_states) == dict and (encoder_hidden_states["args"]["replace_attn_maps"] is not None): 
             if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
                 B = len(encoder_hidden_states["attn_assignments"]) 
                 for batch_idx in range(B // 2 + 1, B): 
@@ -331,6 +331,8 @@ class CustomAttentionProcessor:
                     else: 
                         attention_masks = make_voronoi_attention_mask(attn_means, (spatial_dim, spatial_dim), temperature=temperature, infinity=encoder_hidden_states["args"]["infinity"])  
                 elif len(bbox_centers) == 1: 
+                    if DEBUG_ATTN: 
+                        assert False  
                     bbox_centers = torch.stack(bbox_centers, dim=0)  
                     attn_means = torch.stack(attn_means, dim=0)  
                     attention_masks = torch.zeros((1, spatial_dim, spatial_dim)).to(attention_scores.device) 

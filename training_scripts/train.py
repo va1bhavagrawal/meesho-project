@@ -1260,8 +1260,8 @@ def main(args):
     train_dataset_stage2 = DisentangleDataset(
         args=args, 
         tokenizer=tokenizer, 
-        ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
-        controlnet_imgs_dirs=[args.controlnet_data_dir_1subject, args.controlnet_data_dir_2subjects],  
+        ref_imgs_dirs=[args.instance_data_dir_2subjects],  
+        controlnet_imgs_dirs=[args.controlnet_data_dir_2subjects],  
         num_steps=args.stage2_steps, 
     ) 
 
@@ -1477,7 +1477,7 @@ def main(args):
                         wandb.log(wandb_log_data) 
                 continue 
 
-        if global_step <= args.stage1_steps:  
+        if global_step < args.stage1_steps:  
             MAX_SUBJECTS_PER_EXAMPLE = 1  
             batch = next(train_dataloader_stage1_iter)  
         else: 
