@@ -33,7 +33,7 @@ sys.path.append(f"..")
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
 
-WHICH_MODEL = "pose_key_coeff_1.0"    
+WHICH_MODEL = "pose_key_coeff_0.5"    
 # WHICH_MODEL = "replace_attn_maps"  
 WHICH_STEP = 50000  
 MAX_SUBJECTS_PER_EXAMPLE = 2    

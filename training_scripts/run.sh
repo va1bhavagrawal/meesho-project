@@ -1,4 +1,4 @@
-export RUN_NAME="pose_key_coeff_1.0" 
+export RUN_NAME="pose_key_coeff_0.5" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -38,7 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=0 \
   --stage2_steps=150000 \
   --resolution=512 \
-  --pose_key_coeff=1.0 \
+  --pose_key_coeff=0.5 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
