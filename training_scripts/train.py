@@ -510,6 +510,12 @@ def parse_args(input_args=None):
         help="whether to penalize the attention maps of the special token against the class token", 
     ) 
     parser.add_argument(
+        "--pose_key_coeff", 
+        type=float, 
+        required=True, 
+        help="pose key coefficient", 
+    ) 
+    parser.add_argument(
         "--special_token_attn_loss_weight", 
         type=float, 
         required=True, 
@@ -1765,6 +1771,7 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "args": args.__dict__, 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 

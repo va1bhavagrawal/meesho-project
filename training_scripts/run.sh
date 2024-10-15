@@ -1,4 +1,4 @@
-export RUN_NAME="square_bbox" 
+export RUN_NAME="pose_key_coeff_1.0" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -19,13 +19,12 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
-  --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
-  --learning_rate_emb=1e-3 \
   --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
   --lr_warmup_steps=0 \
+  --replace_attn_maps="class2special_soft" \
   --include_class_in_prompt="Y" \
   --penalize_special_token_attn="N" \
   --normalize_merged_embedding="N" \
@@ -39,6 +38,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=0 \
   --stage2_steps=150000 \
   --resolution=512 \
+  --pose_key_coeff=1.0 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \

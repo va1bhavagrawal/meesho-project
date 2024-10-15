@@ -171,26 +171,32 @@ class CustomAttentionProcessor:
                         assert idx1 != idx2 
 
                         if class2special: 
+                            assert False 
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
 
                         elif class2special_detached: 
                             # if DEBUG_ATTN: 
                                 # print(f"using class2special_detached!") 
+                            assert False 
                             key[batch_idx][idx1] = key[batch_idx][idx2].detach()  
                         
                         elif special2class_detached: 
                             # if DEBUG_ATTN: 
                                 # print(f"using special2class_detached!")
+                            assert False 
                             key[batch_idx][idx2] = key[batch_idx][idx1].detach()  
 
                         elif special2class: 
+                            assert False 
                             key[batch_idx][idx2] = key[batch_idx][idx1]  
 
                         elif class2special_soft: 
-                            key[batch_idx][idx1] = key[batch_idx][idx1] + key[batch_idx][idx2] 
+                            key[batch_idx][idx1] = key[batch_idx][idx2] + key[batch_idx][idx1] * encoder_hidden_states["args"]["pose_key_coeff"]  
                         
                         else: 
                             assert False 
+            else: 
+                assert False 
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
