@@ -147,13 +147,13 @@ class CustomAttentionProcessor:
         value = attn.to_v(actual_encoder_hidden_states) 
 
         if type(encoder_hidden_states) == dict: 
-            if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
-                B = len(encoder_hidden_states["attn_assignments"]) 
-                for batch_idx in range(B // 2 + 1, B): 
-                    for seq_idx in range(len(key[0])): 
-                        key[batch_idx][seq_idx] = key[B // 2][seq_idx] 
-                    for seq_idx in range(len(query[0])): 
-                        query[batch_idx][seq_idx] = query[B // 2][seq_idx] 
+            # if "p2p" in encoder_hidden_states.keys() and encoder_hidden_states["p2p"] == True:   
+            #     B = len(encoder_hidden_states["attn_assignments"]) 
+            #     for batch_idx in range(B // 2 + 1, B): 
+            #         for seq_idx in range(len(key[0])): 
+            #             key[batch_idx][seq_idx] = key[B // 2][seq_idx] 
+            #         for seq_idx in range(len(query[0])): 
+            #             query[batch_idx][seq_idx] = query[B // 2][seq_idx] 
                          
             kwargs = encoder_hidden_states.keys() 
             class2special = "class2special" in kwargs and encoder_hidden_states["class2special"] == True 

@@ -62,8 +62,8 @@ from custom_attention_processor import patch_custom_attention
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
 DEBUG = False  
-PRINT_STUFF = False  
-BS = 4   
+PRINT_STUFF = True  
+BS = 1    
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -1128,6 +1128,7 @@ def main(args):
         # optimizers.append(optimizer_text_encoder) 
         optimizers["text_encoder"] = optimizer_text_encoder 
 
+    # DOES NOT GO HERE!
     if args.textual_inv or args.learn_class_embedding: 
         # the appearance embeddings 
         bnha_embeds = {} 
@@ -1164,7 +1165,7 @@ def main(args):
         # optimizers.append(optimizer_bnha) 
         optimizers["appearance"] = optimizer_bnha 
 
-
+    # DOES NOT GO HERE!
     if not args.pose_only_embedding: 
         pos_size = 2
         continuous_word_model = continuous_word_mlp(input_size=pos_size, output_size=1024)
@@ -1202,6 +1203,7 @@ def main(args):
 
     else: 
         continuous_word_model = None 
+        # LOCATION CONDITIONING NOT PROVIDED ANY MORE 
         if args.use_location_conditioning: 
             merger = PoseLocationEmbedding(256, args.merged_emb_dim) 
         else: 
@@ -1439,6 +1441,7 @@ def main(args):
         retval = patch_custom_attention(accelerator.unwrap_model(unet), store_attn=False, across_timesteps=False, store_loss=args.penalize_special_token_attn)  
         loss_store = retval["loss_store"] 
         attn_store = retval["attn_store"] 
+        # LOSS ON ATTENTION MAPS 
         if args.penalize_special_token_attn: 
             assert loss_store is not None and attn_store is None 
             # assert that we are beginning with an empty loss store 
@@ -1498,6 +1501,7 @@ def main(args):
         # Convert images to latent space
         vae.to(accelerator.device, dtype=weight_dtype)  
 
+        # ONLY FOR VISUALIZATION PURPOSES 
         if DEBUG and accelerator.is_main_process: 
             for batch_idx, img_t in enumerate(batch["pixel_values"]): 
                 img = (img_t * 0.5 + 0.5) * 255  
@@ -1533,6 +1537,7 @@ def main(args):
             batch["pixel_values"].to(accelerator.device, dtype=vae.dtype)  
         ).latent_dist.sample() 
         latents = latents * 0.18215
+        # IGNORE ADA!!
         if args.ada: 
             vae = vae.to(torch.device(f"cpu")) 
 
@@ -1570,7 +1575,9 @@ def main(args):
         # we are no longer learning appearance embeddings first! 
         if True: 
             # progress_bar.set_description(f"stage 2: ")
+            # SCALER IS THE AZIMUTH ANGLE 
             scalers_padded = torch.zeros((len(batch["scalers"]), MAX_SUBJECTS_PER_EXAMPLE))  
+            # THESE TWO NOT USED ANYMORE, BECAUSE NO LOCATION CONDITIONING 
             xs_2d_padded = torch.zeros((len(batch["2d_xs"]), MAX_SUBJECTS_PER_EXAMPLE)) 
             ys_2d_padded = torch.zeros((len(batch["2d_ys"]), MAX_SUBJECTS_PER_EXAMPLE)) 
 
@@ -1578,6 +1585,7 @@ def main(args):
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
                     scalers_padded[batch_idx][scaler_idx] = batch["scalers"][batch_idx][scaler_idx] 
 
+            # NOT USED ANYMORE 
             assert len(batch["scalers"]) == len(batch["2d_xs"]) == len(batch["2d_ys"])  
             for batch_idx in range(len(batch["scalers"])): 
                 assert len(batch["scalers"][batch_idx]) == len(batch["2d_xs"][batch_idx]) == len(batch["2d_ys"][batch_idx])  
@@ -1588,6 +1596,7 @@ def main(args):
             p = torch.Tensor(scalers_padded / (2 * math.pi)) 
             assert torch.all(xs_2d_padded < 1) 
             assert torch.all(ys_2d_padded < 1) 
+            # DOES NOT GO HERE! 
             if not args.pose_only_embedding: 
                 p = p.unsqueeze(-1) 
                 p = p.repeat(1, 1, 2)  
@@ -1606,6 +1615,7 @@ def main(args):
                     if args.use_location_conditioning: 
                         mlp_emb.append(merger(p[:, scaler_idx], xs_2d_padded[:, scaler_idx], ys_2d_padded[:, scaler_idx]).unsqueeze(1)) 
                     else: 
+                        # merger = PoseEmbedding()
                         mlp_emb.append(merger(p[:, scaler_idx]).unsqueeze(1)) 
 
                 mlp_emb = torch.cat(mlp_emb, dim=1) 
@@ -1619,6 +1629,7 @@ def main(args):
             # mlp_emb = torch.zeros(B, 1024) 
             mlp_emb = torch.zeros((B, MAX_SUBJECTS_PER_EXAMPLE, 1024)).to(accelerator.device)  
 
+        # IGNORE 
         num_assets_in_batch = 0 
         for batch_idx in range(B): 
             num_assets_in_batch = num_assets_in_batch + len(batch["scalers"][batch_idx]) 
@@ -1703,6 +1714,7 @@ def main(args):
             example_merged_emb = merged_emb[batch_idx] 
             for asset_idx, subject in enumerate(batch["subjects"][batch_idx]):   
 
+                # DOES NOT GO HERE!
                 if args.learn_class_embedding: 
                     if batch["controlnet"][batch_idx] == True: 
                         continue 
@@ -1711,6 +1723,7 @@ def main(args):
 
                 for token_idx in range(args.merged_emb_dim // 1024):  
                     # replacement_emb = torch.clone(merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024])  
+                    # TILL NOW NOT NORMALIZING THE MERGED EMBEDDING 
                     if args.normalize_merged_embedding: 
                         replacement_mask = torch.ones_like(example_merged_emb, requires_grad=False)      
                         replacement_emb_norm = torch.linalg.norm(example_merged_emb[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]).detach()   
@@ -1736,6 +1749,7 @@ def main(args):
 
             attn_assignments.append(attn_assignments_batchitem) 
 
+            # DOES NOT GO HERE! 
             if args.text_encoder_bypass: 
                 for unique_token_name, position in unique_token_positions.items(): 
                     text_embeddings[position] = text_embeddings[position] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]]  
@@ -1783,6 +1797,7 @@ def main(args):
         # else: 
         #     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
+        # DOES NOT GO HERE! 
         if args.penalize_special_token_attn: 
             assert loss_store.step_store["loss"].device == accelerator.device 
             loss_store.step_store["loss"] = loss_store.step_store["loss"] / args.train_batch_size 
@@ -2220,6 +2235,7 @@ def main(args):
         global_step += accelerator.num_processes * args.train_batch_size  
         # ddp_step += 1 
 
+        #NOT DOING ONLINE INFERENCE ANYMORE 
         if args.online_inference and len(VLOG_STEPS) > 0 and global_step >= VLOG_STEPS[0]:  
             step = VLOG_STEPS[0] 
             VLOG_STEPS.pop(0) 
@@ -2386,9 +2402,12 @@ def main(args):
 
                     training_state["global_step"] = global_step 
 
-                    training_state["appearance"] = {} 
+                    # training_state["appearance"] = {} 
+                    # BY DEFAULT POSE_ONLY_EMBEDDING IS TRUE  
                     if not args.pose_only_embedding: 
+                        # NOT COMING HERE 
                         training_state["contword"] = {} 
+                    # THIS IS THE POSE MLP 
                     training_state["merger"] = {} 
                     training_state["text_encoder"] = {} 
                     training_state["unet"] = {} 
@@ -2414,9 +2433,10 @@ def main(args):
                         training_state["contword"]["optimizer"] = optimizers["contword"].state_dict() 
                         training_state["contword"]["model"] = accelerator.unwrap_model(continuous_word_model).state_dict() 
 
-                    if args.textual_inv: 
-                        training_state["appearance"]["optimizer"] = optimizers["appearance"].state_dict() 
-                        training_state["appearance"]["model"] = accelerator.unwrap_model(bnha_embeds).state_dict()  
+                    # NOT RELEVANT ANYMORE 
+                    # if args.textual_inv: 
+                    #     training_state["appearance"]["optimizer"] = optimizers["appearance"].state_dict() 
+                    #     training_state["appearance"]["model"] = accelerator.unwrap_model(bnha_embeds).state_dict()  
 
                     if args.train_unet: 
                         training_state["unet"]["optimizer"] = optimizers["unet"].state_dict() 
