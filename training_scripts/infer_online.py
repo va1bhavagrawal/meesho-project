@@ -51,7 +51,7 @@ from custom_attention_processor import patch_custom_attention, get_attention_map
 ZERO_NEIGHBORHOOD = 3 
 BBOX_DIM = 0.33 
 GUIDE_TILL_TIME = 5 
-MODE_SCALE = False  
+MODE_SCALE = True  
 KEYWORD = f"2010_bbox_from_attnmode_{BBOX_DIM}_guide_till_time_{GUIDE_TILL_TIME}_mode_scaling_{MODE_SCALE}_zero_neighborhood_{ZERO_NEIGHBORHOOD}_softmask_inf_{INFINITY}_temp_{TEMPERATURE}_pose_{POSE_MASK_TYPE}_class_{CLASS_MASK_TYPE}"     
 
 ACROSS_TIMESTEPS = False  
@@ -656,7 +656,7 @@ class Infer:
                 encoder_states_dict["bbox_from_class_mean"] = True 
                 encoder_states_dict["azimuths"] = all_azimuths  
                 encoder_states_dict["bboxes"] = bboxes 
-                encoder_states_dict["mode_scale"] = MODE_SCALE 
+                encoder_states_dict["mode_scaling"] = MODE_SCALE 
                 encoder_states_dict["pose_mask_type"] = POSE_MASK_TYPE 
                 encoder_states_dict["class_mask_type"] = CLASS_MASK_TYPE 
 

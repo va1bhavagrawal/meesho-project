@@ -344,7 +344,7 @@ class CustomAttentionProcessor:
 
             attention_scores = torch.cat(attention_scores_batch_split, dim=0) 
             attention_probs = F.softmax(attention_scores, dim=-1) 
-            if spatial_dim == 16 and "mode_scaling" in encoder_hidden_states.keys() and encoder_hidden_states["mode_scaling"] == True: 
+            if spatial_dim == 16 and encoder_hidden_states["mode_scaling"] == True: 
                 with torch.no_grad(): 
                     for batch_idx in range(B): 
                         special_attn_modes = [] 
@@ -353,16 +353,18 @@ class CustomAttentionProcessor:
                         class_token_positions = [] 
                         for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
                             special_attn_modes.append(torch.max(attention_probs[batch_idx][..., idx1])) 
-                            special_token_positions.append(idx1) 
+                            special_token_positions.append(torch.tensor(idx1).to(torch.long)) 
                             class_attn_modes.append(torch.max(attention_probs[batch_idx][..., idx2])) 
-                            class_token_positions.append(idx2)  
-                        special_attn_modes = torch.stack(special_attn_modes, dim=0)  
-                        class_attn_modes = torch.stack(class_attn_modes, dim=0) 
-                        special_token_positions = torch.stack(special_token_positions, dtype=torch.long) 
-                        class_token_positions = torch.stack(class_token_positions, dtype=torch.long) 
+                            class_token_positions.append(torch.tensor(idx2).to(torch.long))  
+                        assert len(special_attn_modes) == len(class_attn_modes) == len(special_token_positions) == len(class_token_positions) 
+                        if len(special_attn_modes) > 0: 
+                            special_attn_modes = torch.stack(special_attn_modes, dim=0)  
+                            class_attn_modes = torch.stack(class_attn_modes, dim=0) 
+                            special_token_positions = torch.stack(special_token_positions) 
+                            class_token_positions = torch.stack(class_token_positions) 
 
-                        special_attn_modes = special_attn_modes / torch.min(special_attn_modes) 
-                        class_attn_modes = class_attn_modes / torch.min(class_attn_modes) 
+                            special_attn_modes = special_attn_modes / torch.min(special_attn_modes) 
+                            class_attn_modes = class_attn_modes / torch.min(class_attn_modes) 
 
                         for position_idx, position in enumerate(special_token_positions): 
                             attention_probs[batch_idx][..., position] = attention_probs[batch_idx][..., position] * special_attn_modes[position_idx]  
