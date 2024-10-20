@@ -37,7 +37,7 @@ WHICH_MODEL = "proper_attn_masks_noattnloss"
 # WHICH_MODEL = "replace_attn_maps"  
 WHICH_STEP = 50000  
 MAX_SUBJECTS_PER_EXAMPLE = 2    
-NUM_SAMPLES = 17     
+NUM_SAMPLES = 7  
 MODE = "all_steps" 
 
 P2P = False  
@@ -50,7 +50,7 @@ from custom_attention_processor import patch_custom_attention, get_attention_map
 
 ZERO_NEIGHBORHOOD = 3 
 BBOX_DIM = 0.33 
-GUIDE_TILL_TIME = 5 
+GUIDE_TILL_TIME = -1  
 MODE_SCALE = True  
 KEYWORD = f"2010_bbox_from_attnmode_{BBOX_DIM}_guide_till_time_{GUIDE_TILL_TIME}_mode_scaling_{MODE_SCALE}_zero_neighborhood_{ZERO_NEIGHBORHOOD}_softmask_inf_{INFINITY}_temp_{TEMPERATURE}_pose_{POSE_MASK_TYPE}_class_{CLASS_MASK_TYPE}"     
 
@@ -649,8 +649,10 @@ class Infer:
                     all_batch_ids.append(batch_idx) 
                     all_timesteps.append(t_idx) 
 
-            if t_idx > GUIDE_TILL_TIME: 
+            if t_idx > GUIDE_TILL_TIME and len(self.attn_store.step_store) > 0: 
                 bboxes = [[]] * len(bboxes) + bboxes 
+            elif t_idx > GUIDE_TILL_TIME: 
+                bboxes = [[]] * B + [[torch.tensor([0.0, 0.0, 1.0, 1.0])] * 2] * B 
 
             if self.attn_bbox_from_class_mean:  
                 encoder_states_dict["bbox_from_class_mean"] = True 
@@ -1323,7 +1325,7 @@ if __name__ == "__main__":
             pipeline.text_encoder.get_input_embeddings().weight[special_token_ids[0]] = ti_embedding    
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=True, bs=4)           
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=True, bs=2)           
 
         for latent_idx in range(1, 4): 
             WHICH_LATENTS = str(latent_idx) 
