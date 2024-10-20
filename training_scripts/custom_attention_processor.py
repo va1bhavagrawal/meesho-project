@@ -25,11 +25,12 @@ import os.path as osp
 import time 
 
 DEBUG_ATTN = False  
-BOX_RESIZING_FACTOR = 1.2 
-INFINITY = 1e9
+BOX_RESIZING_FACTOR = 1.0  
+INFINITY = 10.0 
+TEMPERATURE = 1.0  
 
 
-def generate_attention_scores_mask(bbox, attention_map_size, temperature=1.0):
+def generate_attention_scores_mask(bbox, attention_map_size, temperature=TEMPERATURE):
     """
     Generates a stable attention mask based on predicted bounding box.
     
@@ -306,13 +307,25 @@ class CustomAttentionProcessor:
                     i_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_i + h // 2)).to(dtype=torch.long) 
                     j_min = torch.round(max(torch.tensor(0), mean_j - w // 2)).to(dtype=torch.long) 
                     j_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_j + w // 2)).to(dtype=torch.long)  
-                    # attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
-                    # attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
-                    # attention_mask_ = attention_mask_ * -INFINITY  
-                    attention_mask_ = generate_attention_scores_mask(bbox, (spatial_dim, spatial_dim)) 
+                    hard_attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
+                    hard_attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
+                    hard_attention_mask_ = hard_attention_mask_ * -INFINITY  
+                    soft_attention_mask_ = generate_attention_scores_mask(bbox.unsqueeze(0), (spatial_dim, spatial_dim)) 
 
-                    attention_scores_idx1 = attention_scores_idx1 + attention_mask_ 
-                    attention_scores_idx2 = attention_scores_idx2 + attention_mask_  
+                    if encoder_hidden_states["pose_mask_type"] == "hard": 
+                        attention_scores_idx1 = attention_scores_idx1 + hard_attention_mask_ 
+                    elif encoder_hidden_states["pose_mask_type"] == "soft":  
+                        attention_scores_idx1 = attention_scores_idx1 + soft_attention_mask_ 
+                    else: 
+                        raise NotImplementedError() 
+
+                    if encoder_hidden_states["class_mask_type"] == "hard": 
+                        attention_scores_idx2 = attention_scores_idx2 + hard_attention_mask_  
+                    elif encoder_hidden_states["class_mask_type"] == "soft": 
+                        attention_scores_idx2 = attention_scores_idx2 + soft_attention_mask_  
+                    else: 
+                        raise NotImplementedError() 
+
 
                     idx1_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
                     idx1_mask[idx1] = 1 
@@ -331,6 +344,30 @@ class CustomAttentionProcessor:
 
             attention_scores = torch.cat(attention_scores_batch_split, dim=0) 
             attention_probs = F.softmax(attention_scores, dim=-1) 
+            if spatial_dim == 16 and "mode_scaling" in encoder_hidden_states.keys() and encoder_hidden_states["mode_scaling"] == True: 
+                with torch.no_grad(): 
+                    for batch_idx in range(B): 
+                        special_attn_modes = [] 
+                        class_attn_modes = [] 
+                        special_token_positions = [] 
+                        class_token_positions = [] 
+                        for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                            special_attn_modes.append(torch.max(attention_probs[batch_idx][..., idx1])) 
+                            special_token_positions.append(idx1) 
+                            class_attn_modes.append(torch.max(attention_probs[batch_idx][..., idx2])) 
+                            class_token_positions.append(idx2)  
+                        special_attn_modes = torch.stack(special_attn_modes, dim=0)  
+                        class_attn_modes = torch.stack(class_attn_modes, dim=0) 
+                        special_token_positions = torch.stack(special_token_positions, dtype=torch.long) 
+                        class_token_positions = torch.stack(class_token_positions, dtype=torch.long) 
+
+                        special_attn_modes = special_attn_modes / torch.min(special_attn_modes) 
+                        class_attn_modes = class_attn_modes / torch.min(class_attn_modes) 
+
+                        for position_idx, position in enumerate(special_token_positions): 
+                            attention_probs[batch_idx][..., position] = attention_probs[batch_idx][..., position] * special_attn_modes[position_idx]  
+                        for position_idx, position in enumerate(class_token_positions): 
+                            attention_probs[batch_idx][..., position] = attention_probs[batch_idx][..., position] * class_attn_modes[position_idx]  
 
             if self.loss_store is not None: 
                 mean_i_attn, mean_j_attn = self.find_attention_mean(attention_scores_idx2)  

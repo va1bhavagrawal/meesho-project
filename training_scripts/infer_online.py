@@ -37,17 +37,22 @@ WHICH_MODEL = "proper_attn_masks_noattnloss"
 # WHICH_MODEL = "replace_attn_maps"  
 WHICH_STEP = 50000  
 MAX_SUBJECTS_PER_EXAMPLE = 2    
-NUM_SAMPLES = 13  
+NUM_SAMPLES = 17     
 MODE = "all_steps" 
 
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
 
+POSE_MASK_TYPE = "hard" 
+CLASS_MASK_TYPE = "hard" 
+
+from custom_attention_processor import patch_custom_attention, get_attention_maps, show_image_relevance, INFINITY, TEMPERATURE  
+
 ZERO_NEIGHBORHOOD = 3 
 BBOX_DIM = 0.33 
 GUIDE_TILL_TIME = 5 
 MODE_SCALE = False  
-KEYWORD = f"bbox_from_attnmode_{BBOX_DIM}_guide_till_time_{GUIDE_TILL_TIME}_mode_scaling_{MODE_SCALE}_zero_neighborhood_{ZERO_NEIGHBORHOOD}"    
+KEYWORD = f"2010_bbox_from_attnmode_{BBOX_DIM}_guide_till_time_{GUIDE_TILL_TIME}_mode_scaling_{MODE_SCALE}_zero_neighborhood_{ZERO_NEIGHBORHOOD}_softmask_inf_{INFINITY}_temp_{TEMPERATURE}_pose_{POSE_MASK_TYPE}_class_{CLASS_MASK_TYPE}"     
 
 ACROSS_TIMESTEPS = False  
 NUM_INFERENCE_STEPS = 50 
@@ -58,8 +63,6 @@ TI_PATH = osp.join("textual_inversion", "textual_inversion_sedan", "vstarsedan.b
 
 INSTANCE_DIR_1SUBJECT = "../training_data_2subjects_3009/ref_imgs_1subject"  
 INSTANCE_DIR_2SUBJECTS = "../training_data_2subjects_3009/ref_imgs_2subjects" 
-
-from custom_attention_processor import patch_custom_attention, get_attention_maps, show_image_relevance  
 
 TOKEN2ID = {
     "sks": 48136, 
@@ -491,6 +494,9 @@ class Infer:
         all_figs = [] 
         all_axs = [] 
         all_save_paths = [] 
+        all_batch_ids = [] 
+        all_timesteps = [] 
+        pred_imgs = None 
         for t_idx, t in enumerate(self.scheduler.timesteps):
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
             latent_model_input = torch.cat([latents] * 2)
@@ -508,116 +514,206 @@ class Infer:
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
 
-            if len(self.attn_store.step_store) > 0 and t_idx > GUIDE_TILL_TIME: 
-                assert B == 1  
+            if len(self.attn_store.step_store) > 0: 
                 the_best_layer = "up_blocks.1.attentions.1.transformer_blocks.0.attn2.processor" 
                 assert len(self.attn_store.step_store[the_best_layer]) == 1 
-                _, attn_maps = torch.chunk(self.attn_store.step_store[the_best_layer][0], chunks=2, dim=0)  
-                attn_maps = torch.mean(attn_maps, dim=0) 
-                assert attn_maps.ndim == 2 
-                spatial_dim = int(math.sqrt(attn_maps.shape[-2]))  
-                attn_maps = attn_maps.reshape((spatial_dim, spatial_dim, 77))  
-                track_idx1 = batch["track_ids"][0][1]  
-                track_idx2 = batch["track_ids"][0][3] 
+                _, batch_attn_maps = torch.chunk(self.attn_store.step_store[the_best_layer][0], chunks=2, dim=0)  
+                if t_idx > GUIDE_TILL_TIME: 
+                    bboxes = [] 
+                for batch_idx in range(B): 
+                    attn_maps = torch.chunk(batch_attn_maps, chunks=B, dim=0)[batch_idx] 
+                    attn_maps = torch.mean(attn_maps, dim=0) 
+                    assert attn_maps.ndim == 2 
+                    spatial_dim = int(math.sqrt(attn_maps.shape[-2]))  
+                    attn_maps = attn_maps.reshape((spatial_dim, spatial_dim, 77))  
+                    track_idx1 = batch["track_ids"][batch_idx][1]  
+                    track_idx2 = batch["track_ids"][batch_idx][3] 
+                    assert batch["track_ids"][batch_idx][0] + 1 == batch["track_ids"][batch_idx][1] 
+                    assert batch["track_ids"][batch_idx][2] + 1 == batch["track_ids"][batch_idx][3]  
+                    track_idx1_pose = batch["track_ids"][batch_idx][0] 
+                    track_idx2_pose = batch["track_ids"][batch_idx][2]  
 
-                fig, axs = plt.subplots(2, 3, figsize=(15, 10)) 
+                    fig, axs = plt.subplots(3, 5, figsize=(15, 10)) 
 
-                attn_maps_idx1 = attn_maps[..., track_idx1].reshape(spatial_dim, spatial_dim)   
-                max_attn_idx1 = torch.max(attn_maps_idx1) 
-                attn_maps_idx2 = attn_maps[..., track_idx2].reshape(spatial_dim, spatial_dim) 
-                max_attn_idx2 = torch.max(attn_maps_idx2) 
-                if max_attn_idx1 >= max_attn_idx2: 
-                    # this would be the primary mode, the other one would have to be outside its neighborhood  
-                    max_idx1_flat = torch.argmax(attn_maps_idx1.flatten()) 
-                    attn_mode_idx1 = max_idx1_flat // spatial_dim, max_idx1_flat % spatial_dim 
-                    cx, cy = attn_mode_idx1[1] / spatial_dim, attn_mode_idx1[0] / spatial_dim   
-                    cx_, cy_ = int(cx * spatial_dim), int(cy * spatial_dim) 
-                    cy_min = max(0, cy_ - ZERO_NEIGHBORHOOD)
-                    cy_max = min(spatial_dim, cy_ + ZERO_NEIGHBORHOOD)
-                    cx_min = max(0, cx_ - ZERO_NEIGHBORHOOD)
-                    cx_max = min(spatial_dim, cx_ + ZERO_NEIGHBORHOOD)
-                    attn_maps_idx2[cy_min : cy_max, cx_min : cx_max] = 0  
-                    x1, y1 = cx - BBOX_DIM / 2, cy - BBOX_DIM / 2  
-                    x2, y2 = cx + BBOX_DIM / 2, cy + BBOX_DIM / 2 
-                    bbox1 = torch.stack([x1, y1, x2, y2]) 
+                    attn_maps_idx1 = attn_maps[..., track_idx1].reshape(spatial_dim, spatial_dim)   
+                    max_attn_idx1 = torch.max(attn_maps_idx1) 
+                    attn_maps_idx2 = attn_maps[..., track_idx2].reshape(spatial_dim, spatial_dim) 
+                    max_attn_idx2 = torch.max(attn_maps_idx2) 
+                    if max_attn_idx1 >= max_attn_idx2: 
+                        # this would be the primary mode, the other one would have to be outside its neighborhood  
+                        max_idx1_flat = torch.argmax(attn_maps_idx1.flatten()) 
+                        attn_mode_idx1 = max_idx1_flat // spatial_dim, max_idx1_flat % spatial_dim 
+                        cx, cy = attn_mode_idx1[1] / spatial_dim, attn_mode_idx1[0] / spatial_dim   
+                        cx_, cy_ = int(cx * spatial_dim), int(cy * spatial_dim) 
+                        cy_min = max(0, cy_ - ZERO_NEIGHBORHOOD)
+                        cy_max = min(spatial_dim, cy_ + ZERO_NEIGHBORHOOD)
+                        cx_min = max(0, cx_ - ZERO_NEIGHBORHOOD)
+                        cx_max = min(spatial_dim, cx_ + ZERO_NEIGHBORHOOD)
+                        attn_maps_idx2[cy_min : cy_max, cx_min : cx_max] = 0  
+                        x1, y1 = cx - BBOX_DIM / 2, cy - BBOX_DIM / 2  
+                        x2, y2 = cx + BBOX_DIM / 2, cy + BBOX_DIM / 2 
+                        bbox1 = torch.stack([x1, y1, x2, y2]) 
 
-                    axs[0, 0].set_title("STRONGER MODE!") 
-                    axs[0, 0].imshow(attn_maps_idx1)  
-                    axs[0, 0].scatter([cx_], [cy_], marker="o", color="red")  
+                        attn_maps_idx1_pose = attn_maps[..., track_idx1_pose].reshape(spatial_dim, spatial_dim)
+                        axs[0, 0].imshow(attn_maps_idx1_pose)  
+                        axs[0, 1].set_title("STRONGER MODE!") 
+                        axs[0, 1].imshow(attn_maps_idx1)  
+                        axs[0, 1].scatter([cx_], [cy_], marker="o", color="red")  
 
-                    max_idx2_flat = torch.argmax(attn_maps_idx2.flatten()) 
-                    attn_mode_idx2 = max_idx2_flat // spatial_dim, max_idx2_flat % spatial_dim 
-                    cx, cy = attn_mode_idx2[1] / spatial_dim, attn_mode_idx2[0] / spatial_dim   
-                    cx_, cy_ = int(cx * spatial_dim), int(cy * spatial_dim) 
-                    x1, y1 = cx - BBOX_DIM / 2, cy - BBOX_DIM / 2  
-                    x2, y2 = cx + BBOX_DIM / 2, cy + BBOX_DIM / 2 
-                    bbox2 = torch.stack([x1, y1, x2, y2]) 
+                        max_idx2_flat = torch.argmax(attn_maps_idx2.flatten()) 
+                        attn_mode_idx2 = max_idx2_flat // spatial_dim, max_idx2_flat % spatial_dim 
+                        cx, cy = attn_mode_idx2[1] / spatial_dim, attn_mode_idx2[0] / spatial_dim   
+                        cx_, cy_ = int(cx * spatial_dim), int(cy * spatial_dim) 
+                        x1, y1 = cx - BBOX_DIM / 2, cy - BBOX_DIM / 2  
+                        x2, y2 = cx + BBOX_DIM / 2, cy + BBOX_DIM / 2 
+                        bbox2 = torch.stack([x1, y1, x2, y2]) 
 
-                    axs[0, 1].imshow(attn_maps_idx2)  
-                    axs[0, 1].scatter([cx_], [cy_], marker="o", color="red")  
+                        attn_maps_idx2_pose = attn_maps[..., track_idx2_pose].reshape(spatial_dim, spatial_dim)
+                        axs[0, 2].imshow(attn_maps_idx2_pose)  
+                        axs[0, 3].imshow(attn_maps_idx2)  
+                        axs[0, 3].scatter([cx_], [cy_], marker="o", color="red")  
 
-                else: 
-                    # Zero out the neighborhood for idx1
-                    max_idx2_flat = torch.argmax(attn_maps_idx2.flatten()) 
-                    attn_mode_idx2 = max_idx2_flat // spatial_dim, max_idx2_flat % spatial_dim
-                    cx, cy = attn_mode_idx2[1] / spatial_dim, attn_mode_idx2[0] / spatial_dim  
-                    cx_, cy_ = int(cx * spatial_dim), int(cy * spatial_dim)
-                    cy_min = max(0, cy_ - ZERO_NEIGHBORHOOD)
-                    cy_max = min(spatial_dim, cy_ + ZERO_NEIGHBORHOOD)
-                    cx_min = max(0, cx_ - ZERO_NEIGHBORHOOD)
-                    cx_max = min(spatial_dim, cx_ + ZERO_NEIGHBORHOOD)
-                    attn_maps_idx1[cy_min : cy_max, cx_min : cx_max] = 0  
-                    x1, y1 = cx - BBOX_DIM / 2, cy - BBOX_DIM / 2  
-                    x2, y2 = cx + BBOX_DIM / 2, cy + BBOX_DIM / 2 
-                    bbox2 = torch.stack([x1, y1, x2, y2]) 
+                    else: 
+                        # Zero out the neighborhood for idx1
+                        max_idx2_flat = torch.argmax(attn_maps_idx2.flatten()) 
+                        attn_mode_idx2 = max_idx2_flat // spatial_dim, max_idx2_flat % spatial_dim
+                        cx, cy = attn_mode_idx2[1] / spatial_dim, attn_mode_idx2[0] / spatial_dim  
+                        cx_, cy_ = int(cx * spatial_dim), int(cy * spatial_dim)
+                        cy_min = max(0, cy_ - ZERO_NEIGHBORHOOD)
+                        cy_max = min(spatial_dim, cy_ + ZERO_NEIGHBORHOOD)
+                        cx_min = max(0, cx_ - ZERO_NEIGHBORHOOD)
+                        cx_max = min(spatial_dim, cx_ + ZERO_NEIGHBORHOOD)
+                        attn_maps_idx1[cy_min : cy_max, cx_min : cx_max] = 0  
+                        x1, y1 = cx - BBOX_DIM / 2, cy - BBOX_DIM / 2  
+                        x2, y2 = cx + BBOX_DIM / 2, cy + BBOX_DIM / 2 
+                        bbox2 = torch.stack([x1, y1, x2, y2]) 
 
-                    axs[0, 1].set_title("STRONGER MODE!") 
-                    axs[0, 1].imshow(attn_maps_idx2)  
-                    axs[0, 1].scatter([cx_], [cy_], marker="o", color="red")  
+                        attn_maps_idx2_pose = attn_maps[..., track_idx2_pose].reshape(spatial_dim, spatial_dim) 
+                        axs[0, 2].imshow(attn_maps_idx2_pose) 
+                        axs[0, 3].set_title("STRONGER MODE!") 
+                        axs[0, 3].imshow(attn_maps_idx2)  
+                        axs[0, 3].scatter([cx_], [cy_], marker="o", color="red")  
 
-                    max_idx1_flat = torch.argmax(attn_maps_idx1.flatten()) 
-                    attn_mode_idx1 = max_idx1_flat // spatial_dim, max_idx1_flat % spatial_dim 
-                    cx, cy = attn_mode_idx1[1] / spatial_dim, attn_mode_idx1[0] / spatial_dim  
-                    cx_, cy_ = int(cx * spatial_dim), int(cy * spatial_dim) 
-                    x1, y1 = cx - BBOX_DIM / 2, cy - BBOX_DIM / 2  
-                    x2, y2 = cx + BBOX_DIM / 2, cy + BBOX_DIM / 2 
-                    bbox1 = torch.stack([x1, y1, x2, y2])
+                        max_idx1_flat = torch.argmax(attn_maps_idx1.flatten()) 
+                        attn_mode_idx1 = max_idx1_flat // spatial_dim, max_idx1_flat % spatial_dim 
+                        cx, cy = attn_mode_idx1[1] / spatial_dim, attn_mode_idx1[0] / spatial_dim  
+                        cx_, cy_ = int(cx * spatial_dim), int(cy * spatial_dim) 
+                        x1, y1 = cx - BBOX_DIM / 2, cy - BBOX_DIM / 2  
+                        x2, y2 = cx + BBOX_DIM / 2, cy + BBOX_DIM / 2 
+                        bbox1 = torch.stack([x1, y1, x2, y2])
 
-                    axs[0, 0].imshow(attn_maps_idx1)  
-                    axs[0, 0].scatter([cx_], [cy_], marker="o", color="red")  
+                        attn_maps_idx1_pose = attn_maps[..., track_idx1_pose].reshape(spatial_dim, spatial_dim)
+                        axs[0, 0].imshow(attn_maps_idx1_pose)  
+                        axs[0, 1].imshow(attn_maps_idx1)  
+                        axs[0, 1].scatter([cx_], [cy_], marker="o", color="red")  
 
+                    # for batch_idx in range(B): 
+                    #     heatmap = show_image_relevance(attn_maps_idx1_pose, pred_imgs[batch_idx]) 
+                    #     axs[2, 0].imshow(heatmap)  
+                    #     heatmap = show_image_relevance(attn_maps_idx1, pred_imgs[batch_idx])   
+                    #     axs[2, 1].imshow(heatmap)  
+                    #     heatmap = show_image_relevance(attn_maps_idx2_pose, pred_imgs[batch_idx])  
+                    #     axs[2, 2].imshow(heatmap)  
+                    #     heatmap = show_image_relevance(attn_maps_idx2, pred_imgs[batch_idx])   
+                    #     axs[2, 3].imshow(heatmap)  
 
-                heatmap = show_image_relevance(attn_maps_idx1, pred_img)  
-                axs[1, 0].imshow(heatmap)  
-                heatmap = show_image_relevance(attn_maps_idx2, pred_img)  
-                axs[1, 1].imshow(heatmap)  
+                    all_figs.append(fig) 
+                    all_axs.append(axs) 
 
-                all_figs.append(fig) 
-                all_axs.append(axs) 
+                    pose_idx = int(osp.basename(batch["save_paths"][batch_idx]).replace(".jpg", ""))  
+                    # save_path = osp.join("", "__".join(batch['subjects'][0]), f"{step_idx}")  
+                    save_path = osp.join(f"timestep_attns_{KEYWORD}_latents{WHICH_LATENTS}", "_".join(prompt.split()), "__".join(batch['subjects'][batch_idx]), str(pose_idx).zfill(3))    
+                    os.makedirs(save_path, exist_ok=True) 
+                    save_path = osp.join(save_path, f"time{str(t_idx).zfill(3)}.jpg") 
+                    # plt.suptitle(f"timestep{t_idx} {batch['subjects'] = }, {pose_idx = }")
+                    # plt.savefig(save_path) 
+                    all_save_paths.append(save_path) 
+                    all_batch_ids.append(batch_idx) 
+                    all_timesteps.append(t_idx) 
+                    if t_idx > GUIDE_TILL_TIME: 
+                        bboxes.append([bbox1, bbox2])  
 
-                pose_idx = int(osp.basename(batch["save_paths"][0]).replace(".jpg", ""))  
-                # save_path = osp.join("", "__".join(batch['subjects'][0]), f"{step_idx}")  
-                save_path = osp.join(f"timestep_attns_{KEYWORD}", "_".join(prompt.split()), "__".join(batch['subjects'][0]), str(pose_idx).zfill(3))    
-                os.makedirs(save_path, exist_ok=True) 
-                save_path = osp.join(save_path, f"time{str(t_idx).zfill(3)}.jpg") 
-                # plt.suptitle(f"timestep{t_idx} {batch['subjects'] = }, {pose_idx = }")
-                # plt.savefig(save_path) 
-                all_save_paths.append(save_path) 
-                plt.close() 
-                bboxes = [[], [bbox1, bbox2]]  
+            else: 
+                for batch_idx in range(B): 
+                    fig, axs = plt.subplots(3, 5, figsize=(15, 10)) 
+                    all_figs.append(fig) 
+                    all_axs.append(axs) 
 
+                    pose_idx = int(osp.basename(batch["save_paths"][batch_idx]).replace(".jpg", ""))  
+                    save_path = osp.join(f"timestep_attns_{KEYWORD}_latents{WHICH_LATENTS}", "_".join(prompt.split()), "__".join(batch['subjects'][batch_idx]), str(pose_idx).zfill(3))    
+                    os.makedirs(save_path, exist_ok=True) 
+                    save_path = osp.join(save_path, f"time{str(t_idx).zfill(3)}.jpg") 
+                    # plt.suptitle(f"timestep{t_idx} {batch['subjects'] = }, {pose_idx = }")
+                    all_save_paths.append(save_path)
 
-            if self.attn_bbox_from_class_mean and len(self.attn_store.step_store) > 0:  
+                    all_batch_ids.append(batch_idx) 
+                    all_timesteps.append(t_idx) 
+
+            if t_idx > GUIDE_TILL_TIME: 
+                bboxes = [[]] * len(bboxes) + bboxes 
+
+            if self.attn_bbox_from_class_mean:  
                 encoder_states_dict["bbox_from_class_mean"] = True 
                 encoder_states_dict["azimuths"] = all_azimuths  
                 encoder_states_dict["bboxes"] = bboxes 
                 encoder_states_dict["mode_scale"] = MODE_SCALE 
+                encoder_states_dict["pose_mask_type"] = POSE_MASK_TYPE 
+                encoder_states_dict["class_mask_type"] = CLASS_MASK_TYPE 
 
 
             # if not self.replace_attn: 
             noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=encoder_states_dict).sample 
             # else: 
             #     noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=encoder_states_dict).sample 
+
+            
+            # display the attention maps for this timestep 
+            the_best_layer = "up_blocks.1.attentions.1.transformer_blocks.0.attn2.processor" 
+            assert len(self.attn_store.step_store[the_best_layer]) == 1 
+            _, batch_attn_maps = torch.chunk(self.attn_store.step_store[the_best_layer][0], chunks=2, dim=0)  
+            for batch_idx in range(B): 
+                attn_maps = torch.chunk(batch_attn_maps, chunks=B, dim=0)[batch_idx]  
+                attn_maps = torch.mean(attn_maps, dim=0) 
+                assert attn_maps.ndim == 2 
+                spatial_dim = int(math.sqrt(attn_maps.shape[-2]))  
+                attn_maps = attn_maps.reshape((spatial_dim, spatial_dim, 77))  
+
+                track_idx1 = batch["track_ids"][batch_idx][1]  
+                track_idx2 = batch["track_ids"][batch_idx][3] 
+                assert batch["track_ids"][batch_idx][0] + 1 == batch["track_ids"][batch_idx][1] 
+                assert batch["track_ids"][batch_idx][2] + 1 == batch["track_ids"][batch_idx][3]  
+                track_idx1_pose = batch["track_ids"][batch_idx][0] 
+                track_idx2_pose = batch["track_ids"][batch_idx][2]  
+
+                attn_maps_idx1 = attn_maps[..., track_idx1].reshape(spatial_dim, spatial_dim)   
+                attn_maps_idx2 = attn_maps[..., track_idx2].reshape(spatial_dim, spatial_dim) 
+                attn_maps_idx1_pose = attn_maps[..., track_idx1_pose].reshape(spatial_dim, spatial_dim) 
+                attn_maps_idx2_pose = attn_maps[..., track_idx2_pose].reshape(spatial_dim, spatial_dim) 
+
+                axs = all_axs[t_idx * B + batch_idx]  
+                axs[1, 0].imshow(attn_maps_idx1_pose) 
+                # axs[1, 0].set_title(f"time t") 
+                axs[1, 1].imshow(attn_maps_idx1) 
+                # axs[1, 1].set_title(f"time t")  
+                axs[1, 2].imshow(attn_maps_idx2_pose) 
+                # axs[1, 2].set_title(f"time t")  
+                axs[1, 3].imshow(attn_maps_idx2)  
+                # axs[1, 3].set_title(f"time t")  
+
+                if pred_imgs is not None: 
+                    heatmap = show_image_relevance(attn_maps_idx1_pose, pred_imgs[batch_idx]) 
+                    axs[2, 0].imshow(heatmap)  
+                    # axs[2, 0].set_title(f"time t for {prompt.split()[track_idx1_pose]}") 
+                    heatmap = show_image_relevance(attn_maps_idx1, pred_imgs[batch_idx])   
+                    axs[2, 1].imshow(heatmap)  
+                    # axs[2, 1].set_title(f"time t for {prompt.split()[track_idx1]}") 
+                    heatmap = show_image_relevance(attn_maps_idx2_pose, pred_imgs[batch_idx])  
+                    axs[2, 2].imshow(heatmap)  
+                    # axs[2, 2].set_title(f"time t for {prompt.split()[track_idx2_pose]}") 
+                    heatmap = show_image_relevance(attn_maps_idx2, pred_imgs[batch_idx])   
+                    axs[2, 3].imshow(heatmap)  
+                    # axs[2, 3].set_title(f"time t for {prompt.split()[track_idx2]}") 
+
 
             # perform guidance
             noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
@@ -628,7 +724,7 @@ class Infer:
             scheduler_step = self.scheduler.step(noise_pred, t, latents)  
             latents = scheduler_step.prev_sample 
             pred_pixel_values = scheduler_step.pred_original_sample 
-            pred_org_images = [] 
+            pred_imgs = [] 
             for image in pred_pixel_values: 
                 image = (image / 2 + 0.5).clamp(0, 1).squeeze()
                 image = (image * 255).to(torch.uint8) 
@@ -636,9 +732,7 @@ class Infer:
                 image = np.transpose(image, (1, 2, 0)) 
                 image = np.ascontiguousarray(image) 
                 image = Image.fromarray(image) 
-                pred_org_images.append(image) 
-            assert len(pred_org_images) == 1 
-            pred_img = pred_org_images[0].convert("RGB")  
+                pred_imgs.append(image.convert("RGB"))  
 
 
         # scale the latents 
@@ -698,7 +792,7 @@ class Infer:
                 # make_attention_visualization(images[batch_idx], self.attn_store, batch["track_ids"][batch_idx])  
 
         # for idx, image in zip(ids, images):  
-        assert len(images) == 1 
+        final_images = [] 
         for idx, image in enumerate(images): 
             image = (image / 2 + 0.5).clamp(0, 1).squeeze()
             image = (image * 255).to(torch.uint8) 
@@ -725,10 +819,19 @@ class Infer:
             image.save(save_paths[idx])  
             # image = Image.fromarray(image) 
             # image.save(osp.join(f"../gpu_imgs/{accelerator.process_index}", f"{str(int(idx.item())).zfill(3)}.jpg")) 
+            final_images.append(image) 
 
-            for fig, axs, save_path in zip(all_figs, all_axs, all_save_paths): 
-                axs[0, 2].imshow(image) 
-                fig.savefig(save_path) 
+        assert len(final_images) == B, f"{len(final_images) = }, {B = }" 
+        assert len(all_figs) == len(all_batch_ids) == len(all_save_paths) == len(all_axs) == len(all_timesteps)  
+        for fig, axs, save_path, batch_idx, timestep, in zip(all_figs, all_axs, all_save_paths, all_batch_ids, all_timesteps): 
+            axs[0, 4].imshow(final_images[batch_idx])  
+            axs[1, 4].imshow(final_images[batch_idx])  
+            axs[2, 4].imshow(final_images[batch_idx])  
+            print(f"saving the attention visualization at {save_path}") 
+            pose_idx = int(osp.basename(batch["save_paths"][batch_idx]).replace(f".jpg", ""))  
+            fig.suptitle(f"{KEYWORD}\n{pose_idx = }\n{batch['subjects'][batch_idx]}") 
+            fig.savefig(save_path) 
+        plt.close() 
 
 
     def do_it(self, seed, gif_path, prompt, all_subjects_data, args):   
@@ -1220,7 +1323,7 @@ if __name__ == "__main__":
             pipeline.text_encoder.get_input_embeddings().weight[special_token_ids[0]] = ti_embedding    
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=True, bs=1)         
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=True, bs=4)           
 
         for latent_idx in range(1, 4): 
             WHICH_LATENTS = str(latent_idx) 
@@ -1270,21 +1373,36 @@ if __name__ == "__main__":
                         "y": 0.7,   
                     }
                 ][:MAX_SUBJECTS_PER_EXAMPLE],  
-                # [
-                #     {
-                #         "subject": "bus", 
-                #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                #         "appearance_type": "class", 
-                #         "x": 0.3, 
-                #         "y": 0.5, 
-                #     }, 
-                #     {
-                #         "subject": "motorbike", 
-                #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                #         "x": 0.7, 
-                #         "y": 0.7,   
-                #     }
-                # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+                [
+                    {
+                        "subject": "horse", 
+                        "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                        "appearance_type": "class", 
+                        "x": 0.3, 
+                        "y": 0.5, 
+                    }, 
+                    {
+                        "subject": "jeep", 
+                        "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                        "x": 0.7, 
+                        "y": 0.7,   
+                    }
+                ][:MAX_SUBJECTS_PER_EXAMPLE],  
+                [
+                    {
+                        "subject": "lion", 
+                        "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+                        "appearance_type": "class", 
+                        "x": 0.3, 
+                        "y": 0.5, 
+                    }, 
+                    {
+                        "subject": "elephant", 
+                        "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                        "x": 0.7, 
+                        "y": 0.7,   
+                    }
+                ][:MAX_SUBJECTS_PER_EXAMPLE],  
                 # [
                 #     {
                 #         "subject": "racecar", 
@@ -1308,85 +1426,6 @@ if __name__ == "__main__":
                 "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
                 # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
                 # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-                "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
-            ]
-            for prompt in prompts: 
-
-                if accelerator.is_main_process: 
-                    # if osp.exists("best_latents.pt"): 
-                    #     os.remove("best_latents.pt")  
-                    seed = random.randint(0, 170904) 
-                    with open(f"seed.pkl", "wb") as f: 
-                        pickle.dump(seed, f) 
-                    # set_seed(seed) 
-                    latents = torch.randn(1, 4, 64, 64)  
-                    # with open(f"best_latents.pt", "wb") as f: 
-                    #     torch.save(latents, f) 
-
-                accelerator.wait_for_everyone() 
-                if not accelerator.is_main_process: 
-                    with open("seed.pkl", "rb") as f: 
-                        seed = pickle.load(f) 
-                accelerator.wait_for_everyone() 
-
-                infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
-
-
-            subjects = [
-                [
-                    {
-                        "subject": "boat", 
-                        "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                        "appearance_type": "class", 
-                        "x": 0.3, 
-                        "y": 0.6,  
-                    }, 
-                    {
-                        "subject": "yacht", 
-                        "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                        "x": 0.7, 
-                        "y": 0.7,  
-                    }
-                ][:MAX_SUBJECTS_PER_EXAMPLE],  
-                [
-                    {
-                        "subject": "ship", 
-                        "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                        "appearance_type": "class", 
-                        "x": 0.4, 
-                        "y": 0.6, 
-                    }, 
-                    {
-                        "subject": "boat", 
-                        "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                        "x": 0.8, 
-                        "y": 0.9, 
-                    }
-                ][:MAX_SUBJECTS_PER_EXAMPLE],  
-                [
-                    {
-                        "subject": "dolphin", 
-                        "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                        "appearance_type": "class", 
-                        "x": 0.3, 
-                        "y": 0.5, 
-                    }, 
-                    {
-                        "subject": "yacht", 
-                        "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                        "x": 0.7, 
-                        "y": 0.7,   
-                    }
-                ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            ]
-            prompts = [
-                # "a photo of PLACEHOLDER", 
-                # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-                # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-                # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-                # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-                # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-                "a photo of PLACEHOLDER floating in a river, the scene is serene featuring a lot of greenery, the sun is setting in the background" 
                 # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
             ]
             for prompt in prompts: 
@@ -1411,80 +1450,159 @@ if __name__ == "__main__":
                 infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
 
 
-            subjects = [
-                [
-                    {
-                        "subject": "helicopter", 
-                        "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                        "appearance_type": "class", 
-                        "x": 0.3, 
-                        "y": 0.6,  
-                    }, 
-                    {
-                        "subject": "plane", 
-                        "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                        "x": 0.7, 
-                        "y": 0.7,  
-                    }
-                ][:MAX_SUBJECTS_PER_EXAMPLE],  
-                [
-                    {
-                        "subject": "plane", 
-                        "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                        "appearance_type": "class", 
-                        "x": 0.4, 
-                        "y": 0.6, 
-                    }, 
-                    {
-                        "subject": "jet", 
-                        "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                        "x": 0.8, 
-                        "y": 0.9, 
-                    }
-                ][:MAX_SUBJECTS_PER_EXAMPLE],  
-                # [
-                #     {
-                #         "subject": "dolphin", 
-                #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                #         "appearance_type": "class", 
-                #         "x": 0.3, 
-                #         "y": 0.5, 
-                #     }, 
-                #     {
-                #         "subject": "sedan", 
-                #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                #         "x": 0.7, 
-                #         "y": 0.7,   
-                #     }
-                # ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            ]
-            prompts = [
-                # "a photo of PLACEHOLDER", 
-                # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-                # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-                # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-                # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-                # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-                "a photo of PLACEHOLDER parked on a runway of a bustling airport, the sky is clear, sunny afternoon",   
-                # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
-            ]
-            for prompt in prompts: 
+            # subjects = [
+            #     [
+            #         {
+            #             "subject": "boat", 
+            #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #             "appearance_type": "class", 
+            #             "x": 0.3, 
+            #             "y": 0.6,  
+            #         }, 
+            #         {
+            #             "subject": "yacht", 
+            #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #             "x": 0.7, 
+            #             "y": 0.7,  
+            #         }
+            #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            #     [
+            #         {
+            #             "subject": "ship", 
+            #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #             "appearance_type": "class", 
+            #             "x": 0.4, 
+            #             "y": 0.6, 
+            #         }, 
+            #         {
+            #             "subject": "boat", 
+            #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #             "x": 0.8, 
+            #             "y": 0.9, 
+            #         }
+            #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            #     [
+            #         {
+            #             "subject": "dolphin", 
+            #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #             "appearance_type": "class", 
+            #             "x": 0.3, 
+            #             "y": 0.5, 
+            #         }, 
+            #         {
+            #             "subject": "yacht", 
+            #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #             "x": 0.7, 
+            #             "y": 0.7,   
+            #         }
+            #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # ]
+            # prompts = [
+            #     # "a photo of PLACEHOLDER", 
+            #     # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            #     # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+            #     # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
+            #     # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            #     # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
+            #     "a photo of PLACEHOLDER floating in a river, the scene is serene featuring a lot of greenery, the sun is setting in the background" 
+            #     # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            # ]
+            # for prompt in prompts: 
 
-                if accelerator.is_main_process: 
-                    # if osp.exists("best_latents.pt"): 
-                    #     os.remove("best_latents.pt")  
-                    seed = random.randint(0, 170904) 
-                    with open(f"seed.pkl", "wb") as f: 
-                        pickle.dump(seed, f) 
-                    # set_seed(seed) 
-                    latents = torch.randn(1, 4, 64, 64)  
-                    # with open(f"best_latents.pt", "wb") as f: 
-                    #     torch.save(latents, f) 
+            #     if accelerator.is_main_process: 
+            #         # if osp.exists("best_latents.pt"): 
+            #         #     os.remove("best_latents.pt")  
+            #         seed = random.randint(0, 170904) 
+            #         with open(f"seed.pkl", "wb") as f: 
+            #             pickle.dump(seed, f) 
+            #         # set_seed(seed) 
+            #         latents = torch.randn(1, 4, 64, 64)  
+            #         # with open(f"best_latents.pt", "wb") as f: 
+            #         #     torch.save(latents, f) 
 
-                accelerator.wait_for_everyone() 
-                if not accelerator.is_main_process: 
-                    with open("seed.pkl", "rb") as f: 
-                        seed = pickle.load(f) 
-                accelerator.wait_for_everyone() 
+            #     accelerator.wait_for_everyone() 
+            #     if not accelerator.is_main_process: 
+            #         with open("seed.pkl", "rb") as f: 
+            #             seed = pickle.load(f) 
+            #     accelerator.wait_for_everyone() 
 
-                infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
+            #     infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
+
+
+            # subjects = [
+            #     [
+            #         {
+            #             "subject": "helicopter", 
+            #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #             "appearance_type": "class", 
+            #             "x": 0.3, 
+            #             "y": 0.6,  
+            #         }, 
+            #         {
+            #             "subject": "plane", 
+            #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #             "x": 0.7, 
+            #             "y": 0.7,  
+            #         }
+            #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            #     [
+            #         {
+            #             "subject": "plane", 
+            #             "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #             "appearance_type": "class", 
+            #             "x": 0.4, 
+            #             "y": 0.6, 
+            #         }, 
+            #         {
+            #             "subject": "jet", 
+            #             "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #             "x": 0.8, 
+            #             "y": 0.9, 
+            #         }
+            #     ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            #     # [
+            #     #     {
+            #     #         "subject": "dolphin", 
+            #     #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #     #         "appearance_type": "class", 
+            #     #         "x": 0.3, 
+            #     #         "y": 0.5, 
+            #     #     }, 
+            #     #     {
+            #     #         "subject": "sedan", 
+            #     #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #     #         "x": 0.7, 
+            #     #         "y": 0.7,   
+            #     #     }
+            #     # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # ]
+            # prompts = [
+            #     # "a photo of PLACEHOLDER", 
+            #     # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            #     # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+            #     # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
+            #     # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            #     # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
+            #     "a photo of PLACEHOLDER parked on a runway of a bustling airport, the sky is clear, sunny afternoon",   
+            #     # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            # ]
+            # for prompt in prompts: 
+
+            #     if accelerator.is_main_process: 
+            #         # if osp.exists("best_latents.pt"): 
+            #         #     os.remove("best_latents.pt")  
+            #         seed = random.randint(0, 170904) 
+            #         with open(f"seed.pkl", "wb") as f: 
+            #             pickle.dump(seed, f) 
+            #         # set_seed(seed) 
+            #         latents = torch.randn(1, 4, 64, 64)  
+            #         # with open(f"best_latents.pt", "wb") as f: 
+            #         #     torch.save(latents, f) 
+
+            #     accelerator.wait_for_everyone() 
+            #     if not accelerator.is_main_process: 
+            #         with open("seed.pkl", "rb") as f: 
+            #             seed = pickle.load(f) 
+            #     accelerator.wait_for_everyone() 
+
+            #     infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
