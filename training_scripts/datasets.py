@@ -9,6 +9,7 @@ import random
 import re
 from PIL import Image 
 import glob
+import sys 
 
 import os 
 import os.path as osp 
@@ -20,68 +21,259 @@ import pickle
 MAX_SUBJECTS_PER_EXAMPLE = 2  
 RAW_IMG_SIZE = 1024 
 
-# class PromptDataset(Dataset):
-#     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
-#     def __init__(self, num_samples=24, subjects=None):
-#         self.num_samples = num_samples 
-#         self.subjects = subjects 
-#         assert self.subjects is not None 
-#         # if self.subjects is None: 
-#         #     self.subjects = [
-#         #         "bnha pickup truck",
-#         #         "bnha motorbike",  
-#         #         "bnha horse", 
-#         #         "bnha lion", 
-#         #     ] 
-#         # self.subjects2 = [
-#         #     "bicycle", 
-#         #     "tractor", 
-#         #     "sports car", 
-#         #     "brad pitt", 
-#         # ]
+class PosedSubjectsDataset(Dataset): 
+    def __init__(
+        self,
+        args, 
+        tokenizer,
+        ref_imgs_dirs, 
+        controlnet_imgs_dirs, 
+        num_steps, 
+    ): 
+        self.args = args 
+        # controlnet prompts are provided as a list, not as a filepath.
+        self.tokenizer = tokenizer 
+        # self.ref_imgs_dir = ref_imgs_dir 
+        self.num_steps = num_steps 
 
-#         self.template_prompts = [
-#             # prompts testing if the model can follow the prompt to create an 'environment'
-#             "a photo of a SUBJECT on a remote country road, surrounded by rolling hills, vast open fields and tall trees", 
-#             "a photo of a SUBJECT on a bustling city street, surrounded by towering skyscrapers and neon lights",
-#             "a photo of a SUBJECT in front of a dark background",  
-#             "a photo of a SUBJECT beside a field of blooming sunflowers, with snowy mountain ranges in the distance.",  
-#             "a SUBJECT on a tropical beach, with palm trees swaying and waves crashing on the shore", 
-#             "a SUBJECT in a colorful tulip field, with windmills in the background", 
-#         ]
-#         # this is just an indicator of azimuth, not the exact value 
-#         self.azimuths = torch.arange(num_samples)  
-#         self.prompt_wise_subjects, self.prompts = self.generate_prompts()
-#         assert len(self.prompt_wise_subjects) == len(self.prompts) 
+        img_transforms = []
+
+        self.ref_imgs_dirs = ref_imgs_dirs  
+        self.controlnet_imgs_dirs = controlnet_imgs_dirs 
+
+        if args.resize:
+            img_transforms.append(
+                transforms.Resize(
+                    args.resolution, interpolation=transforms.InterpolationMode.BILINEAR
+                )
+            )
+        if args.center_crop:
+            img_transforms.append(transforms.CenterCrop(args.resolution)) 
+        if args.color_jitter:
+            img_transforms.append(transforms.ColorJitter(0.2, 0.1))
+        # if args.h_flip:
+        #     img_transforms.append(transforms.RandomHorizontalFlip())
+
+        self.image_transforms = transforms.Compose(
+            [*img_transforms, transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
+        )
+
+        unique_strings = []  
+        for asset_idx in range(2):  
+            unique_string_subject = "" 
+            for token_idx in range(self.args.merged_emb_dim // 1024): 
+                unique_string_subject = unique_string_subject + f"{UNIQUE_TOKENS[f'{asset_idx}_{token_idx}']}"  
+            unique_string_subject = unique_string_subject.strip() 
+            unique_strings.append(unique_string_subject) 
+
+        self.examples = {}  
+
+        if self.args.use_ref_images: 
+            self.subjects_combs_ref = {}  
+            for ref_imgs_dir in ref_imgs_dirs: 
+                print(f"preparing images in {ref_imgs_dir}") 
+                self.examples[ref_imgs_dir] = [] 
+                if not osp.exists(ref_imgs_dir): 
+                    continue 
+                self.subjects_combs_ref[ref_imgs_dir] = [] 
+                subjects_combs_ = os.listdir(ref_imgs_dir) 
+                for subjects_comb_ in subjects_combs_: 
+                    subjects_path = osp.join(ref_imgs_dir, subjects_comb_) 
+                    self.subjects_combs_ref[ref_imgs_dir].append(subjects_comb_)  
+
+                    # put images from this directory into the self.examples 
+                    filenames = os.listdir(subjects_path) 
+                    img_names = [filename for filename in filenames if filename.find("jpg") != -1] 
+                    pkl_names = [img_name.replace("jpg", "pkl") for img_name in img_names]
+                    img_paths = [osp.join(subjects_path, img_name) for img_name in img_names] 
+                    pkl_paths = [osp.join(subjects_path, pkl_name) for pkl_name in pkl_names] 
+                    for img_path in img_paths: 
+                        assert osp.exists(img_path) 
+                    for pkl_path in pkl_paths: 
+                        assert osp.exists(pkl_path) 
+                    for img_path, pkl_path in zip(img_paths, pkl_paths): 
+                        img_name = osp.basename(img_path) 
+                        example = {"controlnet": False}  
+                        example["subjects"] = subjects_comb_.split("__") 
+                        example["img_path"] = img_path 
+                        with open(pkl_path, "rb") as f: 
+                            pkl_data = pickle.load(f) 
+
+                        all_2d_x = [] 
+                        all_2d_y = [] 
+                        all_bboxes = [] 
+                        # print(f"{pkl_data = }")
+                        # sys.exit(0) 
+                        for asset_idx in range(len(pkl_data.keys())): 
+                            if len(pkl_data[f"obj{asset_idx+1}"]) == 0: 
+                                continue 
+                            bbox = pkl_data[f"obj{asset_idx+1}"]["bbox"] 
+                            all_2d_x.append((bbox[0] + bbox[2]) / (2 * RAW_IMG_SIZE))  
+                            all_2d_y.append((bbox[1] + bbox[3]) / (2 * RAW_IMG_SIZE))  
+                            all_bboxes.append(torch.tensor(bbox) / RAW_IMG_SIZE)  
+                        example["bboxes"] = all_bboxes 
+                        example["2d_xs"] = all_2d_x 
+                        example["2d_ys"] = all_2d_y  
+
+                        subjects_data = img_name.split("__") 
+                        subjects_data = subjects_data[:-1] 
+                        all_x = []  
+                        all_y = [] 
+                        all_z = [] 
+                        all_a = [] 
+                        assert len(subjects_data) == len(example["subjects"]), f"{subjects_data = }, {example['subjects'] = }" 
+                        assert len(subjects_data) <= MAX_SUBJECTS_PER_EXAMPLE 
+                        for asset_idx in range(len(example["subjects"])): 
+                            one_subject_data = subjects_data[asset_idx] 
+                            x, y, z, a = one_subject_data.split("_") 
+                            all_x.append(float(x)) 
+                            all_y.append(float(y)) 
+                            all_z.append(float(z)) 
+                            all_a.append(float(a)) 
+                        example["scalers"] = all_a 
 
 
-#     def generate_prompts(self):  
-#         prompts = []
-#         prompt_wise_subjects = [] 
-#         for subject in self.subjects: 
-#             for prompt in self.template_prompts:
-#                 # if use_sks:
-#                 #     prompt = "a sks photo of " + prompt 
-#                 # else: 
-#                 #     prompt = "a photo of " + prompt 
-#                 subject_without_bnha = subject.replace("bnha", "").strip()  
-#                 subject_without_bnha = " " + subject_without_bnha + " " 
-#                 prompt_ = prompt.replace(f"SUBJECT", "bnha") 
-#                 # we DO NOT want the subject to be present in the prompt text 
-#                 assert prompt_.find(subject) == -1, f"{prompt_ = }, {prompt = }, {subject = }" 
-#                 assert prompt_.find(subject_without_bnha) == -1, f"{prompt_ = }, {prompt = }, {subject_without_bnha = }, {subject = }" 
-#                 prompts.append(prompt_)  
-#                 prompt_wise_subjects.append(subject) 
-#         return prompt_wise_subjects, prompts  
+                        template_prompt = "a photo of PLACEHOLDER in a dark studio with white lights" 
+                        placeholder_text = "a SUBJECT0 "  
+                        for asset_idx in range(1, len(example["subjects"])):  
+                            placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} " 
+                        placeholder_text = placeholder_text.strip() 
+                        template_prompt = template_prompt.replace("PLACEHOLDER", placeholder_text) 
+                        if not self.args.include_class_in_prompt: 
+                            for asset_idx in range(len(example["subjects"])):    
+                                assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                                template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]}") 
+                        else: 
+                            for asset_idx in range(len(example["subjects"])): 
+                                assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                                template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {example['subjects'][asset_idx]}") 
+
+                        example["prompt"] = template_prompt   
+                        example["prompt_ids"] = self.tokenizer(
+                            example["prompt"], 
+                            padding="do_not_pad", 
+                            truncation=True, 
+                            max_length=self.tokenizer.model_max_length, 
+                        ).input_ids 
+
+                        self.examples[ref_imgs_dir].append(example) 
 
 
-#     def __len__(self):
-#         return len(self.subjects) * len(self.template_prompts) * self.num_samples
+        if self.args.use_controlnet_images: 
+            self.subjects_combs_controlnet = {}  
+            for controlnet_imgs_dir in controlnet_imgs_dirs: 
+                print(f"preparing images in {controlnet_imgs_dir}") 
+                self.examples[controlnet_imgs_dir] = [] 
+                if not osp.exists(controlnet_imgs_dir): 
+                    continue 
+                self.subjects_combs_controlnet[controlnet_imgs_dir] = [] 
+                subjects_combs_ = os.listdir(controlnet_imgs_dir) 
+                for subjects_comb_ in subjects_combs_: 
+                    subjects_path = osp.join(controlnet_imgs_dir, subjects_comb_) 
+                    self.subjects_combs_controlnet[controlnet_imgs_dir].append(subjects_comb_)  
+                    img_names = os.listdir(subjects_path) 
+                    for img_name in img_names: 
+                        assert img_name.find("jpg") != -1 
+                    img_paths = [osp.join(subjects_path, img_name) for img_name in img_names] 
+                    for img_path in img_paths: 
+                        img_name = osp.basename(img_path) 
+                        assert osp.exists(img_path) 
+                        example = {"controlnet": True}  
+                        example["subjects"] = subjects_comb_.split("_") 
+                        pkl_path = None 
+                        with open(pkl_path, "rb") as f: 
+                            pkl_data = pickle.load(f) 
+                        
+                        all_2d_x = [] 
+                        all_2d_y = [] 
+                        all_bboxes = [] 
+                        assert len(pkl_data.keys()) == len(example["subjects"]) 
+                        for asset_idx in range(len(pkl_data.keys())): 
+                            bbox = pkl_data[f"obj{asset_idx+1}"]["bbox"] 
+                            all_2d_x.append((bbox[0] + bbox[2]) / (2 * RAW_IMG_SIZE))   
+                            all_2d_y.append((bbox[1] + bbox[3]) / (2 * RAW_IMG_SIZE))  
+                            all_bboxes.append(torch.tensor(bbox) / RAW_IMG_SIZE) 
+                        example["2d_xs"] = all_2d_x 
+                        example["2d_ys"] = all_2d_y 
+                        example["bboxes"] = all_bboxes 
+
+                        subjects_data = img_name.split("__") 
+                        subjects_data = subjects_data[:-1] 
+                        whichprompt = subjects_data[-1] 
+                        prompt_idx = int(whichprompt.replace("prompt", "").strip()) 
+                        subjects_data = subjects_data[:-1] 
+                        all_x = [] 
+                        all_y = [] 
+                        all_z = [] 
+                        all_a = [] 
+                        for asset_idx in range(len(example["subjects"])): 
+                            one_subject_data = subjects_data[asset_idx] 
+                            x, y, z, a = one_subject_data.split("_") 
+                            all_x.append(float(x))
+                            all_y.append(float(y)) 
+                            all_z.append(float(z)) 
+                            all_a.append(float(a)) 
+                        example["scalers"] = all_a 
 
 
-#     def __getitem__(self, index):
-#         return self.data[index] 
+                        template_prompt = self.args.controlnet_prompts[prompt_idx] 
+                        placeholder_text = "a SUBJECT0 " 
+                        for asset_idx in range(1, len(example["subjects"])):  
+                            placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} "  
+                        placeholder_text = placeholder_text.strip() 
+                        template_prompt = template_prompt.replace("PLACEHOLDER", placeholder_text) 
+                        if not self.args.include_class_in_prompt: 
+                            for asset_idx in range(len(example["subjects"])): 
+                                assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                                template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{example['subjects'][asset_idx]}")  
+                        else: 
+                            for asset_idx in range(len(example["subjects"])): 
+                                assert template_prompt.find(f"SUBJECT{asset_idx}") != -1 
+                                template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {example['subjects'][asset_idx]}") 
+
+                        example["prompt"] = template_prompt 
+                        example["prompt_ids"] = self.tokenizer( 
+                            example["prompt"], 
+                            padding="do_not_pad", 
+                            truncation=True, 
+                            max_length=self.tokenizer.model_max_length, 
+                        ).input_ids 
+
+                        self.examples[controlnet_imgs_dir].append(example) 
+        
+        # self.num_distinct_examples = 0  
+        # if self.args.use_ref_imgs: 
+        #     for ref_imgs_dir in ref_imgs_dirs: 
+        #         self.num_distinct_examples += len(self.examples[ref_imgs_dir]) 
+        # if self.args.use_controlnet_imgs: 
+        #     for controlnet_imgs_dir in controlnet_imgs_dirs: 
+        #         self.num_distinct_examples += len(self.examples[controlnet_imgs_dir]) 
+
+        self.examples_list = [] 
+        if self.args.use_ref_images: 
+            for ref_imgs_dir in ref_imgs_dirs: 
+                self.examples_list += self.examples[ref_imgs_dir]  
+        if self.args.use_controlnet_images:  
+            for controlnet_imgs_dir in controlnet_imgs_dirs: 
+                self.examples_list += self.examples[controlnet_imgs_dir]  
+
+
+    def __len__(self):
+        # return self.args.max_train_steps  
+        # a window of size 16 is there to prevent border cases 
+        return self.num_steps + 16   
+
+
+    def __getitem__(self, index): 
+        index = index % len(self.examples_list) 
+        example = self.examples_list[index] 
+        img_path = example["img_path"] 
+        img = Image.open(img_path) 
+        img = img.convert("RGB") 
+        example["img"] = self.image_transforms(img) 
+        return example 
+
 
 
 class DisentangleDataset(Dataset): 

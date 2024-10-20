@@ -1,13 +1,13 @@
-export RUN_NAME="proper_attn_masks_noattnloss" 
+export RUN_NAME="new_dataset" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_3009/ref_imgs_1subject"  
-export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_3009/ref_imgs_2subjects" 
-export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_3009/controlnet_imgs_1subject"
-export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_3009/controlnet_imgs_2subjects"
+export INSTANCE_DIR_1SUBJECT="../training_data_2010/ref_imgs_1subject"  
+export INSTANCE_DIR_2SUBJECTS="../training_data_2010/ref_imgs_2subjects" 
+export CONTROLNET_DIR_1SUBJECT="../training_data_2010/controlnet_imgs_1subject"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2010/controlnet_imgs_2subjects"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_2subjects_3009/prior_imgs" 
+export CLASS_DATA_DIR="../training_data_2010/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
 export VIS_DIR="../multiobject/"  
 
@@ -16,12 +16,10 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
-  --use_controlnet_images="Y" \
+  --use_controlnet_images="N" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
-  --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
-  --learning_rate_emb=1e-3 \
   --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
@@ -34,11 +32,11 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
   --pose_only_embedding="Y" \
-  --with_prior_preservation="Y" \
+  --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=0 \
-  --stage2_steps=150000 \
+  --stage1_steps=15000 \
+  --stage2_steps=185000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \

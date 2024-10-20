@@ -61,9 +61,9 @@ from custom_attention_processor import patch_custom_attention
 # }
 from infer_online import TOKEN2ID, UNIQUE_TOKENS 
 
-DEBUG = False  
+DEBUG = True  
 PRINT_STUFF = False  
-BS = 4   
+BS = 1    
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -84,7 +84,7 @@ SAVE_STEPS_GAP = 10000
 
 NUM_SAMPLES = 4  
 
-from datasets import DisentangleDataset  
+from datasets import PosedSubjectsDataset  
 
 
 from accelerate import Accelerator
@@ -1231,7 +1231,7 @@ def main(args):
     )
 
     # defining the dataset 
-    train_dataset_stage1 = DisentangleDataset(
+    train_dataset_stage1 = PosedSubjectsDataset(
         args=args, 
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject], 
@@ -1239,7 +1239,7 @@ def main(args):
         num_steps=args.stage1_steps, 
     ) 
 
-    train_dataset_stage2 = DisentangleDataset(
+    train_dataset_stage2 = PosedSubjectsDataset(
         args=args, 
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
