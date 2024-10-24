@@ -1,4 +1,4 @@
-export RUN_NAME="2410" 
+export RUN_NAME="2410_complete_freedom_to_bnha" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -27,7 +27,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --center_crop="N" \
   --lr_warmup_steps=0 \
   --include_class_in_prompt="Y" \
-  --replace_attn_maps="class2special_soft" \
   --penalize_special_token_attn="N" \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
@@ -37,8 +36,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=10000 \
-  --stage2_steps=190000 \
+  --stage1_steps=0 \
+  --stage2_steps=300000 \
   --resolution=512 \
   --train_batch_size=2 \
   --inference_batch_size=4 \

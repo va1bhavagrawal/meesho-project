@@ -165,6 +165,7 @@ class CustomAttentionProcessor:
             
             # first performing any replacement operations, and then the attention maps are calculated! 
             if any_replacement:  
+                assert False 
                 B = len(encoder_hidden_states["attn_assignments"]) 
                 for batch_idx in range(B): 
                     for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
