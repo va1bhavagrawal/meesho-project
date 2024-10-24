@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4   
+BS = 8    
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -72,8 +72,7 @@ BS = 4
 #     VLOG_STEPS = VLOG_STEPS + [vlog_step]  
 # VLOG_STEPS = sorted(VLOG_STEPS) 
 VLOG_STEPS_GAP = 33000  
-SAVE_STEPS_GAP = 10000 
-    
+SAVE_STEPS_GAP = 5000  
 # SAVE_STEPS = copy.deepcopy(VLOG_STEPS) 
 # SAVE_STEPS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]  
 # SAVE_STEPS = [500, 1000, 5000]  
@@ -84,7 +83,7 @@ SAVE_STEPS_GAP = 10000
 
 NUM_SAMPLES = 4  
 
-from datasets import DisentangleDataset  
+from datasets import EveryPoseEveryThingDataset  
 
 
 from accelerate import Accelerator
@@ -121,7 +120,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, PoseEmbedding, PoseLocationEmbedding  
+from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, GoodPoseEmbedding, PoseLocationEmbedding  
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -546,7 +545,7 @@ def parse_args(input_args=None):
         help="The output format of the model predicitions and checkpoints.",
     )
     parser.add_argument(
-        "--seed", type=int, default=1510, help="A seed for reproducible training."
+        "--seed", type=int, default=1908, help="A seed for reproducible training."
     )
     parser.add_argument(
         "--resolution",
@@ -832,6 +831,8 @@ def main(args):
 
     # defining the output directory to store checkpoints 
     args.output_dir = osp.join(args.output_dir, f"__{args.run_name}") 
+
+    args.subjects = os.listdir(args.instance_data_dir_1subject) 
 
     # storing the number of reference images per subject 
     args.n_ref_imgs = {} 
@@ -1131,15 +1132,6 @@ def main(args):
     if args.textual_inv or args.learn_class_embedding: 
         # the appearance embeddings 
         bnha_embeds = {} 
-        args.subjects = [
-            "pickup truck", 
-            "jeep", 
-            "motorbike", 
-            "bus", 
-            "lion", 
-            "elephant", 
-            "horse", 
-        ] 
         for subject in args.subjects:  
             # initializing using the subject's embedding in the pretrained CLIP text encoder 
             bnha_embeds[subject] = torch.clone(text_encoder.get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
@@ -1205,7 +1197,7 @@ def main(args):
         if args.use_location_conditioning: 
             merger = PoseLocationEmbedding(256, args.merged_emb_dim) 
         else: 
-            merger = PoseEmbedding(output_dim=args.merged_emb_dim)  
+            merger = GoodPoseEmbedding(output_dim=args.merged_emb_dim)  
         # for name, p in merger.named_parameters(): 
         # REMEMBER THAT THERE IS A RANDOM PROJECTION IN THE GAUSSIAN FOURIER FEATURES, AND HENCE THAT IS NOT LEARNABLE 
         #     print(f"{name = }, {p.shape = }, {p.requires_grad = }") 
@@ -1231,20 +1223,22 @@ def main(args):
     )
 
     # defining the dataset 
-    train_dataset_stage1 = DisentangleDataset(
+    train_dataset_stage1 = EveryPoseEveryThingDataset(
         args=args, 
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject], 
         controlnet_imgs_dirs=[args.controlnet_data_dir_1subject], 
         num_steps=args.stage1_steps, 
+        gpu_idx=accelerator.process_index, 
     ) 
 
-    train_dataset_stage2 = DisentangleDataset(
+    train_dataset_stage2 = EveryPoseEveryThingDataset(
         args=args, 
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
         controlnet_imgs_dirs=[args.controlnet_data_dir_1subject, args.controlnet_data_dir_2subjects],  
         num_steps=args.stage2_steps, 
+        gpu_idx=accelerator.process_index, 
     ) 
 
     """
@@ -1280,15 +1274,16 @@ def main(args):
             prompts += [example["class_prompt"] for example in examples] 
             prior_subjects = [example["prior_subject"] for example in examples] 
 
-        pixel_values = torch.stack(pixel_values)
+        pixel_values = torch.stack(pixel_values) 
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float() 
 
-        prompt_ids = tokenizer.pad(
-            {"input_ids": prompt_ids},
-            padding="max_length",
-            max_length=tokenizer.model_max_length,
-            return_tensors="pt",
-        ).input_ids
+        # prompt_ids = tokenizer.pad(
+        #     {"input_ids": prompt_ids},
+        #     padding="max_length",
+        #     max_length=tokenizer.model_max_length,
+        #     return_tensors="pt",
+        # ).input_ids
+        prompt_ids = torch.stack(prompt_ids, dim=0).to(torch.long) 
 
         batch = {
             "prompt_ids": prompt_ids, 
@@ -1320,7 +1315,7 @@ def main(args):
         batch_size=args.train_batch_size, 
         shuffle=True,
         collate_fn=collate_fn,
-        num_workers=accelerator.num_processes * 2, 
+        num_workers=accelerator.num_processes, 
     ) 
 
     """
@@ -1343,7 +1338,8 @@ def main(args):
     # print("The current continuous MLP: {}".format(continuous_word_model))
     
     
-    unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
+    # unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
+    unet, text_encoder, merger, continuous_word_model, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage2)   
     # optimizers_ = [] 
     optimizers_ = {} 
     for name, optimizer in optimizers.items(): 
@@ -1459,7 +1455,7 @@ def main(args):
                         wandb.log(wandb_log_data) 
                 continue 
 
-        if global_step <= args.stage1_steps:  
+        if global_step < args.stage1_steps:  
             MAX_SUBJECTS_PER_EXAMPLE = 1  
             batch = next(train_dataloader_stage1_iter)  
         else: 
@@ -1476,7 +1472,8 @@ def main(args):
             accelerator.print(f"<=============================== step {global_step}  ======================================>")
             for key, value in batch.items(): 
                 if ("ids" in key) or ("values" in key): 
-                    accelerator.print(f"{key}: {value.shape}") 
+                    print(f"{key}: ", end="") 
+                    accelerator.print(f"{value.shape}") 
                 else:
                     accelerator.print(f"{key}: {value}") 
             accelerator.print(f"{MAX_SUBJECTS_PER_EXAMPLE = }") 
@@ -1508,13 +1505,14 @@ def main(args):
                 bboxes = batch["bboxes"]  
                 if batch_idx < len(batch['2d_xs']): 
                     for asset_idx in range(len(batch["subjects"][batch_idx])): 
-                        location = (int(batch["2d_xs"][batch_idx][asset_idx] * 512), int(batch["2d_ys"][batch_idx][asset_idx] * 512))   
+                        img_dim = batch["pixel_values"].shape[-1] 
+                        location = (int(batch["2d_xs"][batch_idx][asset_idx] * img_dim), int(batch["2d_ys"][batch_idx][asset_idx] * img_dim))   
                         locations.append(location) 
                         if PRINT_STUFF: 
                             accelerator.print(f"drawing circle at {location}!") 
                         bbox = bboxes[batch_idx][asset_idx]
-                        tl = (int(bbox[0] * 512), int(bbox[1] * 512))  
-                        br = (int(bbox[2] * 512), int(bbox[3] * 512))  
+                        tl = (int(bbox[0] * img_dim), int(bbox[1] * img_dim))  
+                        br = (int(bbox[2] * img_dim), int(bbox[3] * img_dim))  
                         cv2.circle(img, location, 0, (255, 0, 0), 10) 
                         cv2.rectangle(img, tl, br, (0, 255, 0), 5) 
 
@@ -1596,19 +1594,22 @@ def main(args):
                 mlp_emb = continuous_word_model(p) 
             else: 
                 # mlp_emb = torch.zeros((B, MAX_SUBJECTS_PER_EXAMPLE, args.merged_emb_dim)) 
-                mlp_emb = [] 
+                # mlp_emb = [] 
                 if PRINT_STUFF: 
                     accelerator.print(f"{p = }") 
                     accelerator.print(f"{xs_2d_padded = }") 
                     accelerator.print(f"{ys_2d_padded = }") 
-                for scaler_idx in range(MAX_SUBJECTS_PER_EXAMPLE):  
-                    # mlp_emb[:, scaler_idx, :] = merger(p[:, scaler_idx]) 
-                    if args.use_location_conditioning: 
-                        mlp_emb.append(merger(p[:, scaler_idx], xs_2d_padded[:, scaler_idx], ys_2d_padded[:, scaler_idx]).unsqueeze(1)) 
-                    else: 
-                        mlp_emb.append(merger(p[:, scaler_idx]).unsqueeze(1)) 
+                assert torch.all(p <= 1.0) and torch.all(p >= 0.0) 
+                # for scaler_idx in range(MAX_SUBJECTS_PER_EXAMPLE):  
+                #     # mlp_emb[:, scaler_idx, :] = merger(p[:, scaler_idx]) 
+                #     if args.use_location_conditioning: 
+                #         mlp_emb.append(merger(p[:, scaler_idx], xs_2d_padded[:, scaler_idx], ys_2d_padded[:, scaler_idx]).unsqueeze(1)) 
+                #     else: 
+                #         mlp_emb.append(merger(p[:, scaler_idx]).unsqueeze(1)) 
+                assert p.shape == (B, MAX_SUBJECTS_PER_EXAMPLE), f"{p.shape = }" 
+                mlp_emb = merger(p) 
 
-                mlp_emb = torch.cat(mlp_emb, dim=1) 
+                # mlp_emb = torch.cat(mlp_emb, dim=1) 
                 assert mlp_emb.shape == (B, MAX_SUBJECTS_PER_EXAMPLE, args.merged_emb_dim) 
                     
 
@@ -1722,7 +1723,7 @@ def main(args):
                     else: 
                         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
 
-            text_embeddings = text_encoder(batch_item.unsqueeze(0))[0].squeeze() 
+            text_embeddings = text_encoder(batch_item.unsqueeze(0).to(accelerator.device))[0].squeeze() 
 
             attn_assignments_batchitem = {} 
             unique_token_positions = {}  
@@ -1748,7 +1749,7 @@ def main(args):
         # here we are not cloning because these won't be stepped upon anyways, and this way we can save some memory also!  
         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)   
         if args.with_prior_preservation: 
-            encoder_hidden_states_prior = text_encoder(input_ids_prior)[0] 
+            encoder_hidden_states_prior = text_encoder(input_ids_prior.to(accelerator.device))[0] 
             assert encoder_hidden_states_prior.shape == encoder_hidden_states.shape 
             encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0) 
             assert len(input_ids_prior) == args.train_batch_size, f"{len(input_ids_prior) = }, {args.train_batch_size = }" 
