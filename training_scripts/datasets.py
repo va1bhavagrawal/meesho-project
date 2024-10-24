@@ -232,6 +232,11 @@ class DisentangleDataset(Dataset):
             assert osp.exists(pkl_path), f"{pkl_path = }"
             with open(pkl_path, "rb") as f: 
                 pkl_data = pickle.load(f) 
+            pkl_data_ = {} 
+            for k, v in pkl_data.items(): 
+                if v != {}: 
+                    pkl_data_[k] = v 
+            pkl_data = pkl_data_ 
             all_2d_x = [] 
             all_2d_y = [] 
             all_bboxes = [] 
@@ -326,6 +331,11 @@ class DisentangleDataset(Dataset):
             assert osp.exists(pkl_path), f"{pkl_path = }" 
             with open(pkl_path, "rb") as f: 
                 pkl_data = pickle.load(f) 
+            pkl_data_ = {} 
+            for k, v in pkl_data.items(): 
+                if v != {}: 
+                    pkl_data_[k] = v 
+            pkl_data = pkl_data_ 
             all_2d_x = [] 
             all_2d_y = [] 
             all_bboxes = [] 

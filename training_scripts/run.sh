@@ -1,14 +1,14 @@
-export RUN_NAME="proper_attn_masks_noattnloss" 
+export RUN_NAME="2410_old_hparams_new_dataset" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
-export INSTANCE_DIR_1SUBJECT="../training_data_2subjects_3009/ref_imgs_1subject"  
-export INSTANCE_DIR_2SUBJECTS="../training_data_2subjects_3009/ref_imgs_2subjects" 
-export CONTROLNET_DIR_1SUBJECT="../training_data_2subjects_3009/controlnet_imgs_1subject"
-export CONTROLNET_DIR_2SUBJECTS="../training_data_2subjects_3009/controlnet_imgs_2subjects"
+export INSTANCE_DIR_1SUBJECT="../training_data_2410/ref_imgs_1subject"  
+export INSTANCE_DIR_2SUBJECTS="../training_data_2410/ref_imgs_2subjects" 
+export CONTROLNET_DIR_1SUBJECT="../training_data_2410/controlnet_imgs_1subject"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2410/controlnet_imgs_2subjects"
 export OUTPUT_DIR="../ckpts/multiobject/"
-export CLASS_DATA_DIR="../training_data_2subjects_3009/prior_imgs" 
-export CONTROLNET_PROMPTS_FILE="../prompts/prompts_3008.txt" 
+export CLASS_DATA_DIR="../training_data_2410/prior_imgs" 
+export CONTROLNET_PROMPTS_FILE="../prompts/prompts_2410.txt" 
 export VIS_DIR="../multiobject/"  
 
 
@@ -40,7 +40,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --stage1_steps=0 \
   --stage2_steps=150000 \
   --resolution=512 \
-  --train_batch_size=1 \
+  --train_batch_size=2 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --attn_bbox_from_class_mean="Y" \
