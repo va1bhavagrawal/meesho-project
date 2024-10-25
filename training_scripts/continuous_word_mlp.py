@@ -133,7 +133,7 @@ class GoodPoseEmbedding(nn.Module):
 
 
     def forward(self, x):  
-        x = torch.stack([torch.sin(x), torch.cos(x)], dim=-1)  
+        x = torch.stack([torch.sin(2 * torch.pi * x), torch.cos(2 * torch.pi * x)], dim=-1)  
         x = self.linear1(x) 
         x = F.relu(x) 
         x = self.linear2(x) 
