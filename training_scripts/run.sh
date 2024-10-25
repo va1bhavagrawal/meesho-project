@@ -1,4 +1,4 @@
-export RUN_NAME="2410_complete_freedom_to_bnha_prior5.0" 
+export RUN_NAME="old_hparams_new_dataloader" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -19,9 +19,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_controlnet_images="Y" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
-  --learning_rate_mlp=1e-3 \
   --learning_rate_merger=1e-4 \
-  --learning_rate_emb=1e-3 \
+  --replace_attn_maps="class2special_soft" \
   --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
@@ -37,13 +36,13 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --stage1_steps=0 \
-  --stage2_steps=300000 \
+  --stage2_steps=150000 \
   --resolution=512 \
-  --train_batch_size=2 \
+  --train_batch_size=1 \
   --inference_batch_size=4 \
   --use_location_conditioning="N" \
   --attn_bbox_from_class_mean="Y" \
-  --prior_loss_weight=5.0 \
+  --prior_loss_weight=1.0 \
   --special_token_attn_loss_weight=0.1 \
   --gradient_accumulation_steps=1 \
   --run_name="$RUN_NAME" \
