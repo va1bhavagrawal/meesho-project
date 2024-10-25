@@ -1,4 +1,4 @@
-export RUN_NAME="proper_attn_masks_noattnloss__repeat_new_dataloader" 
+export RUN_NAME="proper_attn_masks_noattnloss__repeat_new_dataloader_good_pose_embedding" 
 # export RUN_NAME="debug" 
 
 rm -rf ../ckpts/multiobject/__debug 

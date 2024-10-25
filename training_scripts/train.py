@@ -121,7 +121,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, PoseEmbedding, PoseLocationEmbedding  
+from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, GoodPoseEmbedding, PoseLocationEmbedding  
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -1207,7 +1207,7 @@ def main(args):
         if args.use_location_conditioning: 
             merger = PoseLocationEmbedding(256, args.merged_emb_dim) 
         else: 
-            merger = PoseEmbedding(output_dim=args.merged_emb_dim)  
+            merger = GoodPoseEmbedding(output_dim=args.merged_emb_dim)  
         # for name, p in merger.named_parameters(): 
         # REMEMBER THAT THERE IS A RANDOM PROJECTION IN THE GAUSSIAN FOURIER FEATURES, AND HENCE THAT IS NOT LEARNABLE 
         #     print(f"{name = }, {p.shape = }, {p.requires_grad = }") 
