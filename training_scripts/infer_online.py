@@ -63,6 +63,9 @@ TOKEN2ID = {
     "bnha": 49336,  
     "pickup truck": 4629, # using the token for "truck" instead  
     "bus": 2840, 
+    "teddy": 11798, 
+    "sofa": 15723, 
+    "ostrich": 47640, 
     "cat": 2368, 
     "giraffe": 22826, 
     "horse": 4558,

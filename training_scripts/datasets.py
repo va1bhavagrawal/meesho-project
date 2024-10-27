@@ -174,11 +174,11 @@ class EveryPoseEveryThingDataset(Dataset):
                         prompt = f"a photo of PLACEHOLDER in a dark studio with white lights" 
 
                     replacement_str = "" 
-                    replacement_str = replacement_str + f"a {UNIQUE_TOKENS['0_0']} {subjects[0]}" 
+                    replacement_str = replacement_str + f"a {subjects[0]}" 
                     for asset_idx, subject in enumerate(subjects):  
                         if asset_idx == 0: 
                             continue 
-                        replacement_str = replacement_str + f" and a {UNIQUE_TOKENS[f'{asset_idx}_0']} {subjects[asset_idx]}" 
+                        replacement_str = replacement_str + f" and a {subjects[asset_idx]}" 
                     prompt = prompt.replace(f"PLACEHOLDER", replacement_str)  
 
                     prompt_ids = self.tokenizer(

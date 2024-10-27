@@ -1,5 +1,7 @@
-export RUN_NAME="old_hparams_new_dataloader" 
+export RUN_NAME="bnha_at_output" 
 # export RUN_NAME="debug" 
+
+rm -rf ../ckpts/multiobject/__debug 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR_1SUBJECT="../training_data_2410/ref_imgs_1subject"  

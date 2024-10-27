@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4         
+BS = 4           
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -1691,6 +1691,7 @@ def main(args):
         # must run a for loop here, first changing the input embeddings of the text encoder for each 
         encoder_hidden_states = [] 
         attn_assignments = [] 
+        special_embeddings = [] 
         if args.with_prior_preservation: 
             input_ids, input_ids_prior = torch.chunk(batch["prompt_ids"], 2, dim=0) 
         else: 
@@ -1698,52 +1699,69 @@ def main(args):
 
         for batch_idx, batch_item in enumerate(input_ids): 
             # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
-            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
+            # accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
+            # unique_token_ints = [] 
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
-            example_merged_emb = merged_emb[batch_idx] 
-            for asset_idx, subject in enumerate(batch["subjects"][batch_idx]):   
+            # example_merged_emb = merged_emb[batch_idx] 
+            # for asset_idx, subject in enumerate(batch["subjects"][batch_idx]):   
 
-                if args.learn_class_embedding: 
-                    if batch["controlnet"][batch_idx] == True: 
-                        continue 
-                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[batch["subjects"][batch_idx][asset_idx]]] = getattr(accelerator.unwrap_model(bnha_embeds), batch["subjects"][batch_idx][asset_idx]) 
+            #     if args.learn_class_embedding: 
+            #         if batch["controlnet"][batch_idx] == True: 
+            #             continue 
+            #         accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[batch["subjects"][batch_idx][asset_idx]]] = getattr(accelerator.unwrap_model(bnha_embeds), batch["subjects"][batch_idx][asset_idx]) 
                         
 
-                for token_idx in range(args.merged_emb_dim // 1024):  
-                    # replacement_emb = torch.clone(merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024])  
-                    if args.normalize_merged_embedding: 
-                        replacement_mask = torch.ones_like(example_merged_emb, requires_grad=False)      
-                        replacement_emb_norm = torch.linalg.norm(example_merged_emb[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]).detach()   
-                        org_emb_norm = torch.linalg.norm(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
-                        replacement_mask[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] = org_emb_norm / replacement_emb_norm  
-                        assert example_merged_emb.shape == replacement_mask.shape  
-                        assert torch.allclose(torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]), org_emb_norm, atol=1e-3), f"{torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]) = }, {org_emb_norm = }" 
-                        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
-                    else: 
-                        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
+            #     for token_idx in range(args.merged_emb_dim // 1024):  
+            #         # replacement_emb = torch.clone(merged_emb[batch_idx][asset_idx][token_idx * 1024 : (token_idx+1) * 1024])  
+            #         if args.normalize_merged_embedding: 
+            #             replacement_mask = torch.ones_like(example_merged_emb, requires_grad=False)      
+            #             replacement_emb_norm = torch.linalg.norm(example_merged_emb[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]).detach()   
+            #             org_emb_norm = torch.linalg.norm(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]).detach()  
+            #             replacement_mask[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] = org_emb_norm / replacement_emb_norm  
+            #             assert example_merged_emb.shape == replacement_mask.shape  
+            #             assert torch.allclose(torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]), org_emb_norm, atol=1e-3), f"{torch.linalg.norm((example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024]) = }, {org_emb_norm = }" 
+            #             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb * replacement_mask)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
+            #         else: 
+            #             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = (example_merged_emb)[asset_idx][token_idx * 1024 : (token_idx+1) * 1024] 
 
-            text_embeddings = text_encoder(batch_item.unsqueeze(0).to(accelerator.device))[0].squeeze() 
+            # text_embeddings = text_encoder(batch_item.unsqueeze(0).to(accelerator.device))[0].squeeze() 
+            assert batch_item[5] in TOKEN2ID.values()  
 
+            special_embeddings_batchitem = {} 
             attn_assignments_batchitem = {} 
-            unique_token_positions = {}  
+            # unique_token_positions = {}  
             for asset_idx in range(len(batch["subjects"][batch_idx])):  
-                for token_idx in range(args.merged_emb_dim // 1024): 
-                    unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                    assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
-                    unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
-                    attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
-                    unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
+                if asset_idx == 0: 
+                    assert batch_item[5] in TOKEN2ID.values()  
+                    assert TOKEN2ID[batch["subjects"][batch_idx][asset_idx]] == batch_item[5], f"{batch['subjects'][batch_idx][asset_idx] = }, {batch_item = }"  
+                    attn_assignments_batchitem[5] = 5 
+                    special_embeddings_batchitem[5] = merged_emb[batch_idx][asset_idx] 
+                elif asset_idx == 1: 
+                    assert TOKEN2ID[batch["subjects"][batch_idx][asset_idx]] == batch_item[8] 
+                    assert batch_item[8] in TOKEN2ID.values()  
+                    special_embeddings_batchitem[8] = merged_emb[batch_idx][asset_idx] 
+                    attn_assignments_batchitem[8] = 8  
+                else: 
+                    raise NotImplementedError(f"{asset_idx = }") 
+                # for token_idx in range(args.merged_emb_dim // 1024): 
+                #     unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                #     assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
+                #     unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
+                #     attn_assignments_batchitem[unique_token_idx + 1] = unique_token_idx + 1  
+                #     unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
 
             attn_assignments.append(attn_assignments_batchitem) 
+            special_embeddings.append(special_embeddings_batchitem) 
 
-            if args.text_encoder_bypass: 
-                for unique_token_name, position in unique_token_positions.items(): 
-                    text_embeddings[position] = text_embeddings[position] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]]  
+            # if args.text_encoder_bypass: 
+            #     for unique_token_name, position in unique_token_positions.items(): 
+            #         text_embeddings[position] = text_embeddings[position] + accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[unique_token_name]]]  
 
-            encoder_hidden_states.append(text_embeddings)  
+            # encoder_hidden_states.append(text_embeddings)  
 
-        encoder_hidden_states = torch.stack(encoder_hidden_states)  
+        # encoder_hidden_states = torch.stack(encoder_hidden_states)  
+        encoder_hidden_states = text_encoder(input_ids.to(accelerator.device))[0]  
 
         # replacing the text encoder input embeddings by the original ones, this time setting them to be HOT, this will be useful in case we choose to do textual inversion 
         # here we are not cloning because these won't be stepped upon anyways, and this way we can save some memory also!  
@@ -1754,6 +1772,7 @@ def main(args):
             encoder_hidden_states = torch.cat([encoder_hidden_states, encoder_hidden_states_prior], dim=0) 
             assert len(input_ids_prior) == args.train_batch_size, f"{len(input_ids_prior) = }, {args.train_batch_size = }" 
             for _ in range(args.train_batch_size):  
+                special_embeddings.append({}) 
                 attn_assignments.append({}) 
 
         """End Adobe CONFIDENTIAL"""
@@ -1766,6 +1785,7 @@ def main(args):
         encoder_states_dict = {
             "encoder_hidden_states": encoder_hidden_states, 
             "attn_assignments": attn_assignments, 
+            "special_embeddings": special_embeddings, 
         } 
         if args.replace_attn_maps is not None: 
             encoder_states_dict[args.replace_attn_maps] = True 

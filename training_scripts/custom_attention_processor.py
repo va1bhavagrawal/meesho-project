@@ -26,7 +26,7 @@ import time
 
 DEBUG_ATTN = False  
 BOX_RESIZING_FACTOR = 1.2 
-INFINITY = 1e9
+HARD_INFINITY = 1e9 
 
 
 def get_attention_scores(
@@ -143,6 +143,19 @@ class CustomAttentionProcessor:
         else: 
             actual_encoder_hidden_states = encoder_hidden_states 
 
+        if type(encoder_hidden_states) == dict: 
+            B = len(actual_encoder_hidden_states) 
+            extended_encoder_hidden_states = torch.zeros((B, 10, 1024)).to(actual_encoder_hidden_states.device)  
+            num_assets_per_batch_item = []  
+            for batch_idx in range(B): 
+                num_assets_for_this_batch_item = 0 
+                for asset_idx, (idx1, special_embedding) in enumerate(encoder_hidden_states["special_embeddings"][batch_idx].items()): 
+                    extended_encoder_hidden_states[batch_idx][asset_idx] = special_embedding   
+                    num_assets_for_this_batch_item += 1 
+                num_assets_per_batch_item.append(num_assets_for_this_batch_item) 
+            actual_encoder_hidden_states = torch.cat([actual_encoder_hidden_states, extended_encoder_hidden_states], dim=1) 
+            assert actual_encoder_hidden_states.shape == (B, 87, 1024) 
+
         key = attn.to_k(actual_encoder_hidden_states)
         value = attn.to_v(actual_encoder_hidden_states) 
 
@@ -167,8 +180,10 @@ class CustomAttentionProcessor:
             if any_replacement:  
                 B = len(encoder_hidden_states["attn_assignments"]) 
                 for batch_idx in range(B): 
-                    for idx1, idx2 in encoder_hidden_states["attn_assignments"][batch_idx].items(): 
-                        assert idx1 != idx2 
+                    for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                        assert idx1 == idx2 
+                        idx2 = 77 + asset_idx  
+                        assert torch.allclose(actual_encoder_hidden_states[batch_idx][idx2], encoder_hidden_states["special_embeddings"][batch_idx][idx1]) 
 
                         if class2special: 
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
@@ -216,10 +231,13 @@ class CustomAttentionProcessor:
                     bboxes.append(bboxes_example) 
 
             for batch_idx in range(B): 
+                assert len(encoder_hidden_states["attn_assignments"][batch_idx]) == num_assets_per_batch_item[batch_idx] 
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
-                    assert idx1 != idx2 
+                    assert idx1 == idx2 
+                    idx2 = 77 + asset_idx 
+                    assert torch.allclose(actual_encoder_hidden_states[batch_idx][idx2], encoder_hidden_states["special_embeddings"][batch_idx][idx1]) 
                     assert attention_scores_batch_split[batch_idx].ndim == 3  
-                    assert attention_scores_batch_split[batch_idx].shape[-1] == 77 
+                    assert attention_scores_batch_split[batch_idx].shape[-1] == 87  
                     attention_scores_idx1 = attention_scores_batch_split[batch_idx][..., idx1] 
                     attention_scores_idx2 = attention_scores_batch_split[batch_idx][..., idx2]  
                     spatial_dim = int(math.sqrt(attention_scores.shape[-2])) 
@@ -245,18 +263,18 @@ class CustomAttentionProcessor:
                     j_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_j + w // 2)).to(dtype=torch.long)  
                     attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
                     attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
-                    attention_mask_ = attention_mask_ * -INFINITY  
+                    attention_mask_ = attention_mask_ * -HARD_INFINITY  
 
                     attention_scores_idx1 = attention_scores_idx1 + attention_mask_ 
                     attention_scores_idx2 = attention_scores_idx2 + attention_mask_  
 
-                    idx1_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
+                    idx1_mask = torch.zeros((87, ), requires_grad=False).to(device=attention_scores.device)  
                     idx1_mask[idx1] = 1 
                     replacement = attention_scores_batch_split[batch_idx] * (1 - idx1_mask) + attention_scores_idx1.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx1_mask) 
                     assert replacement.shape == attention_scores_batch_split[batch_idx].shape 
                     attention_scores_batch_split[batch_idx] = replacement  
 
-                    idx2_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
+                    idx2_mask = torch.zeros((87, ), requires_grad=False).to(device=attention_scores.device)  
                     idx2_mask[idx2] = 1  
                     replacement = attention_scores_batch_split[batch_idx] * (1 - idx2_mask) + attention_scores_idx2.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx2_mask) 
                     assert attention_scores_batch_split[batch_idx].shape == replacement.shape 
@@ -264,6 +282,21 @@ class CustomAttentionProcessor:
 
                     assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx1], attention_scores_idx1.flatten(1,)) 
                     assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx2], attention_scores_idx2.flatten(1,))   
+                
+                for asset_idx in range(num_assets_per_batch_item[batch_idx], 10): 
+                    attention_scores = attention_scores_batch_split[batch_idx][..., 77 + asset_idx] 
+                    # removed assert to increase speed 
+                    # assert torch.allclose(attention_scores, torch.zeros_like(attention_scores)) 
+                    attention_mask_ = torch.ones_like(attention_scores).detach()  
+                    attention_mask_ = attention_mask_ * -HARD_INFINITY  
+                    attention_scores = attention_scores + attention_mask_ 
+
+                    idx1_mask = torch.zeros((87, ), requires_grad=False).to(device=attention_scores.device)  
+                    idx1_mask[asset_idx + 77] = 1 
+                    replacement = attention_scores_batch_split[batch_idx] * (1 - idx1_mask) + attention_scores_idx1.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx1_mask) 
+                    assert replacement.shape == attention_scores_batch_split[batch_idx].shape 
+                    attention_scores_batch_split[batch_idx] = replacement  
+
 
             attention_scores = torch.cat(attention_scores_batch_split, dim=0) 
             attention_probs = F.softmax(attention_scores, dim=-1) 
