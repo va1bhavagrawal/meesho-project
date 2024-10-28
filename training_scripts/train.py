@@ -1228,7 +1228,7 @@ def main(args):
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject], 
         controlnet_imgs_dirs=[args.controlnet_data_dir_1subject], 
-        num_steps=args.stage1_steps, 
+        num_steps=args.stage1_steps // accelerator.num_processes + 1, 
         gpu_idx=accelerator.process_index, 
     ) 
 
@@ -1237,7 +1237,7 @@ def main(args):
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
         controlnet_imgs_dirs=[args.controlnet_data_dir_1subject, args.controlnet_data_dir_2subjects],  
-        num_steps=args.stage2_steps, 
+        num_steps=args.stage2_steps // accelerator.num_processes + 1,  
         gpu_idx=accelerator.process_index, 
     ) 
 
