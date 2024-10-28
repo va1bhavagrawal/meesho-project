@@ -37,8 +37,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=0 \
-  --stage2_steps=150000 \
+  --stage1_steps=30000 \
+  --stage2_steps=120000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
