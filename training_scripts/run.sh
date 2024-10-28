@@ -1,4 +1,4 @@
-export RUN_NAME="bnha_at_output_corrected" 
+export RUN_NAME="bnha_at_output_corrected_again" 
 # export RUN_NAME="debug" 
 
 rm -rf ../ckpts/multiobject/__debug 

@@ -182,8 +182,8 @@ class CustomAttentionProcessor:
                 for batch_idx in range(B): 
                     for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
                         assert idx1 == idx2 
-                        idx2 = 77 + asset_idx  
-                        assert torch.allclose(actual_encoder_hidden_states[batch_idx][idx2], encoder_hidden_states["special_embeddings"][batch_idx][idx1]) 
+                        idx1 = 77 + asset_idx  
+                        assert torch.allclose(actual_encoder_hidden_states[batch_idx][idx1], encoder_hidden_states["special_embeddings"][batch_idx][idx2]) 
 
                         if class2special: 
                             key[batch_idx][idx1] = key[batch_idx][idx2] 
@@ -234,8 +234,8 @@ class CustomAttentionProcessor:
                 assert len(encoder_hidden_states["attn_assignments"][batch_idx]) == num_assets_per_batch_item[batch_idx] 
                 for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
                     assert idx1 == idx2 
-                    idx2 = 77 + asset_idx 
-                    assert torch.allclose(actual_encoder_hidden_states[batch_idx][idx2], encoder_hidden_states["special_embeddings"][batch_idx][idx1]) 
+                    idx1 = 77 + asset_idx 
+                    assert torch.allclose(actual_encoder_hidden_states[batch_idx][idx1], encoder_hidden_states["special_embeddings"][batch_idx][idx2]) 
                     assert attention_scores_batch_split[batch_idx].ndim == 3  
                     assert attention_scores_batch_split[batch_idx].shape[-1] == 87  
                     attention_scores_idx1 = attention_scores_batch_split[batch_idx][..., idx1] 
