@@ -1228,7 +1228,7 @@ def main(args):
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject], 
         controlnet_imgs_dirs=[args.controlnet_data_dir_1subject], 
-        num_steps=args.stage1_steps, 
+        num_steps=args.stage1_steps // accelerator.num_processes + 1, 
         gpu_idx=accelerator.process_index, 
     ) 
 
@@ -1237,7 +1237,7 @@ def main(args):
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
         controlnet_imgs_dirs=[args.controlnet_data_dir_1subject, args.controlnet_data_dir_2subjects],  
-        num_steps=args.stage2_steps, 
+        num_steps=args.stage2_steps // accelerator.num_processes + 1, 
         gpu_idx=accelerator.process_index, 
     ) 
 
@@ -1315,7 +1315,7 @@ def main(args):
         batch_size=args.train_batch_size, 
         shuffle=True,
         collate_fn=collate_fn,
-        num_workers=accelerator.num_processes, 
+        num_workers=accelerator.num_processes * 2, 
     ) 
 
     """
@@ -1339,7 +1339,7 @@ def main(args):
     
     
     # unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
-    unet, text_encoder, merger, continuous_word_model, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage2)   
+    unet, text_encoder, merger, continuous_word_model = accelerator.prepare(unet, text_encoder, merger, continuous_word_model)   
     # optimizers_ = [] 
     optimizers_ = {} 
     for name, optimizer in optimizers.items(): 

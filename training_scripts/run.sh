@@ -1,4 +1,4 @@
-export RUN_NAME="old_hparams_new_dataloader" 
+export RUN_NAME="bnha_at_input" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
