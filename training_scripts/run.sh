@@ -1,4 +1,4 @@
-export RUN_NAME="bnha_at_output_corrected_again" 
+export RUN_NAME="bnha_at_output_no_replacement" 
 # export RUN_NAME="debug" 
 
 rm -rf ../ckpts/multiobject/__debug 
@@ -22,7 +22,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
   --learning_rate_merger=1e-4 \
-  --replace_attn_maps="class2special_soft" \
   --learn_class_embedding="N" \
   --color_jitter="Y" \
   --center_crop="N" \
