@@ -241,7 +241,7 @@ class CustomAttentionProcessor:
                     attention_scores_idx1 = attention_scores_batch_split[batch_idx][..., idx1] 
                     attention_scores_idx2 = attention_scores_batch_split[batch_idx][..., idx2]  
                     spatial_dim = int(math.sqrt(attention_scores.shape[-2])) 
-                    assert spatial_dim * spatial_dim == attention_scores_idx1.shape[-1] == attention_scores_idx2.shape[-1], f"{spatial_dim = }, {attention_scores_idx1.shape = }, {attention_scores_idx1.shape = }" 
+                    assert spatial_dim * spatial_dim == attention_scores_idx1.shape[-1] == attention_scores_idx2.shape[-1], f"{spatial_dim = }, {attention_scores_idx1.shape = }, {attention_scores_idx2.shape = }" 
                     n_heads = attention_scores_idx1.shape[0] 
                     assert attention_scores_idx2.shape[0] == n_heads 
 
@@ -280,22 +280,25 @@ class CustomAttentionProcessor:
                     assert attention_scores_batch_split[batch_idx].shape == replacement.shape 
                     attention_scores_batch_split[batch_idx] = replacement  
 
-                    assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx1], attention_scores_idx1.flatten(1,)) 
-                    assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx2], attention_scores_idx2.flatten(1,))   
+                    if DEBUG_ATTN: 
+                        assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx1], attention_scores_idx1.flatten(1,)) 
+                        assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx2], attention_scores_idx2.flatten(1,))   
                 
                 for asset_idx in range(num_assets_per_batch_item[batch_idx], 10): 
-                    attention_scores = attention_scores_batch_split[batch_idx][..., 77 + asset_idx] 
+                    attention_scores_idx = attention_scores_batch_split[batch_idx][..., 77 + asset_idx] 
                     # removed assert to increase speed 
                     # assert torch.allclose(attention_scores, torch.zeros_like(attention_scores)) 
-                    attention_mask_ = torch.ones_like(attention_scores).detach()  
+                    attention_mask_ = torch.ones_like(attention_scores_idx).detach()  
                     attention_mask_ = attention_mask_ * -HARD_INFINITY  
-                    attention_scores = attention_scores + attention_mask_ 
+                    attention_scores_idx = attention_scores_idx + attention_mask_ 
 
                     idx1_mask = torch.zeros((87, ), requires_grad=False).to(device=attention_scores.device)  
                     idx1_mask[asset_idx + 77] = 1 
-                    replacement = attention_scores_batch_split[batch_idx] * (1 - idx1_mask) + attention_scores_idx1.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx1_mask) 
+                    replacement = attention_scores_batch_split[batch_idx] * (1 - idx1_mask) + attention_scores_idx.unsqueeze(-1) * (idx1_mask) 
                     assert replacement.shape == attention_scores_batch_split[batch_idx].shape 
                     attention_scores_batch_split[batch_idx] = replacement  
+                    if DEBUG_ATTN: 
+                        assert torch.all(attention_scores_batch_split[batch_idx][..., 77 + asset_idx] < -0.1 * HARD_INFINITY), f"{torch.max(attention_scores_batch_split[batch_idx][..., 77 + asset_idx]) = }"  
 
 
             attention_scores = torch.cat(attention_scores_batch_split, dim=0) 

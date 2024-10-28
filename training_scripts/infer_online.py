@@ -164,8 +164,8 @@ import wandb
 
 
 class EncoderStatesDataset(Dataset): 
-    def __init__(self, encoder_states, save_paths, attn_assignments, track_ids, interesting_token_strs, all_azimuths, all_subjects): 
-        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments) == len(interesting_token_strs) == len(all_azimuths) == len(all_subjects) > 0  
+    def __init__(self, encoder_states, save_paths, attn_assignments, track_ids, interesting_token_strs, all_azimuths, all_subjects, all_special_embeddings): 
+        assert len(encoder_states) == len(save_paths) == len(track_ids) == len(attn_assignments) == len(interesting_token_strs) == len(all_azimuths) == len(all_subjects) == len(all_special_embeddings) > 0  
         self.encoder_states = encoder_states 
         self.save_paths = save_paths 
         self.attn_assignments = attn_assignments 
@@ -173,6 +173,7 @@ class EncoderStatesDataset(Dataset):
         self.interesting_token_strs = interesting_token_strs 
         self.azimuths = all_azimuths 
         self.subjects = all_subjects 
+        self.special_embeddings = all_special_embeddings 
 
 
     def __len__(self): 
@@ -184,7 +185,7 @@ class EncoderStatesDataset(Dataset):
         assert self.encoder_states[index] is not None 
         # print(f"dataset is sending {self.encoder_states[index] = }, {self.save_paths[index] = }")
         # (self.encoder_states[index], [self.save_paths[index]]) 
-        return (self.encoder_states[index], self.save_paths[index], self.attn_assignments[index], self.track_ids[index], self.interesting_token_strs[index], self.azimuths[index], self.subjects[index])     
+        return (self.encoder_states[index], self.save_paths[index], self.attn_assignments[index], self.track_ids[index], self.interesting_token_strs[index], self.azimuths[index], self.subjects[index], self.special_embeddings[index])      
 
 
 def collate_fn(examples): 
@@ -195,6 +196,7 @@ def collate_fn(examples):
     interesting_token_strs = [example[4] for example in examples] 
     azimuths = [example[5] for example in examples] 
     subjects = [example[6] for example in examples] 
+    special_embeddings = [example[7] for example in examples] 
     return {
         "save_paths": save_paths, 
         "encoder_states": encoder_states, 
@@ -202,6 +204,7 @@ def collate_fn(examples):
         "track_ids": track_ids, 
         "interesting_token_strs": interesting_token_strs, 
         "azimuths": azimuths, 
+        "special_embeddings": special_embeddings, 
         "subjects": subjects, 
     } 
 
@@ -442,18 +445,23 @@ class Infer:
         uncond_assignments = [] 
         uncond_subjects = [] 
         uncond_azimuths = [] 
+        uncond_special_embeddings = [] 
         for batch_idx in range(batch["encoder_states"].shape[0]): 
             uncond_assignments.append({}) 
             uncond_subjects.append([]) 
             uncond_azimuths.append([]) 
+            uncond_special_embeddings.append({}) 
+
         cond_assignments = batch["attn_assignments"] 
         cond_subjects = batch["subjects"] 
         cond_azimuths = batch["azimuths"] 
+        cond_special_embeddings = batch["special_embeddings"] 
 
         all_assignments = uncond_assignments + cond_assignments 
         all_subjects = uncond_subjects + cond_subjects  
         all_azimuths = uncond_azimuths + cond_azimuths 
-        assert len(all_assignments) == len(all_subjects) == len(all_azimuths) 
+        all_special_embeddings = uncond_special_embeddings + cond_special_embeddings 
+        assert len(all_assignments) == len(all_subjects) == len(all_azimuths) == len(all_special_embeddings)   
 
         # encoder_states, save_paths = batch 
         encoder_states = batch["encoder_states"].to(self.accelerator.device)  
@@ -499,6 +507,7 @@ class Infer:
                 "encoder_hidden_states": concat_encoder_states, 
                 "attn_assignments": all_assignments, 
                 "args": self.args, 
+                "special_embeddings": all_special_embeddings, 
             }
             if self.replace_attn is not None: 
                 encoder_states_dict[self.replace_attn] = True 
@@ -646,6 +655,7 @@ class Infer:
             all_encoder_states = [] 
             all_save_paths = [] 
             all_attn_assignments = [] 
+            all_special_embeddings = [] 
             all_track_ids = [] 
             all_interesting_token_strs = [] 
             all_azimuths = [] 
@@ -757,7 +767,7 @@ class Infer:
                         #     assert subject_data['subject'] == TEXTUAL_INV 
                         #     # ti_embedding = torch.load(TI_PATH) 
                         #     # ti_embedding = ti_embedding[TEXTUAL_INV].squeeze()  
-                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{unique_strings[asset_idx]} {subject_data['subject']}") 
+                        template_prompt = template_prompt.replace(f"SUBJECT{asset_idx}", f"{subject_data['subject']}") 
 
                 print(f"{template_prompt}") 
                 prompt_ids = self.tokenizer(
@@ -768,23 +778,33 @@ class Infer:
                     return_tensors="pt"
                 ).input_ids.to(self.accelerator.device)  
 
+                # track_ids = [] 
+                # interesting_token_strs = [] 
+                # for token_pos, token in enumerate(prompt_ids[0]): 
+                #     if token in TOKEN2ID.values(): 
+                #         track_ids.append(token_pos)  
+                #         interesting_token_strs.append(self.tokenizer.decode(token)) 
                 track_ids = [] 
-                interesting_token_strs = [] 
-                for token_pos, token in enumerate(prompt_ids[0]): 
-                    if token in TOKEN2ID.values(): 
-                        track_ids.append(token_pos)  
-                        interesting_token_strs.append(self.tokenizer.decode(token)) 
+                for asset_idx, subject_data in enumerate(gif_subject_data): 
+                    if asset_idx == 0: 
+                        track_ids.append(5) 
+                        interesting_token_strs = [f"SUBJECT{asset_idx}"] 
+                    elif asset_idx == 1: 
+                        track_ids.append(8) 
+                        interesting_token_strs = [f"SUBJECT{asset_idx}"] 
+                    else: 
+                        raise NotImplementedError("only 2 subjects supported for now!") 
 
                 for sample_idx in range(n_samples): 
-                    for asset_idx, subject_data in enumerate(gif_subject_data): 
-                        subject = subject_data["subject"] 
-                        for token_idx in range(self.merged_emb_dim // 1024): 
-                            replacement_emb = merged_embs_video[sample_idx][asset_idx]  
-                            if normalize_merged_embedding: 
-                                replacement_emb_norm = torch.linalg.norm(replacement_emb) 
-                                org_emb_norm = torch.linalg.norm(self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
-                                replacement_emb = replacement_emb * org_emb_norm / replacement_emb_norm 
-                            self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = replacement_emb  
+                    # for asset_idx, subject_data in enumerate(gif_subject_data): 
+                    #     subject = subject_data["subject"] 
+                    #     for token_idx in range(self.merged_emb_dim // 1024): 
+                    #         replacement_emb = merged_embs_video[sample_idx][asset_idx]  
+                    #         if normalize_merged_embedding: 
+                    #             replacement_emb_norm = torch.linalg.norm(replacement_emb) 
+                    #             org_emb_norm = torch.linalg.norm(self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[subject]]) 
+                    #             replacement_emb = replacement_emb * org_emb_norm / replacement_emb_norm 
+                    #         self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID[UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"]]] = replacement_emb  
                     text_embeddings = self.text_encoder(prompt_ids)[0].squeeze() 
                     all_encoder_states.append(text_embeddings) 
                     all_save_paths.append(osp.join(self.tmp_dir, subjects_string, f"{str(sample_idx).zfill(3)}.jpg")) 
@@ -794,21 +814,32 @@ class Infer:
                     all_interesting_token_strs.append(interesting_token_strs) 
 
                     attn_assignments = {} 
+                    special_embeddings = {} 
                     unique_token_positions = {} 
                     for asset_idx, subject_data in enumerate(gif_subject_data): 
-                        for token_idx in range(self.merged_emb_dim // 1024): 
-                            unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
-                            assert TOKEN2ID[unique_token] in prompt_ids 
-                            # print(f"{list(prompt_ids) = }") 
-                            # print(f"{TOKEN2ID[unique_token] = }") 
-                            # print(f"{TOKEN2ID[unique_token] = }")
-                            # print(f"{prompt_ids = }")
-                            assert len(prompt_ids) == 1 
-                            unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
-                            unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
-                            attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+                        # for token_idx in range(self.merged_emb_dim // 1024): 
+                        #     unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
+                        #     assert TOKEN2ID[unique_token] in prompt_ids 
+                        #     # print(f"{list(prompt_ids) = }") 
+                        #     # print(f"{TOKEN2ID[unique_token] = }") 
+                        #     # print(f"{TOKEN2ID[unique_token] = }")
+                        #     # print(f"{prompt_ids = }")
+                        #     assert len(prompt_ids) == 1 
+                        #     unique_token_idx = prompt_ids.squeeze().tolist().index(TOKEN2ID[unique_token]) 
+                        #     unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx 
+                        #     attn_assignments[unique_token_idx] = unique_token_idx + self.merged_emb_dim // 1024 - token_idx  
+                        if asset_idx == 0: 
+                            attn_assignments[5] = 5 
+                            special_embeddings[5] = merged_embs_video[sample_idx][asset_idx] 
+                        elif asset_idx == 1: 
+                            attn_assignments[8] = 8 
+                            special_embeddings[8] = merged_embs_video[sample_idx][asset_idx] 
+                        else: 
+                            raise NotImplementedError("only 2 subjects supported for now!") 
+
                     
                     all_attn_assignments.append(attn_assignments) 
+                    all_special_embeddings.append(special_embeddings) 
 
                     if text_encoder_bypass: 
                         for unique_token_name, position in unique_token_positions.items(): 
@@ -852,7 +883,7 @@ class Infer:
                 all_azimuths = all_azimuths_permuted  
 
 
-            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths, all_attn_assignments, all_track_ids, all_interesting_token_strs, all_azimuths, all_subjects)      
+            dataset = EncoderStatesDataset(all_encoder_states, all_save_paths, all_attn_assignments, all_track_ids, all_interesting_token_strs, all_azimuths, all_subjects, all_special_embeddings)       
 
             dataloader = DataLoader(dataset, batch_size=self.bs, collate_fn=collate_fn)  
             dataloader = self.accelerator.prepare(dataloader)  
