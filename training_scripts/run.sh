@@ -1,4 +1,4 @@
-export RUN_NAME="bnha_at_output" 
+export RUN_NAME="bnha_at_output_corrected" 
 # export RUN_NAME="debug" 
 
 rm -rf ../ckpts/multiobject/__debug 
@@ -55,6 +55,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
+  --wandb \
   --class_data_dir=$CLASS_DATA_DIR 
 
 
