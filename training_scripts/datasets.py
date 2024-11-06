@@ -214,10 +214,11 @@ class EveryPoseEveryThingDataset(Dataset):
         img = self.image_transforms(img) 
         example = {} 
         example["img"] = img 
-        if chosen_idx == 0: 
-            example["controlnet"] = False  
-        else: 
-            example["controlnet"] = True  
+        # if chosen_idx == 0: 
+        #     example["controlnet"] = False  
+        # else: 
+        #     example["controlnet"] = True  
+        example["controlnet"] = False 
 
         # double subject case 
         subjects = chosen_img_data["subjects"] 
