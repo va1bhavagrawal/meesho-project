@@ -30,6 +30,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --normalize_merged_embedding="N" \
   --text_encoder_bypass="N" \
   --appearance_skip_connection="N" \
+  --attn_bbox_from_class_mean="N" \
   --merged_emb_dim=1024 \
   --pose_only_embedding="Y" \
   --with_prior_preservation="Y" \
