@@ -199,6 +199,7 @@ class CustomAttentionProcessor:
         attention_scores = get_attention_scores(attn, query, key, attention_mask)
 
         if type(encoder_hidden_states) == dict and ("bbox_from_class_mean" in encoder_hidden_states.keys()) and encoder_hidden_states["bbox_from_class_mean"] == True:  
+            assert False 
             B = len(encoder_hidden_states["attn_assignments"]) 
             attention_scores_batch_split = list(torch.chunk(attention_scores, chunks=B, dim=0))  
             if "bboxes" in encoder_hidden_states.keys(): 
