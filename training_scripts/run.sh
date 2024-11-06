@@ -1,11 +1,11 @@
-export RUN_NAME="old_hparams_new_dataloader" 
+export RUN_NAME="ablation_no_controlnet" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
 export INSTANCE_DIR_1SUBJECT="../training_data_2410/ref_imgs_1subject"  
 export INSTANCE_DIR_2SUBJECTS="../training_data_2410/ref_imgs_2subjects" 
-export CONTROLNET_DIR_1SUBJECT="../training_data_2410/controlnet_imgs_1subject"
-export CONTROLNET_DIR_2SUBJECTS="../training_data_2410/controlnet_imgs_2subjects"
+export CONTROLNET_DIR_1SUBJECT="../training_data_2410/some_random_dir_that_does_not_exist"
+export CONTROLNET_DIR_2SUBJECTS="../training_data_2410/some_random_dir_that_does_not_exist"
 export OUTPUT_DIR="../ckpts/multiobject/"
 export CLASS_DATA_DIR="../training_data_2410/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_2410.txt" 
@@ -16,7 +16,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --train_unet="Y" \
   --textual_inv="N" \
   --train_text_encoder="N" \
-  --use_controlnet_images="Y" \
+  --use_controlnet_images="N" \
   --use_ref_images="Y" \
   --learning_rate=1e-4 \
   --learning_rate_merger=1e-4 \
@@ -35,8 +35,8 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --with_prior_preservation="Y" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=0 \
-  --stage2_steps=150000 \
+  --stage1_steps=20000 \
+  --stage2_steps=80000 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \

@@ -51,7 +51,6 @@ class EveryPoseEveryThingDataset(Dataset):
         self.args = args 
 
         # for this dataset, both controlnet and reference images must be used 
-        assert self.args.use_controlnet_images == True 
         assert self.args.use_ref_images  == True 
 
         self.subjects = self.args.subjects 
@@ -61,7 +60,6 @@ class EveryPoseEveryThingDataset(Dataset):
         img_transforms = []
 
         self.ref_imgs_dirs = ref_imgs_dirs  
-        self.controlnet_imgs_dirs = controlnet_imgs_dirs 
 
         if args.resize:
             img_transforms.append(
@@ -123,7 +121,7 @@ class EveryPoseEveryThingDataset(Dataset):
             self.class_prompt_to_ids[class_prompt] = class_prompt_ids 
 
 
-        all_dirs = controlnet_imgs_dirs + ref_imgs_dirs
+        all_dirs = ref_imgs_dirs
         for imgs_dir_idx, imgs_dir in enumerate(all_dirs): 
             for subjects_string in os.listdir(imgs_dir): 
                 subjects_path = osp.join(imgs_dir, subjects_string) 

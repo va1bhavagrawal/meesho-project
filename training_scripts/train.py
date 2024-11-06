@@ -1255,6 +1255,8 @@ def main(args):
     """
     def collate_fn(examples):
         is_controlnet = [example["controlnet"] for example in examples] 
+        for example in examples: 
+            assert example["controlnet"] == False 
         prompt_ids = [example["prompt_ids"] for example in examples] 
         prompts = [example["prompt"] for example in examples] 
         subjects = [example["subjects"] for example in examples] 
