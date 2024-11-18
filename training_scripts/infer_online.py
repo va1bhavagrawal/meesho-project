@@ -58,6 +58,15 @@ INSTANCE_DIR_2SUBJECTS = "../training_data_2subjects_3009/ref_imgs_2subjects"
 
 from custom_attention_processor import patch_custom_attention, get_attention_maps, show_image_relevance  
 
+LEN_TOKENS = {
+    "army helicopter": 2, 
+    "airplane": 1, 
+    "boeing": 1, 
+    "cesna airplane": 3,  
+    "helicopter": 1, 
+    "fighter jet": 2, 
+} 
+
 TOKEN2ID = {
     "sks": 48136, 
     "bnha": 49336,  

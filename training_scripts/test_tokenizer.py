@@ -4,7 +4,12 @@ import sys
 pipe = diffusers.StableDiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-2-1") 
 tokenizer = pipe.tokenizer 
 prompts = [
-    "racecar"  
+    "army helicopter",   
+    "airplane", 
+    "boeing", 
+    "cesna airplane",  
+    "helicopter", 
+    "fighter jet", 
 ] 
 all_input_ids = tokenizer(prompts).input_ids 
 for input_ids, prompt in zip(all_input_ids, prompts): 

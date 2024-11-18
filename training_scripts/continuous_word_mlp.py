@@ -121,6 +121,28 @@ class MergedEmbedding(nn.Module):
         return x 
 
 
+class EulerEmbedding(nn.Module): 
+    def __init__(self, output_dim): 
+        super().__init__() 
+        self.input_dim = 1  
+        self.output_dim = output_dim 
+        self.linear1 = nn.Linear(6, output_dim)  
+        self.linear2 = nn.Linear(output_dim, output_dim)  
+        self.linear3 = nn.Linear(output_dim, output_dim) 
+        self.gaussian_fourier_embedding = GaussianFourierProjection(output_dim // 2, log=False)  
+
+
+    def forward(self, x):  
+        x = torch.cat([torch.sin(2 * torch.pi * x), torch.cos(2 * torch.pi * x)], dim=-1)  
+        assert x.shape[-1] == 6 
+        x = self.linear1(x) 
+        x = F.relu(x) 
+        x = self.linear2(x) 
+        x = F.relu(x) 
+        x = self.linear3(x) 
+        return x 
+
+
 class GoodPoseEmbedding(nn.Module): 
     def __init__(self, output_dim): 
         super().__init__() 

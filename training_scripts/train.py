@@ -59,7 +59,7 @@ from custom_attention_processor import patch_custom_attention
 #     "shoe": 7342, 
 #     "dog": 1929, 
 # }
-from infer_online import TOKEN2ID, UNIQUE_TOKENS 
+from infer_online import TOKEN2ID, UNIQUE_TOKENS, LEN_TOKENS  
 
 DEBUG = False  
 PRINT_STUFF = False  
@@ -83,7 +83,7 @@ SAVE_STEPS_GAP = 5000
 
 NUM_SAMPLES = 4  
 
-from datasets import EveryPoseEveryThingDataset  
+from datasets import DisentangleDataset  
 
 
 from accelerate import Accelerator
@@ -120,7 +120,7 @@ from pathlib import Path
 import random
 import re
 
-from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, GoodPoseEmbedding, PoseLocationEmbedding  
+from continuous_word_mlp import continuous_word_mlp, AppearanceEmbeddings, MergedEmbedding, GoodPoseEmbedding, PoseLocationEmbedding, EulerEmbedding  
 # from viewpoint_mlp import viewpoint_MLP_light_21_multi as viewpoint_MLP
 
 import glob
@@ -1197,7 +1197,7 @@ def main(args):
         if args.use_location_conditioning: 
             merger = PoseLocationEmbedding(256, args.merged_emb_dim) 
         else: 
-            merger = GoodPoseEmbedding(output_dim=args.merged_emb_dim)  
+            merger = EulerEmbedding(output_dim=args.merged_emb_dim)  
         # for name, p in merger.named_parameters(): 
         # REMEMBER THAT THERE IS A RANDOM PROJECTION IN THE GAUSSIAN FOURIER FEATURES, AND HENCE THAT IS NOT LEARNABLE 
         #     print(f"{name = }, {p.shape = }, {p.requires_grad = }") 
@@ -1223,22 +1223,20 @@ def main(args):
     )
 
     # defining the dataset 
-    train_dataset_stage1 = EveryPoseEveryThingDataset(
+    train_dataset_stage1 = DisentangleDataset(
         args=args, 
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject], 
         controlnet_imgs_dirs=[args.controlnet_data_dir_1subject], 
         num_steps=args.stage1_steps, 
-        gpu_idx=accelerator.process_index, 
     ) 
 
-    train_dataset_stage2 = EveryPoseEveryThingDataset(
+    train_dataset_stage2 = DisentangleDataset(
         args=args, 
         tokenizer=tokenizer, 
         ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
         controlnet_imgs_dirs=[args.controlnet_data_dir_1subject, args.controlnet_data_dir_2subjects],  
         num_steps=args.stage2_steps, 
-        gpu_idx=accelerator.process_index, 
     ) 
 
     """
@@ -1266,7 +1264,9 @@ def main(args):
             pixel_values.append(example["img"])
 
         """Adding the scaler of the embedding into the batch"""
-        scalers = [example["scalers"] for example in examples] 
+        a1s = [example["a1s"] for example in examples] 
+        a2s = [example["a2s"] for example in examples] 
+        a3s = [example["a3s"] for example in examples] 
 
         if args.with_prior_preservation:
             prompt_ids += [example["class_prompt_ids"] for example in examples]
@@ -1277,18 +1277,20 @@ def main(args):
         pixel_values = torch.stack(pixel_values) 
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float() 
 
-        # prompt_ids = tokenizer.pad(
-        #     {"input_ids": prompt_ids},
-        #     padding="max_length",
-        #     max_length=tokenizer.model_max_length,
-        #     return_tensors="pt",
-        # ).input_ids
-        prompt_ids = torch.stack(prompt_ids, dim=0).to(torch.long) 
+        prompt_ids = tokenizer.pad(
+            {"input_ids": prompt_ids},
+            padding="max_length",
+            max_length=tokenizer.model_max_length,
+            return_tensors="pt",
+        ).input_ids
+        # prompt_ids = torch.stack(prompt_ids, dim=0).to(torch.long) 
 
         batch = {
             "prompt_ids": prompt_ids, 
             "pixel_values": pixel_values,
-            "scalers": scalers,
+            "a1s": a1s, 
+            "a2s": a2s, 
+            "a3s": a3s, 
             "subjects": subjects, 
             "controlnet": is_controlnet, 
             "prompts": prompts, 
@@ -1466,7 +1468,7 @@ def main(args):
             assert torch.allclose(accelerator.unwrap_model(text_encoder).get_input_embeddings().weight, input_embeddings) 
 
         # print(f"{batch.keys()}")
-        B = len(batch["scalers"])   
+        B = len(batch["a1s"])   
 
         if PRINT_STUFF: 
             accelerator.print(f"<=============================== step {global_step}  ======================================>")
@@ -1519,7 +1521,10 @@ def main(args):
                 plt.figure(figsize=(20, 20)) 
                 plt.imshow(img)  
                 if batch_idx < B: 
-                    plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t{batch['subjects'][batch_idx] = }\t{batch['scalers'][batch_idx] = }" 
+                    a1 = batch["a1s"][batch_idx] 
+                    a2 = batch["a2s"][batch_idx]  
+                    a3 = batch["a3s"][batch_idx] 
+                    plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t{batch['subjects'][batch_idx] = }\t{a1 = }\t{a2 = }\t{a3 = }" 
                 else: 
                     plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }" 
                 plt_title = "\n".join(textwrap.wrap(plt_title, width=60)) 
@@ -1568,22 +1573,28 @@ def main(args):
         # we are no longer learning appearance embeddings first! 
         if True: 
             # progress_bar.set_description(f"stage 2: ")
-            scalers_padded = torch.zeros((len(batch["scalers"]), MAX_SUBJECTS_PER_EXAMPLE))  
+            a1_padded = torch.zeros((len(batch["a1s"]), MAX_SUBJECTS_PER_EXAMPLE))  
+            a2_padded = torch.zeros((len(batch["a2s"]), MAX_SUBJECTS_PER_EXAMPLE))  
+            a3_padded = torch.zeros((len(batch["a3s"]), MAX_SUBJECTS_PER_EXAMPLE))  
             xs_2d_padded = torch.zeros((len(batch["2d_xs"]), MAX_SUBJECTS_PER_EXAMPLE)) 
             ys_2d_padded = torch.zeros((len(batch["2d_ys"]), MAX_SUBJECTS_PER_EXAMPLE)) 
 
-            for batch_idx in range(len(batch["scalers"])): 
-                for scaler_idx in range(len(batch["scalers"][batch_idx])): 
-                    scalers_padded[batch_idx][scaler_idx] = batch["scalers"][batch_idx][scaler_idx] 
+            for batch_idx in range(len(batch["a1s"])): 
+                for scaler_idx in range(len(batch["a1s"][batch_idx])): 
+                    # scalers_padded[batch_idx][scaler_idx] = batch["scalers"][batch_idx][scaler_idx] 
+                    a1_padded[batch_idx][scaler_idx] = batch["a1s"][batch_idx][scaler_idx] 
+                    a2_padded[batch_idx][scaler_idx] = batch["a2s"][batch_idx][scaler_idx] 
+                    a3_padded[batch_idx][scaler_idx] = batch["a3s"][batch_idx][scaler_idx] 
 
-            assert len(batch["scalers"]) == len(batch["2d_xs"]) == len(batch["2d_ys"])  
-            for batch_idx in range(len(batch["scalers"])): 
-                assert len(batch["scalers"][batch_idx]) == len(batch["2d_xs"][batch_idx]) == len(batch["2d_ys"][batch_idx])  
-                for scaler_idx in range(len(batch["scalers"][batch_idx])): 
+            assert len(batch["a1s"]) == len(batch["2d_xs"]) == len(batch["2d_ys"]) == len(batch["a2s"])  
+            for batch_idx in range(len(batch["a1s"])): 
+                assert len(batch["a1s"][batch_idx]) == len(batch["a2s"][batch_idx]) == len(batch["2d_xs"][batch_idx]) == len(batch["2d_ys"][batch_idx])  
+                for scaler_idx in range(len(batch["a1s"][batch_idx])): 
                     xs_2d_padded[batch_idx][scaler_idx] = batch["2d_xs"][batch_idx][scaler_idx]  
                     ys_2d_padded[batch_idx][scaler_idx] = batch["2d_ys"][batch_idx][scaler_idx] 
 
-            p = torch.Tensor(scalers_padded / (2 * math.pi)) 
+            # p = torch.Tensor(scalers_padded / (2 * math.pi)) 
+            p = torch.stack([a1_padded, a2_padded, a3_padded], dim=-1) / (2 * torch.pi)  
             assert torch.all(xs_2d_padded < 1) 
             assert torch.all(ys_2d_padded < 1) 
             if not args.pose_only_embedding: 
@@ -1599,14 +1610,14 @@ def main(args):
                     accelerator.print(f"{p = }") 
                     accelerator.print(f"{xs_2d_padded = }") 
                     accelerator.print(f"{ys_2d_padded = }") 
-                assert torch.all(p <= 1.0) and torch.all(p >= 0.0) 
+                assert torch.all(p <= 1.0) and torch.all(p >= -1.0), f"{p = }" 
                 # for scaler_idx in range(MAX_SUBJECTS_PER_EXAMPLE):  
                 #     # mlp_emb[:, scaler_idx, :] = merger(p[:, scaler_idx]) 
                 #     if args.use_location_conditioning: 
                 #         mlp_emb.append(merger(p[:, scaler_idx], xs_2d_padded[:, scaler_idx], ys_2d_padded[:, scaler_idx]).unsqueeze(1)) 
                 #     else: 
                 #         mlp_emb.append(merger(p[:, scaler_idx]).unsqueeze(1)) 
-                assert p.shape == (B, MAX_SUBJECTS_PER_EXAMPLE), f"{p.shape = }" 
+                assert p.shape == (B, MAX_SUBJECTS_PER_EXAMPLE, 3), f"{p.shape = }" 
                 mlp_emb = merger(p) 
 
                 # mlp_emb = torch.cat(mlp_emb, dim=1) 
@@ -1620,9 +1631,9 @@ def main(args):
             # mlp_emb = torch.zeros(B, 1024) 
             mlp_emb = torch.zeros((B, MAX_SUBJECTS_PER_EXAMPLE, 1024)).to(accelerator.device)  
 
-        num_assets_in_batch = 0 
-        for batch_idx in range(B): 
-            num_assets_in_batch = num_assets_in_batch + len(batch["scalers"][batch_idx]) 
+        # num_assets_in_batch = 0 
+        # for batch_idx in range(B): 
+        #     num_assets_in_batch = num_assets_in_batch + len(batch["a1s"][batch_idx]) 
 
         # appearance embeddings
         # textual inversion is used, then the embeddings are initialized with their classes  
@@ -1729,10 +1740,12 @@ def main(args):
             unique_token_positions = {}  
             for asset_idx in range(len(batch["subjects"][batch_idx])):  
                 for token_idx in range(args.merged_emb_dim // 1024): 
+                    subject = batch["subjects"][batch_idx][asset_idx]  
                     unique_token = UNIQUE_TOKENS[f"{asset_idx}_{token_idx}"] 
                     assert TOKEN2ID[unique_token] in list(batch_item), f"{unique_token = }" 
                     unique_token_idx = list(batch_item).index(TOKEN2ID[unique_token]) 
-                    attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
+                    # attn_assignments_batchitem[unique_token_idx] = unique_token_idx + args.merged_emb_dim // 1024 - token_idx 
+                    attn_assignments_batchitem[unique_token_idx] = [unique_token_idx + i + 1 for i in range(LEN_TOKENS[subject])]  
                     unique_token_positions[f"{asset_idx}_{token_idx}"] = unique_token_idx  
 
             attn_assignments.append(attn_assignments_batchitem) 

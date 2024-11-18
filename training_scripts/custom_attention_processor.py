@@ -216,54 +216,63 @@ class CustomAttentionProcessor:
                     bboxes.append(bboxes_example) 
 
             for batch_idx in range(B): 
-                for asset_idx, (idx1, idx2) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
-                    assert idx1 != idx2 
-                    assert attention_scores_batch_split[batch_idx].ndim == 3  
-                    assert attention_scores_batch_split[batch_idx].shape[-1] == 77 
-                    attention_scores_idx1 = attention_scores_batch_split[batch_idx][..., idx1] 
-                    attention_scores_idx2 = attention_scores_batch_split[batch_idx][..., idx2]  
-                    spatial_dim = int(math.sqrt(attention_scores.shape[-2])) 
-                    assert spatial_dim * spatial_dim == attention_scores_idx1.shape[-1] == attention_scores_idx2.shape[-1], f"{spatial_dim = }, {attention_scores_idx1.shape = }, {attention_scores_idx1.shape = }" 
-                    n_heads = attention_scores_idx1.shape[0] 
-                    assert attention_scores_idx2.shape[0] == n_heads 
+                for asset_idx, (compass_token_idx, class_token_ids) in enumerate(encoder_hidden_states["attn_assignments"][batch_idx].items()):  
+                    # assert idx1 != idx2 
+                    for idx in [compass_token_idx] + class_token_ids: 
+                        assert attention_scores_batch_split[batch_idx].ndim == 3  
+                        assert attention_scores_batch_split[batch_idx].shape[-1] == 77 
+                        attention_scores_idx = attention_scores_batch_split[batch_idx][..., idx] 
+                        # attention_scores_idx2 = attention_scores_batch_split[batch_idx][..., idx2]  
+                        spatial_dim = int(math.sqrt(attention_scores.shape[-2])) 
+                        # assert spatial_dim * spatial_dim == attention_scores_idx1.shape[-1] == attention_scores_idx2.shape[-1], f"{spatial_dim = }, {attention_scores_idx1.shape = }, {attention_scores_idx1.shape = }" 
+                        assert spatial_dim * spatial_dim == attention_scores_idx.shape[-1], f"{spatial_dim = }, {attention_scores_idx.shape = }"  
+                        n_heads = attention_scores_idx.shape[0] 
+                        # assert attention_scores_idx2.shape[0] == n_heads 
 
-                    attention_scores_idx1 = attention_scores_idx1.reshape(n_heads, spatial_dim, spatial_dim)  
-                    attention_scores_idx2 = attention_scores_idx2.reshape(n_heads, spatial_dim, spatial_dim)  
+                        # attention_scores_idx1 = attention_scores_idx1.reshape(n_heads, spatial_dim, spatial_dim)  
+                        # attention_scores_idx2 = attention_scores_idx2.reshape(n_heads, spatial_dim, spatial_dim)  
+                        attention_scores_idx = attention_scores_idx.reshape(n_heads, spatial_dim, spatial_dim)  
 
-                    bbox = bboxes[batch_idx][asset_idx] 
-                    mean_i, mean_j = torch.round(spatial_dim * ((bbox[1] + bbox[3]) / 2)), torch.round(spatial_dim * ((bbox[0] + bbox[2]) / 2))  
-                    h, w = torch.round((bbox[3] - bbox[1]) * spatial_dim), torch.round((bbox[2] - bbox[0]) * spatial_dim) 
-                    if resize_box: 
-                        h, w = torch.round(h * BOX_RESIZING_FACTOR), torch.round(w * BOX_RESIZING_FACTOR) 
-                    h, w = h.to(dtype=torch.long), w.to(dtype=torch.long) 
-                    max_side = max(h, w) 
-                    h = max_side 
-                    w = max_side 
-                    i_min = torch.round(max(torch.tensor(0), mean_i - h // 2)).to(dtype=torch.long) 
-                    i_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_i + h // 2)).to(dtype=torch.long) 
-                    j_min = torch.round(max(torch.tensor(0), mean_j - w // 2)).to(dtype=torch.long) 
-                    j_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_j + w // 2)).to(dtype=torch.long)  
-                    attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
-                    attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
-                    attention_mask_ = attention_mask_ * -INFINITY  
+                        bbox = bboxes[batch_idx][asset_idx] 
+                        mean_i, mean_j = torch.round(spatial_dim * ((bbox[1] + bbox[3]) / 2)), torch.round(spatial_dim * ((bbox[0] + bbox[2]) / 2))  
+                        h, w = torch.round((bbox[3] - bbox[1]) * spatial_dim), torch.round((bbox[2] - bbox[0]) * spatial_dim) 
+                        if resize_box: 
+                            h, w = torch.round(h * BOX_RESIZING_FACTOR), torch.round(w * BOX_RESIZING_FACTOR) 
+                        h, w = h.to(dtype=torch.long), w.to(dtype=torch.long) 
+                        max_side = max(h, w) 
+                        h = max_side 
+                        w = max_side 
+                        i_min = torch.round(max(torch.tensor(0), mean_i - h // 2)).to(dtype=torch.long) 
+                        i_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_i + h // 2)).to(dtype=torch.long) 
+                        j_min = torch.round(max(torch.tensor(0), mean_j - w // 2)).to(dtype=torch.long) 
+                        j_max = torch.round(min(torch.tensor(spatial_dim) - 1, mean_j + w // 2)).to(dtype=torch.long)  
+                        # attention_mask_ = torch.ones_like(attention_scores_idx1).detach()  
+                        attention_mask_ = torch.ones_like(attention_scores_idx).detach()  
+                        attention_mask_[:, i_min : i_max, j_min : j_max] = 0 
+                        attention_mask_ = attention_mask_ * -INFINITY  
 
-                    attention_scores_idx1 = attention_scores_idx1 + attention_mask_ 
-                    attention_scores_idx2 = attention_scores_idx2 + attention_mask_  
+                        # attention_scores_idx1 = attention_scores_idx1 + attention_mask_ 
+                        # attention_scores_idx2 = attention_scores_idx2 + attention_mask_  
+                        attention_scores_idx = attention_scores_idx + attention_mask_ 
 
-                    idx1_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
-                    idx1_mask[idx1] = 1 
-                    replacement = attention_scores_batch_split[batch_idx] * (1 - idx1_mask) + attention_scores_idx1.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx1_mask) 
-                    assert replacement.shape == attention_scores_batch_split[batch_idx].shape 
-                    attention_scores_batch_split[batch_idx] = replacement  
+                        # idx1_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
+                        # idx1_mask[idx1] = 1 
+                        idx_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
+                        idx_mask[idx] = 1 
+                        # replacement = attention_scores_batch_split[batch_idx] * (1 - idx1_mask) + attention_scores_idx1.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx1_mask) 
+                        replacement = attention_scores_batch_split[batch_idx] * (1 - idx_mask) + attention_scores_idx.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx_mask) 
+                        assert replacement.shape == attention_scores_batch_split[batch_idx].shape 
+                        attention_scores_batch_split[batch_idx] = replacement  
 
-                    idx2_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
-                    idx2_mask[idx2] = 1  
-                    replacement = attention_scores_batch_split[batch_idx] * (1 - idx2_mask) + attention_scores_idx2.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx2_mask) 
-                    assert attention_scores_batch_split[batch_idx].shape == replacement.shape 
-                    attention_scores_batch_split[batch_idx] = replacement  
+                        # idx2_mask = torch.zeros((77, ), requires_grad=False).to(device=attention_scores.device)  
+                        # idx2_mask[idx2] = 1  
+                        # replacement = attention_scores_batch_split[batch_idx] * (1 - idx2_mask) + attention_scores_idx2.reshape(n_heads, spatial_dim * spatial_dim, 1) * (idx2_mask) 
+                        # assert attention_scores_batch_split[batch_idx].shape == replacement.shape 
+                        # attention_scores_batch_split[batch_idx] = replacement  
 
-                    assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx1], attention_scores_idx1.flatten(1,)) 
-                    assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx2], attention_scores_idx2.flatten(1,))   
+                        # assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx1], attention_scores_idx1.flatten(1,)) 
+                        # assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx2], attention_scores_idx2.flatten(1,))   
+                        assert torch.allclose(attention_scores_batch_split[batch_idx][..., idx], attention_scores_idx.flatten(1,)) 
 
             attention_scores = torch.cat(attention_scores_batch_split, dim=0) 
             attention_probs = F.softmax(attention_scores, dim=-1) 
