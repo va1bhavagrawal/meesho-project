@@ -6,7 +6,7 @@
 #SBATCH --mem=300G  
 #SBATCH --gres=gpu:1   
 #SBATCH --partition=long 
-#SBATCH -w cn7        
+#SBATCH -w cn6          
 
 # nvidia-smi
-accelerate launch --config_file accelerate_config.yaml infer_online.py  
+accelerate launch --config_file accelerate_config.yaml infer_sdxl.py  

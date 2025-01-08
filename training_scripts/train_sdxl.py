@@ -101,7 +101,7 @@ MAX_SUBJECTS_TRAINING = 1
 
 #################################### 
 
-def online_inference(args, pipeline, num_samples, special_tokens_ints_one, special_encoder, tmp_dir, accelerator, wandb_log_data=None):  
+def online_inference(args, pipeline, num_samples, special_tokens_ints_one, special_tokens_ints_two, special_encoder, special_encoder_two, tmp_dir, accelerator, wandb_log_data=None):  
 	if accelerator.is_main_process: 
 		if osp.exists(tmp_dir): 
 			shutil.rmtree(tmp_dir) 
@@ -153,7 +153,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 	] 
 
 	text_encoder_one = pipeline.text_encoder 
-	# text_encoder_two = pipeline.text_encoder_2 
+	text_encoder_two = pipeline.text_encoder_2 
 
 	latents_store = torch.load("latents.pt") 
 	for scene_idx, scene in enumerate(scenes_data): 
@@ -171,6 +171,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				y = subject_data["y"] 
 				theta = subject_data["theta"][orientation_idx] 
 				token_one = special_tokens_ints_one[orientation_idx * MAX_SUBJECTS + subject_idx] 
+				token_two = special_tokens_ints_two[orientation_idx * MAX_SUBJECTS + subject_idx] 
 				# token_two = special_tokens_ints_two[orientation_idx * MAX_SUBJECTS + subject_idx] 
 
 				x_t = torch.tensor(x).unsqueeze(0).unsqueeze(-1).to(accelerator.device).float()  
@@ -182,11 +183,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				# special_embedding_two = special_encoder_part2_two(intermediate_embedding) 
 				# special_embedding_three = special_encoder_part2_three(intermediate_embedding) 
 				special_embedding = special_encoder(theta_t / (2 * torch.pi)) 
+				special_embedding_two = special_encoder_two(theta_t / (2 * torch.pi)) 
 
 				# text_encoder_one.get_input_embeddings().weight[token_one] = special_embedding_one  
 				# text_encoder_two.get_input_embeddings().weight[token_two] = special_embedding_two  
 				# text_encoder_three.get_input_embeddings().weight[token_three] = special_embedding_three 
 				text_encoder_one.get_input_embeddings().weight[token_one] = special_embedding 
+				text_encoder_two.get_input_embeddings().weight[token_two] = special_embedding_two 
 
 				prompt = metadata["prompt"] 
 				# replace PLACEHOLDER with the subject names  
@@ -1430,10 +1433,10 @@ def main(args):
 	text_encoder_one.resize_token_embeddings(len(tokenizer_one))  
 	special_tokens_ints_one = tokenizer_one.convert_tokens_to_ids(special_tokens_str)  
 
-	# num_added_tokens = tokenizer_two.add_tokens(special_tokens_str)  
-	# assert num_added_tokens == MAX_BATCH_SIZE * MAX_SUBJECTS  
-	# text_encoder_two.resize_token_embeddings(len(tokenizer_two))  
-	# special_tokens_ints_two = tokenizer_two.convert_tokens_to_ids(special_tokens_str)  
+	num_added_tokens = tokenizer_two.add_tokens(special_tokens_str)  
+	assert num_added_tokens == MAX_BATCH_SIZE * MAX_SUBJECTS  
+	text_encoder_two.resize_token_embeddings(len(tokenizer_two))  
+	special_tokens_ints_two = tokenizer_two.convert_tokens_to_ids(special_tokens_str)  
 
 
 
@@ -1459,6 +1462,7 @@ def main(args):
 	)
 
 	special_encoder = GoodPoseEmbedding(768) 
+	special_encoder_two = GoodPoseEmbedding(1280) 
 
 	# We only train the additional adapter LoRA layers
 	vae.requires_grad_(False)
@@ -1490,9 +1494,10 @@ def main(args):
 	text_encoder_two.to(accelerator.device, dtype=weight_dtype)
 
 	text_encoder_one_codebook = copy.deepcopy(nn.Parameter(accelerator.unwrap_model(text_encoder_one).get_input_embeddings().weight, requires_grad=False))  
-	# text_encoder_two_codebook = copy.deepcopy(nn.Parameter(accelerator.unwrap_model(text_encoder_two).get_input_embeddings().weight, requires_grad=False))  
+	text_encoder_two_codebook = copy.deepcopy(nn.Parameter(accelerator.unwrap_model(text_encoder_two).get_input_embeddings().weight, requires_grad=False))  
 
 	special_encoder.to(accelerator.device, dtype=weight_dtype) 
+	special_encoder_two.to(accelerator.device, dtype=weight_dtype) 
 
 	if args.enable_xformers_memory_efficient_attention:
 		if is_xformers_available():
@@ -1570,7 +1575,10 @@ def main(args):
 						get_peft_model_state_dict(model)
 					)
 				elif isinstance(model, type(unwrap_model(special_encoder))):
-					torch.save(unwrap_model(model).state_dict(), osp.join(output_dir, "special_encoder.pt")) 
+					if model.output_dim == 768: 
+						torch.save(unwrap_model(model).state_dict(), osp.join(output_dir, "special_encoder.pt")) 
+					elif model.output_dim == 1280: 
+						torch.save(unwrap_model(model).state_dict(), osp.join(output_dir, "special_encoder_two.pt")) 
 				else:
 					raise ValueError(f"unexpected save model: {model.__class__}")
 
@@ -1599,7 +1607,10 @@ def main(args):
 			elif isinstance(model, type(unwrap_model(text_encoder_two))):
 				text_encoder_two_ = model
 			elif isinstance(model, type(unwrap_model(special_encoder))):
-				special_encoder_ = model
+				if model.output_dim == 768: 
+					special_encoder_ = model 
+				elif model.output_dim == 1280: 	
+					special_encoder_two_ = model 
 			else:
 				raise ValueError(f"unexpected save model: {model.__class__}")
 
@@ -1726,6 +1737,14 @@ def main(args):
 
 		optimizers["special_encoder"] = optimizer_class(
 			special_encoder.parameters(), 
+			lr=args.learning_rate_special_encoder, 
+			betas=(args.adam_beta1, args.adam_beta2),
+			weight_decay=args.adam_weight_decay,
+			eps=args.adam_epsilon,
+		)
+
+		optimizers["special_encoder_two"] = optimizer_class(
+			special_encoder_two.parameters(), 
 			lr=args.learning_rate_special_encoder, 
 			betas=(args.adam_beta1, args.adam_beta2),
 			weight_decay=args.adam_weight_decay,
@@ -2003,8 +2022,8 @@ def main(args):
 	logger.info(f"  num examples in stage2 = {len(train_dataset_stage2)}")
 	logger.info(f"  Num batches / epoch in stage1 = {len(train_dataloader_stage1)}")
 	logger.info(f"  Num batches / epoch in stage2 = {len(train_dataloader_stage2)}")
-	logger.info(f"  Num Epochs = {args.num_train_epochs_stage1}")
-	logger.info(f"  Num Epochs = {args.num_train_epochs_stage2}")
+	logger.info(f"  Num Epochs stage1 = {args.num_train_epochs_stage1}")
+	logger.info(f"  Num Epochs stage2 = {args.num_train_epochs_stage2}")
 	logger.info(f"  Instantaneous batch size per device = {args.train_batch_size}")
 	logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
 	logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
@@ -2131,13 +2150,14 @@ def main(args):
 				# print(f"{batch['prompts'] = }")
 
 				special_embeddings = special_encoder(batch["theta_t"] / (2 * torch.pi))  
+				special_embeddings_two = special_encoder_two(batch["theta_t"] / (2 * torch.pi))  
 
 				for batch_idx in range(len(batch["subjects_data"])): 
 					for subject_idx in range(len(batch["subjects_data"][batch_idx])): 
 						idx = batch_idx * MAX_SUBJECTS + subject_idx
 						# print(f"replacing {special_tokens_str[idx]} by special embedding!") 
 						unwrap_model(text_encoder_one).get_input_embeddings().weight[special_tokens_ints_one[idx]] = special_embeddings[batch_idx][subject_idx]  
-						# unwrap_model(text_encoder_two).get_input_embeddings().weight[special_tokens_ints_two[batch_idx * MAX_SUBJECTS + subject_idx]] = special_embeddings[batch_idx][subject_idx]  
+						unwrap_model(text_encoder_two).get_input_embeddings().weight[special_tokens_ints_two[idx]] = special_embeddings_two[batch_idx][subject_idx]  
 
 				# encode batch prompts when custom prompts are provided for each image -
 				# if train_dataset.custom_instance_prompts:
@@ -2266,6 +2286,7 @@ def main(args):
 					)[0]
 
 				unwrap_model(text_encoder_one).get_input_embeddings().weight = copy.deepcopy(text_encoder_one_codebook)  
+				unwrap_model(text_encoder_two).get_input_embeddings().weight = copy.deepcopy(text_encoder_two_codebook)  
 
 				weighting = None
 				if args.do_edm_style_training:
@@ -2381,6 +2402,16 @@ def main(args):
 								assert not torch.any(torch.isinf(param.grad)) and not torch.any(torch.isnan(param.grad)), f"{name = } is either inf or nan!"  
 								some_good_param = True 
 					assert some_good_param 
+					some_good_param = False 
+					for name, param in special_encoder_two.named_parameters(): 
+						if param.requires_grad: 
+							is_good_param = (param.grad is not None) and (not torch.allclose(param.grad, torch.zeros_like(param.grad)))  
+							if not is_good_param: 
+								logger.warning(f"{name} does not have gradients!") 
+							else: 
+								assert not torch.any(torch.isinf(param.grad)) and not torch.any(torch.isnan(param.grad)), f"{name = } is either inf or nan!"  
+								some_good_param = True 
+					assert some_good_param 
 					print(f"ALL GRADIENT CHECKS PASSED!") 
 
 
@@ -2399,14 +2430,17 @@ def main(args):
 				logs = {"loss": loss.detach().item()} 
 				if global_step > 5 and global_step % args.calculate_weight_norm_every == 0: 
 					special_encoder_norm = torch.mean(torch.stack([torch.linalg.norm(p.grad) for p in special_encoder.parameters() if p.requires_grad and p.grad is not None])).item() 
+					special_encoder_two_norm = torch.mean(torch.stack([torch.linalg.norm(p.grad) for p in special_encoder_two.parameters() if p.requires_grad and p.grad is not None])).item() 
 					unet_norm = torch.mean(torch.stack([torch.linalg.norm(p.grad) for p in unet.parameters() if p.requires_grad and p.grad is not None])).item() 
 					logs["grad_norms/special_encoder"] = special_encoder_norm   
+					logs["grad_norms/special_encoder_two"] = special_encoder_two_norm   
 					logs["grad_norms/unet"] = unet_norm  
 
 				if global_step % args.calculate_weight_norm_every == 0: 
 					special_encoder_norm = torch.mean(torch.stack([torch.linalg.norm(p) for p in special_encoder.parameters()])).item() 
+					special_encoder_two_norm = torch.mean(torch.stack([torch.linalg.norm(p) for p in special_encoder_two.parameters()])).item() 
 					unet_norm = torch.mean(torch.stack([torch.linalg.norm(p) for p in unet.parameters() if p.requires_grad == True])).item() 
-					logs["weight_norms/special_encoder"] = special_encoder_norm  
+					logs["weight_norms/special_encoder_two"] = special_encoder_two_norm  
 					logs["weight_norms/unet"] = unet_norm  
 
 				for optimizer in optimizers.values(): 
@@ -2439,7 +2473,7 @@ def main(args):
 					) 
 
 					with torch.no_grad(): 
-						online_inference(args, pipeline, 8, special_tokens_ints_one, special_encoder, f"tmp_{'_'.join(args.run_name.split())}", accelerator, logs) 
+						online_inference(args, pipeline, 8, special_tokens_ints_one, special_tokens_ints_two, special_encoder, special_encoder_two,  f"tmp_{'_'.join(args.run_name.split())}", accelerator, logs) 
 
 					accelerator.wait_for_everyone() 
 					if len(save_steps) and global_step == save_steps[0]: 

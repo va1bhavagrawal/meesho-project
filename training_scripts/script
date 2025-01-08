@@ -6,10 +6,10 @@
 #SBATCH --mem=300G 
 #SBATCH --gres=gpu:2     
 #SBATCH --partition=long 
-#SBATCH -w cn3   
+#SBATCH -w cn6  
 
 
-export RUN_NAME="sdxl_first_try" 
+export RUN_NAME="sdxl_first_try_1e-5_1e-4" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-xl-base-1.0"
@@ -37,9 +37,9 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --pretrained_vae_model_name_or_path=$VAE_PATH \
   --output_dir=$OUTPUT_DIR \
   --resolution=512 \
-  --train_batch_size=1 \
+  --train_batch_size=2 \
   --gradient_accumulation_steps=1 \
-  --learning_rate=1e-4 \
+  --learning_rate=1e-5 \
   --learning_rate_special_encoder=1e-4 \
   --rendered_imgs_prompt="a photo of PLACEHOLDER" \
   --report_to="wandb" \
@@ -52,7 +52,7 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --instance_data_dir_1subject=$INSTANCE_DIR_1SUBJECT \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --seed="0" \
-  --run_name=$RUN_NAME \
-  --wandb
-  # --run_name="debug" \
-  # --debug_dir="debug"
+  --run_name="debug" \
+  --debug_dir="debug"
+  # --run_name=$RUN_NAME \
+  # --wandb
