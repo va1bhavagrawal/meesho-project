@@ -40,7 +40,6 @@ class EveryPoseEveryThingDataset(Dataset):
     def __init__(
         self, 
         args, 
-        tokenizer, 
         ref_imgs_dirs: list, 
         controlnet_imgs_dirs: list, 
         num_steps, 
@@ -51,19 +50,19 @@ class EveryPoseEveryThingDataset(Dataset):
         self.args = args 
 
         # for this dataset, both controlnet and reference images must be used 
-        assert self.args.use_controlnet_images == True 
-        assert self.args.use_ref_images  == True 
+        # assert self.args.use_controlnet_images == True 
+        # assert self.args.use_ref_images  == True 
 
         self.subjects = self.args.subjects 
         print(f"preparing dataset on gpu {gpu_idx}, {self.subjects = }")
-        self.tokenizer = tokenizer 
         self.num_steps = num_steps 
         img_transforms = []
 
         self.ref_imgs_dirs = ref_imgs_dirs  
         self.controlnet_imgs_dirs = controlnet_imgs_dirs 
 
-        if args.resize:
+        # if args.resize:
+        if True: 
             img_transforms.append(
                 transforms.Resize(
                     args.resolution, interpolation=transforms.InterpolationMode.BILINEAR
@@ -71,7 +70,8 @@ class EveryPoseEveryThingDataset(Dataset):
             )
         if args.center_crop:
             img_transforms.append(transforms.CenterCrop(args.resolution)) 
-        if args.color_jitter:
+        # if args.color_jitter:
+        if False: 
             img_transforms.append(transforms.ColorJitter(0.2, 0.1))
         # if args.h_flip:
         #     img_transforms.append(transforms.RandomHorizontalFlip())
@@ -110,17 +110,17 @@ class EveryPoseEveryThingDataset(Dataset):
         # for subject_pose in self.subjects_poses: 
         #     self.available_images[subject_pose] = [] 
 
-        self.class_prompt_to_ids = {} 
-        for subject in self.subjects: 
-            class_prompt = f"a photo of a {subject}" 
-            class_prompt_ids = self.tokenizer( 
-                class_prompt, 
-                padding="max_length", 
-                truncation=True, 
-                max_length=self.tokenizer.model_max_length,  
-                return_tensors="pt", 
-            ).input_ids[0]  
-            self.class_prompt_to_ids[class_prompt] = class_prompt_ids 
+        # self.class_prompt_to_ids = {} 
+        # for subject in self.subjects: 
+        #     class_prompt = f"a photo of a {subject}" 
+        #     class_prompt_ids = self.tokenizer( 
+        #         class_prompt, 
+        #         padding="max_length", 
+        #         truncation=True, 
+        #         max_length=self.tokenizer.model_max_length,  
+        #         return_tensors="pt", 
+        #     ).input_ids[0]  
+        #     self.class_prompt_to_ids[class_prompt] = class_prompt_ids 
 
 
         all_dirs = controlnet_imgs_dirs + ref_imgs_dirs
@@ -174,27 +174,29 @@ class EveryPoseEveryThingDataset(Dataset):
                         prompt = f"a photo of PLACEHOLDER in a dark studio with white lights" 
 
                     replacement_str = "" 
-                    replacement_str = replacement_str + f"a {UNIQUE_TOKENS['0_0']} {subjects[0]}" 
+                    # replacement_str = replacement_str + f"a {UNIQUE_TOKENS['0_0']} {subjects[0]}" 
+                    replacement_str = replacement_str + f"a <special_token_0> {subjects[0]}" 
                     for asset_idx, subject in enumerate(subjects):  
                         if asset_idx == 0: 
                             continue 
-                        replacement_str = replacement_str + f" and a {UNIQUE_TOKENS[f'{asset_idx}_0']} {subjects[asset_idx]}" 
+                        replacement_str = replacement_str + f" and a <special_token_{asset_idx}> {subjects[asset_idx]}" 
                     prompt = prompt.replace(f"PLACEHOLDER", replacement_str)  
 
-                    prompt_ids = self.tokenizer(
-                        prompt, 
-                        padding="max_length", 
-                        truncation=True, 
-                        max_length=self.tokenizer.model_max_length, 
-                        return_tensors="pt", 
-                    ).input_ids[0]  
+                    # prompt_ids = self.tokenizer(
+                    #     prompt, 
+                    #     padding="max_length", 
+                    #     truncation=True, 
+                    #     max_length=self.tokenizer.model_max_length, 
+                    #     return_tensors="pt", 
+                    # ).input_ids[0]  
 
                     assert len(pose_bins) == len(subjects) 
 
                     if (*subjects, *pose_bins) not in self.available_images.keys(): 
                         self.available_images[(*subjects, *pose_bins)] = [] 
 
-                    self.available_images[(*subjects, *pose_bins)].append({"img_path": img_path, "prompt": prompt, "prompt_ids": prompt_ids, "bboxes": bboxes, "azimuths" : azimuths, "subjects": subjects})    
+                    # self.available_images[(*subjects, *pose_bins)].append({"img_path": img_path, "prompt": prompt, "prompt_ids": prompt_ids, "bboxes": bboxes, "azimuths" : azimuths, "subjects": subjects})    
+                    self.available_images[(*subjects, *pose_bins)].append({"img_path": img_path, "prompt": prompt, "bboxes": bboxes, "azimuths" : azimuths, "subjects": subjects})    
 
         self.next_idx = {} 
         for k in self.available_images.keys(): 
@@ -226,11 +228,11 @@ class EveryPoseEveryThingDataset(Dataset):
         azimuths = chosen_img_data["azimuths"] 
         bboxes = chosen_img_data["bboxes"] 
         prompt = chosen_img_data["prompt"] 
-        prompt_ids = chosen_img_data["prompt_ids"] 
+        # prompt_ids = chosen_img_data["prompt_ids"] 
 
         example["subjects"] = subjects  
         example["scalers"] = torch.tensor(azimuths)  
-        example["prompt_ids"] = prompt_ids  
+        # example["prompt_ids"] = prompt_ids  
         example["prompt"] = prompt  
         example["2d_xs"] = [] 
         example["2d_ys"] = [] 
@@ -254,7 +256,7 @@ class EveryPoseEveryThingDataset(Dataset):
             example["class_img"] = self.image_transforms(class_img) 
             class_prompt = f"a photo of a {random_subject}" 
             example["class_prompt"] = class_prompt 
-            example["class_prompt_ids"] = self.class_prompt_to_ids[class_prompt] 
+            # example["class_prompt_ids"] = self.class_prompt_to_ids[class_prompt] 
 
         assert len(example["subjects"]) == len(example["scalers"]) 
 

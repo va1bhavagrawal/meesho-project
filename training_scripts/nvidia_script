@@ -1,0 +1,11 @@
+#!/bin/bash
+#SBATCH --job-name=train
+#SBATCH --output=job_output_%j.log  
+#SBATCH --ntasks=1                  
+#SBATCH --cpus-per-task=4           
+#SBATCH --mem=300G 
+#SBATCH --gres=gpu:0     
+#SBATCH --partition=long 
+#SBATCH -w cn4     
+
+nvidia-smi 

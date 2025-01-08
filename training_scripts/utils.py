@@ -6,6 +6,31 @@ import os
 import os.path as osp 
 import math 
 
+def sanitize_filename(filename):
+    filename = filename.lower() 
+    
+    # Replace spaces and special characters with underscores
+    # filename = re.sub(r'[^\w\-_\.]', '_', filename)
+    
+    # Remove consecutive underscores
+    # filename = re.sub(r'_+', '_', filename)
+
+    # remove <, > and | 
+    filename = filename.replace("<", "")  
+    filename = filename.replace(">", "") 
+    filename = filename.replace("|", "") 
+    filename = filename.replace(".", "") 
+    filename = filename.replace(" ", "_")  
+    
+    # Trim underscores from start and end
+    filename = filename.strip('_')
+    
+    # Ensure filename is not empty
+    if not filename:
+        filename = "generated_image"
+    
+    return filename
+
 
 # def create_image_with_captions(images, captions):
 #     # Load images
