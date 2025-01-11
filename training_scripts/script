@@ -24,7 +24,7 @@ export INSTANCE_DIR_2SUBJECTS="../training_data_2410/ref_imgs_2subjects"
 export CONTROLNET_DIR_1SUBJECT="../../../a-bev-of-the-latents/controlnet_aug/rendered_images_1subject_fixedloc"
 export CONTROLNET_DIR_2SUBJECTS="../training_data_2410/controlnet_imgs_2subjects"
 
-export OUTPUT_DIR="../ckpts/multiobject/"
+export OUTPUT_DIR="../ckpts/"
 export CLASS_DATA_DIR="../training_data_2410/prior_imgs" 
 export CONTROLNET_PROMPTS_FILE="../prompts/prompts_2410.txt" 
 

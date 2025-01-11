@@ -127,7 +127,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 			{
 				"prompt": "a photo of PLACEHOLDER in a backyard"  
 			} 
-		]
+		], 
 		[ # the last one in this list contains the prompt and other meta details 
 			{
 				"name": "sedan", 
