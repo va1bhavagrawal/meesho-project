@@ -9,7 +9,7 @@
 #SBATCH -w cn7   
 
 
-export RUN_NAME="sdxl_1e-5_1e-4" 
+export RUN_NAME="sdxl1024_1e-5_1e-4" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-xl-base-1.0"
