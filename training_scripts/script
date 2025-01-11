@@ -37,7 +37,7 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --pretrained_vae_model_name_or_path=$VAE_PATH \
   --output_dir=$OUTPUT_DIR \
   --resolution=1024 \
-  --train_batch_size=2 \
+  --train_batch_size=1 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-5 \
   --learning_rate_special_encoder=1e-4 \

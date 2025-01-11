@@ -1306,6 +1306,7 @@ def main(args):
 		project_config=accelerator_project_config,
 		kwargs_handlers=[kwargs],
 	)
+	args.effective_bs = accelerator.num_processes * args.train_batch_size * args.gradient_accumulation_steps 
 
 	# Disable AMP for MPS.
 	if torch.backends.mps.is_available():
