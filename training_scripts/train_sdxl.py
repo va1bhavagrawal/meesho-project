@@ -119,6 +119,17 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 		], 
 		[ # the last one in this list contains the prompt and other meta details 
 			{
+				"name": "ship", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"prompt": "a photo of PLACEHOLDER in a backyard"  
+			} 
+		]
+		[ # the last one in this list contains the prompt and other meta details 
+			{
 				"name": "sedan", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
 				"x": -5.0,

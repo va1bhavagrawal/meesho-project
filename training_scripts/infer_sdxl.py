@@ -149,9 +149,9 @@ NUM_SAMPLES = 8
 
 # ROOT_CKPTS_DIR = "/ssd_scratch/vaibhav/ckpts"
 ROOT_CKPTS_DIR = "../ckpts/multiobject"
-WHICH_RUN = "sdxl_first_try"  
-WHICH_STEP = "33500"   
-WHAT = "wo_special_embeds"
+WHICH_RUN = "sdxl_two_se_1e-4_1e-3"  
+WHICH_STEP = "25000"   
+WHAT = ""
 MAX_BATCH_SIZE = 100 
 MAX_SUBJECTS = 100 
 INFER_BATCH_SIZE = 4        
@@ -347,11 +347,11 @@ def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):
 							placeholder_text = placeholder_text + f" and {subject_name}"  
 					else: 
 						if subject_idx == 0: 
-							# placeholder_text = placeholder_text + f"<special_token_{orientation_idx}_{subject_idx}> {subject_name}"  
-							placeholder_text = placeholder_text + f"{subject_name}"  
+							placeholder_text = placeholder_text + f"<special_token_{orientation_idx}_{subject_idx}> {subject_name}"  
+							# placeholder_text = placeholder_text + f"{subject_name}"  
 						else: 
-							placeholder_text = placeholder_text + f" and {subject_name}"  
-							# placeholder_text = placeholder_text + f" and <special_token_{orientation_idx}_{subject_idx}> {subject_name}"  
+							# placeholder_text = placeholder_text + f" and {subject_name}"  
+							placeholder_text = placeholder_text + f" and <special_token_{orientation_idx}_{subject_idx}> {subject_name}"  
 
 				prompt = prompt.replace("PLACEHOLDER", placeholder_text) 
 				prompts.append(prompt) 
@@ -391,7 +391,7 @@ def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):
 					# 	prompt=gpu_prompts_batch, 
 					# 	latents=latents_,  
 					# ).images  
-					images = pipeline(prompt=gpu_prompts_batch, latents=latents.unsqueeze(0).repeat(len(gpu_prompts_batch), 1, 1, 1)).images  
+					images = pipeline(prompt=gpu_prompts_batch, height=512, width=512, original_size=(1024, 1024), target_size=(512, 512)).images  
 					save_dirs = [] 
 					for prompt_idx, image in zip(gpu_prompt_ids_batch, images): 
 						save_dir_orientation = osp.join(save_dir, f"{str(prompt_idx).zfill(3)}") 
@@ -752,12 +752,21 @@ if __name__ == "__main__":
 			elif accelerator.mixed_precision == "bf16":
 				weight_dtype = torch.bfloat16
 
+			vae = AutoencoderKL.from_pretrained(
+				"madebyollin/sdxl-vae-fp16-fix", 
+				subfolder="vae" if args.pretrained_vae_model_name_or_path is None else None,
+				revision=args.revision,
+				variant=args.variant,
+			)
+
 			pipeline = StableDiffusionXLPipeline.from_pretrained(
 				args.pretrained_model_name_or_path,
+				vae=vae, 
 				revision=args.revision,
 				variant=args.variant,
 				torch_dtype=weight_dtype,
 			) 
+			pipeline.vae = vae 
 
 			print(f"{args.pretrained_model_name_or_path = }") 
 			# tokenizer_three = T5TokenizerFast.from_pretrained(
