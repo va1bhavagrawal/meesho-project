@@ -59,6 +59,8 @@ from transformers import AutoTokenizer, PretrainedConfig
 
 import diffusers
 
+from pipeline_stable_diffusion_xl import SDXLWithCALL 
+
 from diffusers import (
 	AutoencoderKL,
 	DDPMScheduler,
@@ -83,6 +85,7 @@ from diffusers.utils import (
 from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_card
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
+from custom_attention_processor2 import patch_custom_attention 
 
 
 if is_wandb_available():
@@ -110,6 +113,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 			{
 				"name": "jeep", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.00, 0.50, 0.50, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -119,8 +123,9 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 		], 
 		[ # the last one in this list contains the prompt and other meta details 
 			{
-				"name": "ship", 
+				"name": "bicycle", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.25, 0.25, 0.75, 0.75], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -132,6 +137,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 			{
 				"name": "sedan", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.25, 0.25, 0.75, 0.75], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -143,6 +149,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 			{
 				"name": "suv", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.50, 0.50, 1.00, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -154,6 +161,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 			{
 				"name": "ship", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.25, 0.50, 0.75, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -175,6 +183,9 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 		prompts = [] 
 		subjects_data = scene[:-1] 
 		metadata = scene[-1] 
+		subjects_info = [[{
+			"bbox": subject_data["bbox"], 
+		} for subject_data in scene[:-1]]] * num_samples   
 		for orientation_idx in range(num_samples): 
 			placeholder_text = "" 
 			for subject_idx, subject_data in enumerate(subjects_data): 
@@ -228,10 +239,17 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 			for start_idx in range(0, len(gpu_prompt_ids) - 1, batch_size):  
 				end_idx = min(len(gpu_prompt_ids), start_idx + batch_size) 
 				gpu_prompt_ids_batch = gpu_prompt_ids[start_idx : end_idx]  
+				subjects_info_batch = [subjects_info[i] for i in gpu_prompt_ids_batch] 
 				print(f"GPU {accelerator.process_index} is doing {gpu_prompt_ids_batch}")
 				gpu_prompts_batch = [prompts[prompt_idx] for prompt_idx in gpu_prompt_ids_batch] 
 				# images = pipeline(gpu_prompts_batch, num_inference_steps).images  
-				images = pipeline(prompt=gpu_prompts_batch, latents=latents.unsqueeze(0).repeat(len(gpu_prompts_batch), 1, 1, 1)).images  
+				tokens_batch = tokenize_prompt(pipeline.tokenizer, gpu_prompts_batch) 
+				for batch_idx in range(len(gpu_prompt_ids_batch)): 
+					for subject_idx in range(len(subjects_data)):  
+						# TODO remove the hardcoded number and write the logic 
+						subjects_info_batch[batch_idx][subject_idx]["special_token_idx"] = 4 + 2 * subject_idx   
+						subjects_info_batch[batch_idx][subject_idx]["subject_token_idx"] = 4 + 2 * subject_idx + 1  
+				images = pipeline(prompt=gpu_prompts_batch, latents=latents.unsqueeze(0).repeat(len(gpu_prompts_batch), 1, 1, 1), subjects_info=subjects_info_batch).images  
 				for prompt_idx, image in zip(gpu_prompt_ids_batch, images): 
 					save_dir_orientation = osp.join(save_dir, f"{str(prompt_idx).zfill(3)}") 
 					os.makedirs(save_dir_orientation, exist_ok=True) 
@@ -1155,6 +1173,7 @@ def collate_fn(examples, tokenizer, with_prior_preservation=False):
 	# pooled_prompt_embeds = torch.cat([example["pooled_prompt_embeds"] for example in examples], dim=0)  
 	# if with_prior_preservation:  
 	# 	prior_prompts = [example["prior_prompt"] for example in examples] 
+	batch = {} 
 	prompts_ = [] 
 	for prompt_idx, prompt in enumerate(prompts): 
 		example = examples[prompt_idx] 
@@ -1163,6 +1182,7 @@ def collate_fn(examples, tokenizer, with_prior_preservation=False):
 			prompt = prompt.replace(f"<special_token_{subject_idx}>", f"<special_token_{prompt_idx}_{subject_idx}>") 
 		prompts_.append(prompt) 
 	prompts = prompts_ 
+	batch["prompts"] = prompts  
 	# prior_prompts_ = [] 
 	# if with_prior_preservation: 
 	# 	for example in examples: 
@@ -1187,18 +1207,22 @@ def collate_fn(examples, tokenizer, with_prior_preservation=False):
 	x_t = torch.zeros((len(examples), MAX_SUBJECTS_TRAINING), dtype=torch.float32) 
 	y_t = torch.zeros((len(examples), MAX_SUBJECTS_TRAINING), dtype=torch.float32) 
 	theta_t = torch.zeros((len(examples), MAX_SUBJECTS_TRAINING), dtype=torch.float32) 
+	subjects_info = [] 
 	for example_idx in range(len(examples)): 
 		subjects_data = examples[example_idx]["subjects_data"] 
 		# print(f"{subjects_data = }")
+		subjects_info_example = [] 
 		for subject_idx in range(len(subjects_data)): 
 			x_t[example_idx, subject_idx] = subjects_data[subject_idx]["x"] 
 			y_t[example_idx, subject_idx] = subjects_data[subject_idx]["y"] 
 			theta_t[example_idx, subject_idx] = subjects_data[subject_idx]["theta"] 
 
-	batch = {} 
-	# if with_prior_preservation: 
-	# 	batch["prior_prompts"] = prior_prompts  
-	batch["prompts"] = prompts  
+			bbox = subjects_data[subject_idx]["bbox"] 
+			subjects_info_example.append({
+				"bbox": bbox, 
+			})
+		subjects_info.append(subjects_info_example) 
+
 	# batch["prompt_embeds"] = prompt_embeds 
 	# batch["pooled_prompt_embeds"] = pooled_prompt_embeds 
 	# if with_prior_preservation: 
@@ -1210,6 +1234,7 @@ def collate_fn(examples, tokenizer, with_prior_preservation=False):
 	# 	max_length=tokenizer.model_max_length, 
 	# 	return_tensors="pt", 
 	# ).input_ids  
+	batch["subjects_info"] = subjects_info  
 	batch["pixel_values"] = pixel_values 
 	batch["subjects_data"] = [example["subjects_data"] for example in examples] 
 	batch["img_paths"] = [example["img_path"] for example in examples] 
@@ -2000,7 +2025,7 @@ def main(args):
 	save_steps = sorted(save_steps) 
 	print(f"{save_steps = }")
 
-	vlog_steps = [20, 500] 
+	vlog_steps = [1000] 
 	for vlog_step in range(5000, args.max_train_steps + 1, 5000):  
 		vlog_steps.append(vlog_step) 
 	vlog_steps = sorted(vlog_steps)  
@@ -2110,6 +2135,7 @@ def main(args):
 	# stage1_dataloader_iter = iter(train_dataloader_stage1) 
 	# stage2_dataloader_iter = iter(train_dataloader_stage2) 
 
+	patch_custom_attention(unwrap_model(unet)) 
 	for epoch in range(first_epoch, args.num_train_epochs_stage1 + args.num_train_epochs_stage2):
 		unet.train()
 		if args.train_text_encoder:
@@ -2184,6 +2210,22 @@ def main(args):
 						raise NotImplementedError("Training the text encoder is not yet supported") 
 						tokens_one = tokenize_prompt(tokenizer_one, prompts)
 						tokens_two = tokenize_prompt(tokenizer_two, prompts)
+
+				for batch_idx in range(len(batch["subjects_data"])): 
+					for subject_idx in range(len(batch["subjects_data"][batch_idx])): 
+						idx = batch_idx * MAX_SUBJECTS + subject_idx
+						# print(f"replacing {special_tokens_str[idx]} by special embedding!") 
+						special_token_one = special_tokens_ints_one[idx]
+						special_token_two = special_tokens_ints_two[idx] 
+
+						special_token_one_idx = torch.where(tokens_one[batch_idx] == special_token_one)[0].item()  
+						special_token_two_idx = torch.where(tokens_two[batch_idx] == special_token_two)[0].item()  
+						assert special_token_one_idx == special_token_two_idx # since both are CLIP tokenizers  
+						batch["subjects_info"][batch_idx][subject_idx]["special_token_idx"] = special_token_one_idx 
+						batch["subjects_info"][batch_idx][subject_idx]["subject_token_idx"] = special_token_one_idx + 1 
+						batch["subjects_info"][batch_idx][subject_idx]["proc_id"] = accelerator.process_index  
+						batch["subjects_info"][batch_idx][subject_idx]["step"] = step 
+						print(f"for {batch_idx = }, {subject_idx = }, {special_token_one_idx = }") 
 
 				# Convert images to latent space
 				model_input = vae.encode(pixel_values).latent_dist.sample()
@@ -2269,10 +2311,15 @@ def main(args):
 						{"text_embeds": pooled_prompt_embeds.repeat(elems_to_repeat_text_embeds, 1)}
 					)
 					prompt_embeds_input = prompt_embeds.repeat(elems_to_repeat_text_embeds, 1, 1)
+					text_conditioning = {
+						"encoder_hidden_states": prompt_embeds_input, 
+						"subjects_info": batch["subjects_info"] 
+					}
 					model_pred = unet(
 						inp_noisy_latents if args.do_edm_style_training else noisy_model_input,
 						timesteps,
-						prompt_embeds_input,
+						# prompt_embeds_input, 
+						text_conditioning, 
 						added_cond_kwargs=unet_added_conditions,
 						return_dict=False,
 					)[0]
@@ -2452,6 +2499,7 @@ def main(args):
 					special_encoder_norm = torch.mean(torch.stack([torch.linalg.norm(p) for p in special_encoder.parameters()])).item() 
 					special_encoder_two_norm = torch.mean(torch.stack([torch.linalg.norm(p) for p in special_encoder_two.parameters()])).item() 
 					unet_norm = torch.mean(torch.stack([torch.linalg.norm(p) for p in unet.parameters() if p.requires_grad == True])).item() 
+					logs["weight_norms/special_encoder"] = special_encoder_norm  
 					logs["weight_norms/special_encoder_two"] = special_encoder_two_norm  
 					logs["weight_norms/unet"] = unet_norm  
 
@@ -2471,7 +2519,7 @@ def main(args):
 				if len(vlog_steps) > 0 and global_step == vlog_steps[0]: 
 					vlog_steps.pop(0)  
 					torch.cuda.empty_cache() 
-					pipeline = StableDiffusionXLPipeline.from_pretrained(
+					pipeline = SDXLWithCALL.from_pretrained(
 						args.pretrained_model_name_or_path,
 						vae=vae,
 						tokenizer=tokenizer_one, 

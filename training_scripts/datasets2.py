@@ -68,10 +68,10 @@ class RenderedImagesDataset(Dataset):
                 example = {} 
                 example["subjects_data"] = [] 
                 img_path = osp.join(subjects_comb_dir, img_name) 
-                # pkl_path = img_path.replace("jpg", "pkl") 
-                # assert osp.exists(pkl_path), f"{pkl_path = }" 
-                # with open(pkl_path, "rb") as f: 
-                #     pkl_data = pickle.load(f) 
+                pkl_path = img_path.replace("jpg", "pkl") 
+                assert osp.exists(pkl_path), f"{pkl_path = }" 
+                with open(pkl_path, "rb") as f: 
+                    pkl_data = pickle.load(f) 
                 example["img_path"] = img_path 
                 subjects_ = subjects_comb.split("__")
                 subjects = [" ".join(subject_.split("_")) for subject_ in subjects_]  
@@ -85,7 +85,7 @@ class RenderedImagesDataset(Dataset):
                     subject_data["y"] = float(y) 
                     subject_data["theta"] = float(a) 
                     subject_data["name"] = subjects[subject_idx]  
-                    # subject_data["bbox"] = torch.as_tensor(pkl_data[f"obj{subject_idx+1}"]["bbox"], dtype=torch.float32) / IMG_DIM  
+                    subject_data["bbox"] = torch.as_tensor(pkl_data[f"obj{subject_idx+1}"]["bbox"], dtype=torch.float32) / IMG_DIM  
                     example["subjects_data"].append(subject_data) 
                 prompt = self.args.rendered_imgs_prompt 
                 assert prompt.find("PLACEHOLDER") != -1 
@@ -156,12 +156,12 @@ class ControlNetImagesDataset(Dataset):
                     # this image has been removed during cleanup of controlnet dataset  
                     continue 
                 img_path = osp.join(subjects_comb_dir, img_name) 
-                # pkl_name = "__".join(img_name.split("__")[:-2]) + "__.pkl" 
-                # pkl_path = osp.join(self.ref_imgs_dir, subjects_comb, pkl_name)  
+                pkl_name = "__".join(img_name.split("__")[:-2]) + "__.pkl" 
+                pkl_path = osp.join(self.ref_imgs_dir, subjects_comb, pkl_name)  
                 
-                # assert osp.exists(pkl_path), f"{pkl_path = }"
-                # with open(pkl_path, "rb") as f: 
-                #     pkl_data = pickle.load(f) 
+                assert osp.exists(pkl_path), f"{pkl_path = }"
+                with open(pkl_path, "rb") as f: 
+                    pkl_data = pickle.load(f) 
                 example = {} 
                 # if args.cache_prompt_embeds: 
                 #     embeds_path = img_path.replace(".jpg", "__latents.pth") 
@@ -187,7 +187,7 @@ class ControlNetImagesDataset(Dataset):
                     subject_data["y"] = float(y) 
                     subject_data["theta"] = float(a) 
                     subject_data["name"] = subjects[subject_idx]  
-                    # subject_data["bbox"] = torch.as_tensor(pkl_data[f"obj{subject_idx+1}"]["bbox"], dtype=torch.float32) / IMG_DIM 
+                    subject_data["bbox"] = torch.as_tensor(pkl_data[f"obj{subject_idx+1}"]["bbox"], dtype=torch.float32) / IMG_DIM 
                     example["subjects_data"].append(subject_data) 
                 prompt = self.controlnet_prompts[prompt_idx] 
                 assert prompt.find("PLACEHOLDER") != -1 
