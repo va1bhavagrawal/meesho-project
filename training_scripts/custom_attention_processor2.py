@@ -28,6 +28,7 @@ DEBUG_ATTN = False
 BOX_RESIZING_FACTOR = 1.2 
 INFINITY = 1e9
 NUM_TEXT_EMBEDDINGS = 77 
+LAMBDA = 1.2 
 
 class CALLAttnProcessor: 
     r"""
@@ -133,7 +134,17 @@ class CALLAttnProcessor:
 
                     # we have the tl and br coordinates 
                     x1_norm, y1_norm, x2_norm, y2_norm = bbox 
-                    x1, y1, x2, y2 = int(x1_norm * spatial_dim), int(y1_norm * spatial_dim), int(x2_norm * spatial_dim), int(y2_norm * spatial_dim) 
+                    # x1, y1, x2, y2 = int(x1_norm * spatial_dim), int(y1_norm * spatial_dim), int(x2_norm * spatial_dim), int(y2_norm * spatial_dim) 
+                    cx, cy = (x1_norm + x2_norm) / 2, (y1_norm + y2_norm) / 2 
+                    h, w = y2_norm - y1_norm, x2_norm - x1_norm 
+                    a = max(h, w) 
+                    a = a * LAMBDA 
+                    x1, y1, x2, y2 = cx - a / 2, cy - a / 2, cx + a / 2, cy + a / 2  
+                    x1, y1, x2, y2 = int(x1 * spatial_dim), int(y1 * spatial_dim), int(x2 * spatial_dim), int(y2 * spatial_dim) 
+                    x1 = max(0, x1) 
+                    y1 = max(0, y1) 
+                    x2 = min(spatial_dim - 1, x2) 
+                    y2 = min(spatial_dim - 1, y2) 
 
                     # preparing the attention mask 
                     attention_mask = torch.ones((spatial_dim, spatial_dim)).to(query.device) * -INFINITY  

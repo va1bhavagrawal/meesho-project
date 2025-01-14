@@ -152,9 +152,9 @@ class ControlNetImagesDataset(Dataset):
             for img_name in os.listdir(subjects_comb_dir): 
                 if (img_name.find("jpg") == -1) or (img_name.find("DEBUG") != -1): 
                     continue 
-                if "DEBUG__" + img_name not in os.listdir(subjects_comb_dir): 
-                    # this image has been removed during cleanup of controlnet dataset  
-                    continue 
+                # if "DEBUG__" + img_name not in os.listdir(subjects_comb_dir): 
+                #     # this image has been removed during cleanup of controlnet dataset  
+                #     continue 
                 img_path = osp.join(subjects_comb_dir, img_name) 
                 pkl_name = "__".join(img_name.split("__")[:-2]) + "__.pkl" 
                 pkl_path = osp.join(self.ref_imgs_dir, subjects_comb, pkl_name)  
