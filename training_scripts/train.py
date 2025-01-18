@@ -957,7 +957,7 @@ def main(args):
         SAVE_STEPS.append(save_step) 
     SAVE_STEPS = sorted(SAVE_STEPS) 
 
-    VLOG_STEPS = [] 
+    VLOG_STEPS = [50, 500] 
     for vlog_step in range(VLOG_STEPS_GAP, args.max_train_steps + 1, VLOG_STEPS_GAP): 
         VLOG_STEPS.append(vlog_step)
     VLOG_STEPS = sorted(VLOG_STEPS)  
@@ -1525,7 +1525,7 @@ def main(args):
                 plt_title = "\n".join(textwrap.wrap(plt_title, width=60)) 
                 plt.title(plt_title, fontsize=9)  
                 plt.savefig(f"vis/{str(global_step).zfill(3)}_{str(batch_idx).zfill(3)}.jpg") 
-                plt.close() 
+                plt.close("all") 
 
         latents = vae.encode(
             batch["pixel_values"].to(accelerator.device, dtype=vae.dtype)  

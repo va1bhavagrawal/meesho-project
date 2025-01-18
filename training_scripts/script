@@ -6,10 +6,10 @@
 #SBATCH --mem=300G 
 #SBATCH --gres=gpu:1         
 #SBATCH --partition=long 
-#SBATCH -w cn7     
+#SBATCH -w cn4      
 
 
-export RUN_NAME="sdxl1024_1e-4_1e-3_CALL_wo_debug_randomlocs" 
+export RUN_NAME="sdxl1024_1e-4_1e-3_CALL_stage2_from60000" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-xl-base-1.0"
@@ -44,7 +44,7 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --rendered_imgs_prompt="a photo of PLACEHOLDER in a dark studio with white lights" \
   --report_to="wandb" \
   --lr_warmup_steps=0 \
-  --stage1_steps=60000 \
+  --stage1_steps=150000 \
   --stage2_steps=0 \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --controlnet_data_dir_2subjects=$CONTROLNET_DIR_2SUBJECTS \
@@ -52,7 +52,8 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --instance_data_dir_1subject=$INSTANCE_DIR_1SUBJECT \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --seed="1709" \
-  --run_name="debug" \
-  --debug_dir="debug"
-  # --run_name=$RUN_NAME \
-  # --wandb
+  --resume_from_checkpoint="../ckpts/sdxl1024_1e-4_1e-3_CALL_singlesub_randomlocs/checkpoint-60000" \
+  --run_name=$RUN_NAME \
+  --wandb
+  # --run_name="debug" \
+  # --debug_dir="debug" \

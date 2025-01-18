@@ -100,7 +100,7 @@ logger = get_logger(__name__)
 
 MAX_BATCH_SIZE = 100 
 MAX_SUBJECTS = 100 
-MAX_SUBJECTS_TRAINING = 1  
+MAX_SUBJECTS_TRAINING = 2   
 
 #################################### 
 
@@ -2070,33 +2070,35 @@ def main(args):
 
 	# Potentially load in the weights and states from a previous save
 	if args.resume_from_checkpoint:
-		if args.resume_from_checkpoint != "latest":
-			path = os.path.basename(args.resume_from_checkpoint)
-		else:
-			# Get the mos recent checkpoint
-			dirs = os.listdir(args.output_dir)
-			dirs = [d for d in dirs if d.startswith("checkpoint")]
-			dirs = sorted(dirs, key=lambda x: int(x.split("-")[1]))
-			path = dirs[-1] if len(dirs) > 0 else None
+		# if args.resume_from_checkpoint != "latest":
+		# 	path = os.path.basename(args.resume_from_checkpoint)
+		# else:
+		# 	# Get the mos recent checkpoint
+		# 	dirs = os.listdir(args.output_dir)
+		# 	dirs = [d for d in dirs if d.startswith("checkpoint")]
+		# 	dirs = sorted(dirs, key=lambda x: int(x.split("-")[1]))
+		# 	path = dirs[-1] if len(dirs) > 0 else None
 
-		if path is None:
-			accelerator.print(
-				f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
-			)
-			args.resume_from_checkpoint = None
-			initial_global_step = 0
-		else:
-			accelerator.print(f"Resuming from checkpoint {path}")
-			accelerator.load_state(os.path.join(args.output_dir, path))
-			global_step = int(path.split("-")[1])
+		# if path is None:
+		# 	accelerator.print(
+		# 		f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
+		# 	)
+		# 	args.resume_from_checkpoint = None
+		# 	initial_global_step = 0
+		# else:
+		path = args.resume_from_checkpoint 
+		accelerator.print(f"Resuming from checkpoint {path}")
+		accelerator.load_state(os.path.join(path))
+		checkpoint_name = osp.basename(path) 
+		global_step = int(checkpoint_name.split("-")[1])
 
-			initial_global_step = global_step
-			# first_epoch = global_step // num_update_steps_per_epoch
-			if initial_global_step > args.stage1_steps:  
-				# start in stage2 
-				first_epoch = args.num_train_epochs_stage1 + (initial_global_step - args.stage1_steps) // num_update_steps_per_epoch_stage2 
-			else: 
-				first_epoch = initial_global_step // num_update_steps_per_epoch_stage1 
+		initial_global_step = global_step
+		# first_epoch = global_step // num_update_steps_per_epoch
+		if initial_global_step > args.stage1_steps:  
+			# start in stage2 
+			first_epoch = args.num_train_epochs_stage1 + (initial_global_step - args.stage1_steps) // num_update_steps_per_epoch_stage2 
+		else: 
+			first_epoch = initial_global_step // num_update_steps_per_epoch_stage1 
 
 	else:
 		initial_global_step = 0
@@ -2105,6 +2107,9 @@ def main(args):
 		if osp.exists(args.debug_dir): 
 			shutil.rmtree(args.debug_dir) 
 		os.makedirs(args.debug_dir) 
+		if osp.exists("debug_attn"): 
+			shutil.rmtree("debug_attn") 
+		os.makedirs("debug_attn") 
 
 	if accelerator.is_main_process and args.run_name != "debug":  
 		pkl_path = osp.join(args.output_dir, "args.pkl") 
@@ -2151,6 +2156,7 @@ def main(args):
 		# 	batch = next(stage2_dataloader_iter) 
 		else: 
 			train_dataloader = train_dataloader_stage2 
+		train_dataloader = train_dataloader_stage2 
 		# 	batch = next(stage1_dataloader_iter) 
 		for step, batch in enumerate(train_dataloader):
 			if args.debug_dir is not None: 
@@ -2166,7 +2172,8 @@ def main(args):
 					plt.imshow(img.transpose(1, 2, 0)) 
 					plt.title(title, fontsize=10)  
 					plt.savefig(osp.join(args.debug_dir, f"{str(accelerator.process_index).zfill(3)}__{str(step).zfill(3)}__{str(batch_idx).zfill(3)}.jpg"))  
-
+					plt.close("all") 
+	
 			with accelerator.accumulate(unet):
 
 				# if args.debug_dir is not None: 

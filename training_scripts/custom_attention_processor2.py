@@ -35,9 +35,10 @@ class CALLAttnProcessor:
     Processor for implementing scaled dot-product attention (enabled by default if you're using PyTorch 2.0).
     """
 
-    def __init__(self):
+    def __init__(self, layer_name):
         if not hasattr(F, "scaled_dot_product_attention"):
             raise ImportError("AttnProcessor2_0 requires PyTorch 2.0, to use it, please upgrade PyTorch to 2.0.")
+        self.layer_name = layer_name 
 
     def __call__(
         self,
@@ -166,20 +167,20 @@ class CALLAttnProcessor:
             #         else: 
             #             axs_ = axs 
             #         attn_special_token = attention_scores[batch_idx, :, :, :, special_token_idx].mean(dim=0).detach().cpu().numpy() 
-            #         attn_special_token = attn_special_token - attn_special_token.min() / (attn_special_token.max() - attn_special_token.min()) 
+            #         attn_special_token = (attn_special_token - attn_special_token.min()) / (attn_special_token.max() - attn_special_token.min()) 
             #         attn_subject_token = attention_scores[batch_idx, :, :, :, subject_token_idx].mean(dim=0).detach().cpu().numpy() 
-            #         attn_subject_token = attn_subject_token - attn_subject_token.min() / (attn_subject_token.max() - attn_subject_token.min()) 
+            #         attn_subject_token = (attn_subject_token - attn_subject_token.min()) / (attn_subject_token.max() - attn_subject_token.min()) 
             #         axs_[0].imshow(attn_special_token) 
             #         axs_[0].set_title(special_token_idx) 
             #         axs_[1].imshow(attn_subject_token)  
             #         axs_[1].set_title(subject_token_idx)  
-            #     save_dir = "debug_attn" 
+            #     save_dir = osp.join("debug_attn", self.layer_name)  
             #     os.makedirs(save_dir, exist_ok=True) 
             #     proc_id = subjects_info["proc_id"] 
             #     step = subjects_info["step"] 
             #     plt.suptitle(f"process {proc_id} step_idx = {step} batch_idx = {batch_idx}") 
             #     plt.savefig(osp.join(save_dir, f"{str(proc_id).zfill(3)}__{str(step).zfill(3)}__{str(batch_idx).zfill(3)}.jpg"))  
-            #     plt.close() 
+            #     plt.close("all") 
 
 
             attention_scores = F.softmax(attention_scores.reshape(bsz, attn.heads, spatial_dim * spatial_dim, NUM_TEXT_EMBEDDINGS), dim=-1) 
@@ -339,6 +340,6 @@ def patch_custom_attention(unet):
         # else: 
         #     attn_procs[name] = AttendExciteAttnProcessor(name, attn_store) 
         # attn_procs[name] = AttendExciteAttnProcessor(name, attn_store, loss_store)  
-        attn_procs[name] = CALLAttnProcessor()   
+        attn_procs[name] = CALLAttnProcessor(name)   
 
     unet.set_attn_processor(attn_procs) 
