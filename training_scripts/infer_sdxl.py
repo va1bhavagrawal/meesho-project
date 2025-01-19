@@ -48,6 +48,7 @@ from diffusers.utils import (
 )
 from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_card
 from diffusers.utils.torch_utils import is_compiled_module
+from custom_attention_processor2 import patch_custom_attention 
 
 
 #!/usr/bin/env python
@@ -116,9 +117,10 @@ from diffusers import (
 	DPMSolverMultistepScheduler,
 	EDMEulerScheduler,
 	EulerDiscreteScheduler,
-	StableDiffusionXLPipeline,
+	# StableDiffusionXLPipeline,
 	UNet2DConditionModel,
 )
+from pipeline_stable_diffusion_xl import SDXLWithCALL 
 from diffusers.loaders import StableDiffusionLoraLoaderMixin
 from diffusers.optimization import get_scheduler
 from diffusers.training_utils import _set_state_dict_into_text_encoder, cast_training_params, compute_snr
@@ -148,9 +150,9 @@ NUM_SAMPLES = 8
 
 
 # ROOT_CKPTS_DIR = "/ssd_scratch/vaibhav/ckpts"
-ROOT_CKPTS_DIR = "../ckpts/multiobject"
-WHICH_RUN = "sdxl_two_se_1e-4_1e-3"  
-WHICH_STEP = "25000"   
+ROOT_CKPTS_DIR = "../ckpts/"
+WHICH_RUN = "sdxl1024_1e-4_1e-3_CALL_stage2_from60000_cn7"  
+WHICH_STEP = "100000"   
 WHAT = ""
 MAX_BATCH_SIZE = 100 
 MAX_SUBJECTS = 100 
@@ -160,8 +162,6 @@ OUTPUT_DIR = "output"
 ##################  
 
 
-
-
 def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):  
 	if conditioning_kwargs != {}: 
 		# special_encoder_part1 = conditioning_kwargs["special_encoder_part1"] 
@@ -169,8 +169,10 @@ def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):
 		# special_encoder_part2_two = conditioning_kwargs["special_encoder_part2_two"] 
 		# special_encoder_part2_three = conditioning_kwargs["special_encoder_part2_three"] 
 		special_encoder = conditioning_kwargs["special_encoder"] 
+		special_encoder_two = conditioning_kwargs["special_encoder_two"] 
 		num_samples = conditioning_kwargs["num_samples"] 
 		special_tokens_ints_one = conditioning_kwargs["special_tokens_ints_one"] 
+		special_tokens_ints_two = conditioning_kwargs["special_tokens_ints_two"] 
 
 		# special_encoder_part1.eval() 
 		# special_encoder_part2_one.eval() 
@@ -178,266 +180,160 @@ def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):
 		# special_encoder_part2_three.eval() 
 	else: 
 		num_samples = 1 
-
 	if accelerator.is_main_process: 
 		if osp.exists(tmp_dir): 
 			shutil.rmtree(tmp_dir) 
 
 	scenes_data = [
-		[ # the last one accelerator hangs randomlyin this list contains the prompt and other meta details 
+		[ # the last one in this list contains the prompt and other meta details 
 			{
-				"name": "sedan", 
+				"name": "jeep", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.00, 0.50, 0.50, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
-			},  
+			}, 
 			{
-				"prompt": "a photo of PLACEHOLDER in a bustling city street"  
+				"prompt": "a photo of PLACEHOLDER in a rocky terrain"  
 			} 
 		], 
-		[ # the last one accelerator hangs randomlyin this list contains the prompt and other meta details 
-			{
-				"name": "suv", 
-				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"x": -5.0,
-				"y": +0.00, 
-			},  
-			{
-				"prompt": "a photo of PLACEHOLDER in Times Square"  
-			} 
-		],
-		[ # the last one accelerator hangs randomlyin this list contains the prompt and other meta details 
+		[ # the last one in this list contains the prompt and other meta details 
 			{
 				"name": "bicycle", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.25, 0.25, 0.75, 0.75], 
 				"x": -5.0,
 				"y": +0.00, 
-			},  
+			}, 
 			{
 				"prompt": "a photo of PLACEHOLDER in a backyard"  
 			} 
 		], 
-		[ # the last one accelerator hangs randomlyin this list contains the prompt and other meta details 
+		[ # the last one in this list contains the prompt and other meta details 
+			{
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.25, 0.25, 0.75, 0.75], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"prompt": "a photo of PLACEHOLDER in a city street"  
+			} 
+		], 
+		[ # the last one in this list contains the prompt and other meta details 
+			{
+				"name": "suv", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.50, 0.50, 1.00, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"prompt": "a photo of PLACEHOLDER on a highway"  
+			} 
+		], 
+		[ # the last one in this list contains the prompt and other meta details 
 			{
 				"name": "ship", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.25, 0.50, 0.75, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
-			},  
+			}, 
 			{
 				"prompt": "a photo of PLACEHOLDER in a calm sea at sunset"  
 			} 
 		], 
-		[ # the last one accelerator hangs randomlyin this list contains the prompt and other meta details 
-			{
-				"name": "jeep", 
-				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"x": -5.0,
-				"y": +0.00, 
-			},  
-			{
-				"prompt": "a photo of PLACEHOLDER in a forest"  
-			} 
-		],  
-		# [ # the last one in this list contains the prompt and other meta details 
-		# 	{
-		# 		"name": "bicycle", 
-		# 		"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-		# 		"x": -5.0,
-		# 		"y": +0.00, 
-		# 	},
-		# 	{
-		# 		"name": "suv", 
-		# 		"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-		# 		"x": -5.0,
-		# 		"y": +0.00, 
-		# 	},
-		# 	{
-		# 		"name": "sedan", 
-		# 		"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-		# 		"x": -5.0,
-		# 		"y": +0.00, 
-		# 	}, 
-		# 	{
-		# 		"prompt": "a photo of PLACEHOLDER in a garden"  
-		# 	} 
-		# ], 
-		# [ # the last one in this list contains the prompt and other meta details 
-		# 	{
-		# 		"name": "ship", 
-		# 		"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-		# 		"x": -5.0,
-		# 		"y": +0.00, 
-		# 	},
-		# 	{
-		# 		"name": "canoe", 
-		# 		"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-		# 		"x": -5.0,
-		# 		"y": +0.00, 
-		# 	},
-		# 	{
-		# 		"name": "boat", 
-		# 		"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-		# 		"x": -5.0,
-		# 		"y": +0.00, 
-		# 	}, 
-		# 	{
-		# 		"prompt": "a photo of PLACEHOLDER in a calm sea"   
-		# 	} 
-		# ], 
 	] 
 
 	text_encoder_one = pipeline.text_encoder 
 	text_encoder_two = pipeline.text_encoder_2 
 
 	latents_store = torch.load("latents.pt") 
-	# with accelerator.split_between_processes(scenes_data, apply_padding=False) as scenes_data_on_this_gpu: 
-	if True: 
-		scenes_data_on_this_gpu = scenes_data  
-		for scene_idx, scene in enumerate(scenes_data_on_this_gpu): 
-			# latents = random.choice(latents_store) 
-			random_idx = torch.randint(0, len(latents_store), (1,)).float().to(accelerator.device)  
-			random_idx = torch.mean(accelerator.gather(random_idx)).int()  
-			latents = latents_store[random_idx] 
-			latents = torch.randn_like(latents) 
-			prompts = [] 
-			subjects_data = scene[:-1] 
-			metadata = scene[-1] 
-			# special_embeddings = [] 
-			for orientation_idx in range(num_samples): 
-				placeholder_text = "" 
-				# special_embeddings_ = [] 
-				for subject_idx, subject_data in enumerate(subjects_data): 
-					if conditioning_kwargs != {}: 
-						# special_encoder_part1 = conditioning_kwargs["special_encoder_part1"] 
-						# # repeat this for all special encoders 
-						# special_encoder_part2_one = conditioning_kwargs["special_encoder_part2_one"] 
-						# special_encoder_part2_two = conditioning_kwargs["special_encoder_part2_two"]  
-						# special_encoder_part2_three = conditioning_kwargs["special_encoder_part2_three"]  
-						special_encoder = conditioning_kwargs["special_encoder"] 
-						x = subject_data["x"] 
-						y = subject_data["y"] 
-						theta = subject_data["theta"][orientation_idx] 
-						token_one = special_tokens_ints_one[orientation_idx * MAX_SUBJECTS + subject_idx] 
-						# token_two = special_tokens_ints_two[orientation_idx * MAX_SUBJECTS + subject_idx] 
-						# token_three = special_tokens_ints_three[orientation_idx * MAX_SUBJECTS + subject_idx] 
-
-						x_t = torch.tensor(x).unsqueeze(0).unsqueeze(-1).unsqueeze(-1).to(accelerator.device).float()  
-						y_t = torch.tensor(y).unsqueeze(0).unsqueeze(-1).unsqueeze(-1).to(accelerator.device).float()  
-						theta_t = torch.tensor(theta).unsqueeze(0).unsqueeze(-1).unsqueeze(-1).to(accelerator.device).float()   
-
-						# intermediate_embedding = special_encoder_part1(x_t, y_t, theta_t)  
-						# special_embedding_one = special_encoder_part2_one(intermediate_embedding) 
-						# special_embedding_two = special_encoder_part2_two(intermediate_embedding) 
-						# special_embedding_three = special_encoder_part2_three(intermediate_embedding) 
-						special_embedding = special_encoder(theta_t / (2 * torch.pi)) 
-
-						text_encoder_one.get_input_embeddings().weight[token_one] = special_embedding  
-						# text_encoder_two.get_input_embeddings().weight[token_two] = special_embedding_two  
-						# text_encoder_three.get_input_embeddings().weight[token_three] = special_embedding_three 
-						# special_embeddings_.append(special_embedding.squeeze()) 
-
-					prompt = metadata["prompt"] 
-					# replace PLACEHOLDER with the subject names  
-					subject_name = subject_data["name"] 
-					if conditioning_kwargs == {}: 
-						if subject_idx == 0: 
-							placeholder_text = placeholder_text + f"{subject_name}"  
-						else: 
-							placeholder_text = placeholder_text + f" and {subject_name}"  
-					else: 
-						if subject_idx == 0: 
-							placeholder_text = placeholder_text + f"<special_token_{orientation_idx}_{subject_idx}> {subject_name}"  
-							# placeholder_text = placeholder_text + f"{subject_name}"  
-						else: 
-							# placeholder_text = placeholder_text + f" and {subject_name}"  
-							placeholder_text = placeholder_text + f" and <special_token_{orientation_idx}_{subject_idx}> {subject_name}"  
-
-				prompt = prompt.replace("PLACEHOLDER", placeholder_text) 
-				prompts.append(prompt) 
-				# special_embeddings.append(torch.stack(special_embeddings_)) 
-
-			# special_embeddings = torch.stack(special_embeddings) 
-			placeholder_text_wo_special_tokens = "" 
+	for scene_idx, scene in enumerate(scenes_data): 
+		# latents = random.choice(latents_store) 
+		random_idx = torch.randint(0, len(latents_store), (1,)).float().to(accelerator.device)  
+		random_idx = torch.mean(accelerator.gather(random_idx)).int()  
+		latents = latents_store[random_idx] 
+		prompts = [] 
+		subjects_data = scene[:-1] 
+		metadata = scene[-1] 
+		subjects_info = [[{
+			"bbox": subject_data["bbox"], 
+		} for subject_data in scene[:-1]]] * num_samples   
+		for orientation_idx in range(num_samples): 
+			placeholder_text = "" 
 			for subject_idx, subject_data in enumerate(subjects_data): 
-				print(f"doing {subject_idx}, {subject_data['name']}")
+				x = subject_data["x"] 
+				y = subject_data["y"] 
+				theta = subject_data["theta"][orientation_idx] 
+				token_one = special_tokens_ints_one[orientation_idx * MAX_SUBJECTS + subject_idx] 
+				token_two = special_tokens_ints_two[orientation_idx * MAX_SUBJECTS + subject_idx] 
+				# token_two = special_tokens_ints_two[orientation_idx * MAX_SUBJECTS + subject_idx] 
+
+				x_t = torch.tensor(x).unsqueeze(0).unsqueeze(-1).to(accelerator.device).float()  
+				y_t = torch.tensor(y).unsqueeze(0).unsqueeze(-1).to(accelerator.device).float()  
+				theta_t = torch.tensor(theta).unsqueeze(0).unsqueeze(-1).to(accelerator.device).float()   
+
+				# intermediate_embedding = special_encoder_part1(x_t, y_t, theta_t)  
+				# special_embedding_one = special_encoder_part2_one(intermediate_embedding) 
+				# special_embedding_two = special_encoder_part2_two(intermediate_embedding) 
+				# special_embedding_three = special_encoder_part2_three(intermediate_embedding) 
+				special_embedding = special_encoder(theta_t / (2 * torch.pi)) 
+				special_embedding_two = special_encoder_two(theta_t / (2 * torch.pi)) 
+
+				# text_encoder_one.get_input_embeddings().weight[token_one] = special_embedding_one  
+				# text_encoder_two.get_input_embeddings().weight[token_two] = special_embedding_two  
+				# text_encoder_three.get_input_embeddings().weight[token_three] = special_embedding_three 
+				text_encoder_one.get_input_embeddings().weight[token_one] = special_embedding 
+				text_encoder_two.get_input_embeddings().weight[token_two] = special_embedding_two 
+
+				prompt = metadata["prompt"] 
+				# replace PLACEHOLDER with the subject names  
+				subject_name = subject_data["name"] 
 				if subject_idx == 0: 
-					placeholder_text_wo_special_tokens = placeholder_text_wo_special_tokens + f"{subject_data['name']}" 
+					placeholder_text = placeholder_text + f"<special_token_{orientation_idx}_{subject_idx}> {subject_name}"  
 				else: 
-					placeholder_text_wo_special_tokens = placeholder_text_wo_special_tokens + f" and {subject_data['name']}" 
-			prompt_wo_special_token = scene[-1]["prompt"].replace("PLACEHOLDER", placeholder_text_wo_special_tokens)
-			prompt_filename = sanitize_filename(prompt_wo_special_token)    
-			print(f"{prompt_filename = }, {prompt_wo_special_token = }")
+					placeholder_text = placeholder_text + f" and <special_token_{orientation_idx}_{subject_idx}> {subject_name}"  
 
-			print(f"{prompts = }")
-			prompt_ids = list(range(len(prompts)))  
-			save_dir = osp.join(tmp_dir, prompt_filename) 
-			if accelerator.is_main_process: 
-				os.makedirs(save_dir, exist_ok=True) 
-			with accelerator.split_between_processes(prompt_ids, apply_padding=False) as gpu_prompt_ids:  
-			# if True: 
-				# gpu_prompt_ids = prompt_ids  
-				batch_size = 1      
-				print(f"GPU {accelerator.process_index} is assigned {gpu_prompt_ids} / {prompt_ids}")  
-				for start_idx in range(0, len(gpu_prompt_ids), batch_size):  
-					end_idx = min(len(gpu_prompt_ids), start_idx + batch_size) 
-					gpu_prompt_ids_batch = gpu_prompt_ids[start_idx : end_idx]  
-					print(f"GPU {accelerator.process_index} is doing {gpu_prompt_ids_batch}")
-					gpu_prompts_batch = [prompts[prompt_idx] for prompt_idx in gpu_prompt_ids_batch] 
-					# images = pipeline(gpu_prompts_batch, num_inference_steps).images  
-					# for condition_till_timestep in [1, 5, 10, 15, 20, 25, 27]: 
-					# latents_ = latents.unsqueeze(0).repeat(len(gpu_prompts_batch), 1, 1, 1)  
-					# images = pipeline(
-					# 	prompt=gpu_prompts_batch, 
-					# 	latents=latents_,  
-					# ).images  
-					images = pipeline(prompt=gpu_prompts_batch, height=512, width=512, original_size=(1024, 1024), target_size=(512, 512)).images  
-					save_dirs = [] 
-					for prompt_idx, image in zip(gpu_prompt_ids_batch, images): 
-						save_dir_orientation = osp.join(save_dir, f"{str(prompt_idx).zfill(3)}") 
-						os.makedirs(save_dir_orientation, exist_ok=True) 
-						save_dirs.append(save_dir_orientation) 
-						save_path = osp.join(save_dir_orientation, f"img.jpg")  
-						image.save(save_path)  
+			prompt = prompt.replace("PLACEHOLDER", placeholder_text) 
+			prompts.append(prompt) 
+		print(f"{prompts = }")
+		placeholder_text_wo_special_tokens = "" 
+		for subject_idx, subject_data in enumerate(subjects_data): 
+			placeholder_text_wo_special_tokens = placeholder_text_wo_special_tokens + f"{subject_data['name']} and " 
+		prompt_filename = sanitize_filename(scene[-1]["prompt"].replace("PLACEHOLDER", placeholder_text_wo_special_tokens))    
 
-					# images = pipeline(
-					# 	prompt=gpu_prompts_batch, 
-					# 	latents=latents_,  
-					# ).images  
-					# save_dirs = [] 
-					# for prompt_idx, image in zip(gpu_prompt_ids_batch, images): 
-					# 	save_dir_orientation = osp.join(save_dir, f"{str(prompt_idx).zfill(3)}") 
-					# 	os.makedirs(save_dir_orientation, exist_ok=True) 
-					# 	save_dirs.append(save_dir_orientation) 
-					# 	save_path = osp.join(save_dir_orientation, f"img.jpg") 
-					# 	image.save(save_path)  
-
-					# tokenizer = CLIPTokenizer.from_pretrained("stabilityai/stable-diffusion-3.5-medium", subfolder="tokenizer")   
-					# input_ids = [tokenizer.encode(prompt_wo_special_token, return_tensors="pt")[0] for i in range(end_idx - start_idx)]   
-					# print(f"{input_ids = }")
-					# prompts_tokens_strs = [tokenizer.batch_decode(input_ids_) for input_ids_ in input_ids]   
-					# print(f"{prompts_tokens_strs = }")
-
-					# pipeline(
-					# 	prompt=gpu_prompts_batch,  
-					# 	latents=latents_, 
-					# 	images=images, 
-					# 	timesteps_to_vis_attn=TIMESTEPS_TO_VIS_ATTN, 
-					# 	prompts_tokens_strs=prompts_tokens_strs, 
-					# 	save_dirs=save_dirs, 
-					# 	vis_attn_layers=VIS_ATTN_LAYERS, 
-					# )
-
-					del images 
-					torch.cuda.empty_cache() 
-			accelerator.wait_for_everyone() 
-			# if accelerator.is_main_process: 
-			# 	images = [Image.open(osp.join(save_dir, f"img.jpg")) for save_dir in save_dirs] 
-			# 	save_path_gif = osp.join(save_dir, f"main.gif") 
-			# 	create_gif(images, save_path_gif)  
-			# 	if wandb_log_data is not None:  
-			# 		wandb_log_data[f"{sanitize_filename(scene[-1]['prompt'])}/{prompt_filename}"] = wandb.Video(save_path_gif) 
-
+		prompt_ids = list(range(len(prompts)))  
+		save_dir = osp.join(tmp_dir, prompt_filename) 
+		if accelerator.is_main_process: 
+			os.makedirs(save_dir, exist_ok=True) 
+		with accelerator.split_between_processes(prompt_ids) as gpu_prompt_ids:  
+			batch_size = 2     
+			print(f"GPU {accelerator.process_index} is assigned {gpu_prompt_ids} / {prompt_ids}")  
+			for start_idx in range(0, len(gpu_prompt_ids) - 1, batch_size):  
+				end_idx = min(len(gpu_prompt_ids), start_idx + batch_size) 
+				gpu_prompt_ids_batch = gpu_prompt_ids[start_idx : end_idx]  
+				subjects_info_batch = [subjects_info[i] for i in gpu_prompt_ids_batch] 
+				print(f"GPU {accelerator.process_index} is doing {gpu_prompt_ids_batch}")
+				gpu_prompts_batch = [prompts[prompt_idx] for prompt_idx in gpu_prompt_ids_batch] 
+				# images = pipeline(gpu_prompts_batch, num_inference_steps).images  
+				tokens_batch = tokenize_prompt(pipeline.tokenizer, gpu_prompts_batch) 
+				for batch_idx in range(len(gpu_prompt_ids_batch)): 
+					for subject_idx in range(len(subjects_data)):  
+						# TODO remove the hardcoded number and write the logic 
+						subjects_info_batch[batch_idx][subject_idx]["special_token_idx"] = 4 + 2 * subject_idx   
+						subjects_info_batch[batch_idx][subject_idx]["subject_token_idx"] = 4 + 2 * subject_idx + 1  
+				images = pipeline(prompt=gpu_prompts_batch, latents=latents.unsqueeze(0).repeat(len(gpu_prompts_batch), 1, 1, 1), subjects_info=subjects_info_batch).images  
+				for prompt_idx, image in zip(gpu_prompt_ids_batch, images): 
+					save_dir_orientation = osp.join(save_dir, f"{str(prompt_idx).zfill(3)}") 
+					os.makedirs(save_dir_orientation, exist_ok=True) 
+					save_path = osp.join(save_dir_orientation, f"img.jpg") 
+					image.save(save_path)  
+				del images 
+				torch.cuda.empty_cache() 
+		accelerator.wait_for_everyone() 
 # road_prompt_list = [
 #     "A photo of PLACEHOLDER in front of the Taj",
 #     "A photo of PLACEHOLDER on the streets of Venice, with the sun setting in the background",
@@ -759,9 +655,17 @@ if __name__ == "__main__":
 				variant=args.variant,
 			)
 
-			pipeline = StableDiffusionXLPipeline.from_pretrained(
+			# pipeline = StableDiffusionXLPipeline.from_pretrained(
+			# 	args.pretrained_model_name_or_path,
+			# 	vae=vae, 
+			# 	revision=args.revision,
+			# 	variant=args.variant,
+			# 	torch_dtype=weight_dtype,
+			# ) 
+
+			pipeline = SDXLWithCALL.from_pretrained(
 				args.pretrained_model_name_or_path,
-				vae=vae, 
+				vae=vae,
 				revision=args.revision,
 				variant=args.variant,
 				torch_dtype=weight_dtype,
@@ -787,7 +691,7 @@ if __name__ == "__main__":
 			# 	args.pretrained_model_name_or_path, subfolder="transformer", revision=args.revision, variant=args.variant
 			# )
 			tokenizer_one = pipeline.tokenizer 
-			# tokenizer_two = pipeline.tokenizer_2 
+			tokenizer_two = pipeline.tokenizer_2 
 			text_encoder_one = pipeline.text_encoder 
 			text_encoder_two = pipeline.text_encoder_2 
 			torch.cuda.empty_cache() 
@@ -803,10 +707,10 @@ if __name__ == "__main__":
 			text_encoder_one.resize_token_embeddings(len(tokenizer_one))  
 			special_tokens_ints_one = tokenizer_one.convert_tokens_to_ids(special_tokens_str)  
 
-			# num_added_tokens = tokenizer_two.add_tokens(special_tokens_str)  
-			# assert num_added_tokens == MAX_SUBJECTS * MAX_BATCH_SIZE  
-			# text_encoder_two.resize_token_embeddings(len(tokenizer_two))  
-			# special_tokens_ints_two = tokenizer_two.convert_tokens_to_ids(special_tokens_str)  
+			num_added_tokens = tokenizer_two.add_tokens(special_tokens_str)  
+			assert num_added_tokens == MAX_SUBJECTS * MAX_BATCH_SIZE  
+			text_encoder_two.resize_token_embeddings(len(tokenizer_two))  
+			special_tokens_ints_two = tokenizer_two.convert_tokens_to_ids(special_tokens_str)  
 
 			# num_added_tokens = tokenizer_three.add_tokens(special_tokens_str)  
 			# assert num_added_tokens == MAX_SUBJECTS * MAX_BATCH_SIZE  
@@ -818,11 +722,13 @@ if __name__ == "__main__":
 			# special_encoder_part2_two = XYZThetaConditioningSD3Part2(1280).to(accelerator.device)  
 			# special_encoder_part2_three = XYZThetaConditioningSD3Part2(4096).to(accelerator.device)  
 			special_encoder = GoodPoseEmbedding(768) 
+			special_encoder_two = GoodPoseEmbedding(768) 
 
 			vae.requires_grad_(False)
 			text_encoder_one.requires_grad_(False)
 			# text_encoder_two.requires_grad_(False)
 			special_encoder.requires_grad_(False) 
+			special_encoder_two.requires_grad_(False) 
 
 
 			vae.to(accelerator.device, dtype=torch.float32)
@@ -836,6 +742,7 @@ if __name__ == "__main__":
 			# special_encoder_part2_two.to(accelerator.device, dtype=weight_dtype) 
 			# special_encoder_part2_three.to(accelerator.device, dtype=weight_dtype) 
 			special_encoder.to(accelerator.device, dtype=weight_dtype) 
+			special_encoder_two.to(accelerator.device, dtype=weight_dtype) 
 
 			def get_lora_config(rank, use_dora, target_modules):
 				base_config = {
@@ -956,6 +863,9 @@ if __name__ == "__main__":
 			conditioning_kwargs["special_encoder"] = special_encoder  
 			conditioning_kwargs["num_samples"] = NUM_SAMPLES 
 			conditioning_kwargs["special_tokens_ints_one"] = special_tokens_ints_one 
+			conditioning_kwargs["special_tokens_ints_two"] = special_tokens_ints_two  
+
+			patch_custom_attention(unwrap_model(pipeline.unet)) 
 
 		else: 
 			pipeline = StableDiffusionXLPipeline.from_pretrained(
@@ -966,4 +876,5 @@ if __name__ == "__main__":
 
 		# online_inference(pipeline, "/ssd_scratch/vaibhav/sd35_ablations/condition_till_timestep", accelerator , conditioning_kwargs)  
 		# online_inference(pipeline, f"/ssd_scratch/vaibhav/results_{WHICH_RUN}_{WHICH_STEP}/", accelerator , conditioning_kwargs)  
+
 		online_inference(pipeline, f"./results_{WHICH_RUN}_{WHICH_STEP}_{WHAT}/", accelerator , conditioning_kwargs)   

@@ -113,19 +113,33 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 			{
 				"name": "jeep", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.00, 0.50, 0.50, 1.00], 
+				"bbox": [0.00, 0.60, 0.40, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
 			{
-				"prompt": "a photo of PLACEHOLDER in a rocky terrain"  
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"prompt": "a photo of PLACEHOLDER in the Times Square"  
 			} 
 		], 
 		[ # the last one in this list contains the prompt and other meta details 
 			{
 				"name": "bicycle", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.25, 0.25, 0.75, 0.75], 
+				"bbox": [0.00, 0.60, 0.40, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -137,19 +151,33 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 			{
 				"name": "sedan", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.25, 0.25, 0.75, 0.75], 
+				"bbox": [0.00, 0.60, 0.40, 1.00],  
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
 			{
-				"prompt": "a photo of PLACEHOLDER in a city street"  
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"prompt": "a photo of PLACEHOLDER in a bustling city street with neon lights and towering skyscrapers"  
 			} 
 		], 
 		[ # the last one in this list contains the prompt and other meta details 
 			{
 				"name": "suv", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.50, 0.50, 1.00, 1.00], 
+				"bbox": [0.00, 0.60, 0.40, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"name": "jeep", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00],  
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -1657,6 +1685,10 @@ def main(args):
 		special_encoder_state_dict = torch.load(special_encoder_path) 
 		special_encoder_.load_state_dict(special_encoder_state_dict) 
 
+		special_encoder_two_path = osp.join(input_dir, "special_encoder_two.pt") 
+		special_encoder_two_state_dict = torch.load(special_encoder_two_path) 
+		special_encoder_two_.load_state_dict(special_encoder_two_state_dict) 
+
 		unet_state_dict = {f'{k.replace("unet.", "")}': v for k, v in lora_state_dict.items() if k.startswith("unet.")}
 		unet_state_dict = convert_unet_state_dict_to_peft(unet_state_dict)
 		incompatible_keys = set_peft_model_state_dict(unet_, unet_state_dict, adapter_name="default")
@@ -1993,8 +2025,8 @@ def main(args):
 			unet, text_encoder_one, text_encoder_two, optimizer, train_dataloader,
 		)
 	else:
-		unet, special_encoder = accelerator.prepare(
-			unet, special_encoder,
+		unet, special_encoder, special_encoder_two = accelerator.prepare(
+			unet, special_encoder, special_encoder_two, 
 		)
 	train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(train_dataloader_stage1, train_dataloader_stage2) 
 	optimizers_ = {} 
@@ -2156,7 +2188,6 @@ def main(args):
 		# 	batch = next(stage2_dataloader_iter) 
 		else: 
 			train_dataloader = train_dataloader_stage2 
-		train_dataloader = train_dataloader_stage2 
 		# 	batch = next(stage1_dataloader_iter) 
 		for step, batch in enumerate(train_dataloader):
 			if args.debug_dir is not None: 

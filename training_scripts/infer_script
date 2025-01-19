@@ -9,5 +9,5 @@
 #SBATCH -w cn4  
 
 # nvidia-smi
-# accelerate launch --config_file accelerate_config.yaml infer_sdxl.py  
-accelerate launch --config_file accelerate_config.yaml refiner_infer.py  
+accelerate launch --config_file accelerate_config.yaml infer_sdxl.py  
+# accelerate launch --config_file accelerate_config.yaml refiner_infer.py  

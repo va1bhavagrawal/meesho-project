@@ -26,7 +26,7 @@ import time
 
 DEBUG_ATTN = False  
 BOX_RESIZING_FACTOR = 1.2 
-INFINITY = 1e9
+INFINITY = 1e5 
 NUM_TEXT_EMBEDDINGS = 77 
 LAMBDA = 1.2 
 
@@ -156,20 +156,30 @@ class CALLAttnProcessor:
                     attention_scores[batch_idx, :, :, :, subject_token_idx] = attention_scores[batch_idx, :, :, :, subject_token_idx] + attention_mask 
 
 
+            attention_scores = F.softmax(attention_scores.reshape(bsz, attn.heads, spatial_dim * spatial_dim, NUM_TEXT_EMBEDDINGS), dim=-1) 
+
             # for batch_idx in range(bsz): 
             #     n_subjects = len(text_conditioning["subjects_info"][batch_idx]) 
             #     fig, axs = plt.subplots(n_subjects, 2, figsize=(10, 10)) 
             #     for subject_idx, subjects_info in enumerate(text_conditioning["subjects_info"][batch_idx]):  
             #         special_token_idx = subjects_info["special_token_idx"] 
             #         subject_token_idx = subjects_info["subject_token_idx"] 
-            #         if n_subjects == 4: 
-            #             axs_ = axs[subject_idx ]
+            #         if n_subjects == 2: 
+            #             axs_ = axs[subject_idx]
             #         else: 
             #             axs_ = axs 
-            #         attn_special_token = attention_scores[batch_idx, :, :, :, special_token_idx].mean(dim=0).detach().cpu().numpy() 
-            #         attn_special_token = (attn_special_token - attn_special_token.min()) / (attn_special_token.max() - attn_special_token.min()) 
-            #         attn_subject_token = attention_scores[batch_idx, :, :, :, subject_token_idx].mean(dim=0).detach().cpu().numpy() 
-            #         attn_subject_token = (attn_subject_token - attn_subject_token.min()) / (attn_subject_token.max() - attn_subject_token.min()) 
+            #         attn_special_token = attention_scores[batch_idx, :, :, special_token_idx].mean(dim=0).reshape(spatial_dim, spatial_dim).detach().cpu().numpy() 
+            #         # den = (attn_special_token.max() - attn_special_token.min())
+            #         # print(f"for normalizing special token attn, {den = }") 
+            #         # print(f"{attn_special_token.min() = }") 
+            #         # attn_special_token = (attn_special_token - attn_special_token.min()) / den   
+            #         attn_subject_token = attention_scores[batch_idx, :, :, subject_token_idx].mean(dim=0).reshape(spatial_dim, spatial_dim).detach().cpu().numpy() 
+            #         # den = (attn_subject_token.max() - attn_subject_token.min())
+            #         # print(f"for normalizing subject token attn, {den = }") 
+            #         # print(f"{attn_subject_token.min() = }") 
+            #         # attn_subject_token = (attn_subject_token - attn_subject_token.min()) / den  
+            #         assert np.all(attn_special_token <= 1) and  np.all(attn_special_token >= 0) 
+            #         assert np.all(attn_subject_token <= 1) and  np.all(attn_subject_token >= 0) 
             #         axs_[0].imshow(attn_special_token) 
             #         axs_[0].set_title(special_token_idx) 
             #         axs_[1].imshow(attn_subject_token)  
@@ -183,7 +193,6 @@ class CALLAttnProcessor:
             #     plt.close("all") 
 
 
-            attention_scores = F.softmax(attention_scores.reshape(bsz, attn.heads, spatial_dim * spatial_dim, NUM_TEXT_EMBEDDINGS), dim=-1) 
 
         else: 
             attention_scores = F.softmax(attention_scores, dim=-1) 

@@ -6,6 +6,6 @@
 #SBATCH --mem=100G 
 #SBATCH --gres=gpu:0     
 #SBATCH --partition=long 
-#SBATCH -w cn7                  
+#SBATCH -w cn4                   
 
 nvidia-smi 
