@@ -3,13 +3,13 @@
 #SBATCH --output=job_output_%j.log  
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
-#SBATCH --mem=10G 
-#SBATCH --gres=gpu:0             
+#SBATCH --mem=100G 
+#SBATCH --gres=gpu:1               
 #SBATCH --partition=long 
-#SBATCH -w cn7  
+#SBATCH -w cn7     
 
 
-export RUN_NAME="sdxl1024_2subjects_cn7" 
+export RUN_NAME="sdxl512_1subject" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-xl-base-1.0"
@@ -36,7 +36,7 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --instance_data_dir=$INSTANCE_DIR \
   --pretrained_vae_model_name_or_path=$VAE_PATH \
   --output_dir=$OUTPUT_DIR \
-  --resolution=1024 \
+  --resolution=512 \
   --train_batch_size=1 \
   --gradient_accumulation_steps=1 \
   --learning_rate=1e-4 \
@@ -44,7 +44,7 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --rendered_imgs_prompt="a photo of PLACEHOLDER in a dark studio with white lights" \
   --report_to="wandb" \
   --lr_warmup_steps=0 \
-  --stage1_steps=20000 \
+  --stage1_steps=100000 \
   --stage2_steps=100000 \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --controlnet_data_dir_2subjects=$CONTROLNET_DIR_2SUBJECTS \
@@ -54,6 +54,6 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --seed="1709" \
   --run_name=$RUN_NAME \
   --wandb
+  # --resume_from_checkpoint="../ckpts/sdxl1024_1e-4_1e-3_CALL_singlesub_randomlocs/checkpoint-60000" \
   # --run_name="debug" \
   # --debug_dir="debug"
-  # --resume_from_checkpoint="../ckpts/sdxl1024_1e-4_1e-3_CALL_singlesub_randomlocs/checkpoint-60000" \

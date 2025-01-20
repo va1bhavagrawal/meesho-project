@@ -118,13 +118,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
-			{
-				"name": "sedan", 
-				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.60, 0.60, 1.00, 1.00], 
-				"x": -5.0,
-				"y": +0.00, 
-			}, 
+			# {
+			# 	"name": "sedan", 
+			# 	"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+			# 	"bbox": [0.60, 0.60, 1.00, 1.00], 
+			# 	"x": -5.0,
+			# 	"y": +0.00, 
+			# }, 
 			{
 				"prompt": "a photo of PLACEHOLDER in the Times Square"  
 			} 
@@ -137,13 +137,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
-			{
-				"name": "sedan", 
-				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.60, 0.60, 1.00, 1.00], 
-				"x": -5.0,
-				"y": +0.00, 
-			}, 
+			# {
+			# 	"name": "sedan", 
+			# 	"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+			# 	"bbox": [0.60, 0.60, 1.00, 1.00], 
+			# 	"x": -5.0,
+			# 	"y": +0.00, 
+			# }, 
 			{
 				"prompt": "a photo of PLACEHOLDER in a backyard"  
 			} 
@@ -156,13 +156,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
-			{
-				"name": "sedan", 
-				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.60, 0.60, 1.00, 1.00], 
-				"x": -5.0,
-				"y": +0.00, 
-			}, 
+			# {
+			# 	"name": "sedan", 
+			# 	"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+			# 	"bbox": [0.60, 0.60, 1.00, 1.00], 
+			# 	"x": -5.0,
+			# 	"y": +0.00, 
+			# }, 
 			{
 				"prompt": "a photo of PLACEHOLDER in a bustling city street with neon lights and towering skyscrapers"  
 			} 
@@ -175,13 +175,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
-			{
-				"name": "jeep", 
-				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.60, 0.60, 1.00, 1.00],  
-				"x": -5.0,
-				"y": +0.00, 
-			}, 
+			# {
+			# 	"name": "jeep", 
+			# 	"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+			# 	"bbox": [0.60, 0.60, 1.00, 1.00],  
+			# 	"x": -5.0,
+			# 	"y": +0.00, 
+			# }, 
 			{
 				"prompt": "a photo of PLACEHOLDER on a highway"  
 			} 
@@ -209,6 +209,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 		random_idx = torch.randint(0, len(latents_store), (1,)).float().to(accelerator.device)  
 		random_idx = torch.mean(accelerator.gather(random_idx)).int()  
 		latents = latents_store[random_idx] 
+		latents = torch.randn(latents.shape[0], latents.shape[1], latents.shape[2] // 2, latents.shape[3] // 2).to(accelerator.device) 
 		prompts = [] 
 		subjects_data = scene[:-1] 
 		metadata = scene[-1] 
@@ -262,6 +263,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 		save_dir = osp.join(tmp_dir, prompt_filename) 
 		if accelerator.is_main_process: 
 			os.makedirs(save_dir, exist_ok=True) 
+		accelerator.wait_for_everyone() 
 		with accelerator.split_between_processes(prompt_ids) as gpu_prompt_ids:  
 			batch_size = 2     
 			print(f"GPU {accelerator.process_index} is assigned {gpu_prompt_ids} / {prompt_ids}")  
@@ -2058,7 +2060,7 @@ def main(args):
 	save_steps = sorted(save_steps) 
 	print(f"{save_steps = }")
 
-	vlog_steps = [1000] 
+	vlog_steps = [50, 1000] 
 	for vlog_step in range(5000, args.max_train_steps + 1, 5000):  
 		vlog_steps.append(vlog_step) 
 	vlog_steps = sorted(vlog_steps)  
@@ -2572,6 +2574,7 @@ def main(args):
 
 					with torch.no_grad(): 
 						online_inference(args, pipeline, 8, special_tokens_ints_one, special_tokens_ints_two, special_encoder, special_encoder_two,  f"tmp_{'_'.join(args.run_name.split())}", accelerator, logs) 
+						# pass 
 
 					accelerator.wait_for_everyone() 
 					if len(save_steps) and global_step == save_steps[0]: 
