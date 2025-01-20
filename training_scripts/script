@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
 #SBATCH --mem=100G 
-#SBATCH --gres=gpu:1               
+#SBATCH --gres=gpu:8                
 #SBATCH --partition=long 
 #SBATCH -w cn7     
 
@@ -54,6 +54,6 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --seed="1709" \
   --run_name=$RUN_NAME \
   --wandb
-  # --resume_from_checkpoint="../ckpts/sdxl1024_1e-4_1e-3_CALL_singlesub_randomlocs/checkpoint-60000" \
   # --run_name="debug" \
   # --debug_dir="debug"
+  # --resume_from_checkpoint="../ckpts/sdxl1024_1e-4_1e-3_CALL_singlesub_randomlocs/checkpoint-60000" \

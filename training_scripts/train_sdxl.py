@@ -209,7 +209,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 		random_idx = torch.randint(0, len(latents_store), (1,)).float().to(accelerator.device)  
 		random_idx = torch.mean(accelerator.gather(random_idx)).int()  
 		latents = latents_store[random_idx] 
-		latents = torch.randn(latents.shape[0], latents.shape[1], latents.shape[2] // 2, latents.shape[3] // 2).to(accelerator.device) 
+		latents = torch.randn(latents.shape[0], latents.shape[1] // 2, latents.shape[2] // 2).to(accelerator.device) 
 		prompts = [] 
 		subjects_data = scene[:-1] 
 		metadata = scene[-1] 
