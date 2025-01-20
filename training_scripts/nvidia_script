@@ -3,9 +3,9 @@
 #SBATCH --output=job_output_%j.log  
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
-#SBATCH --mem=100G 
+#SBATCH --mem=10G 
 #SBATCH --gres=gpu:0     
 #SBATCH --partition=long 
-#SBATCH -w cn4                   
+#SBATCH -w cn7                    
 
 nvidia-smi 

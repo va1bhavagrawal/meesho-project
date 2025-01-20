@@ -108,6 +108,7 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 	if accelerator.is_main_process: 
 		if osp.exists(tmp_dir): 
 			shutil.rmtree(tmp_dir) 
+	accelerator.wait_for_everyone() 
 	scenes_data = [
 		[ # the last one in this list contains the prompt and other meta details 
 			{
@@ -2263,7 +2264,6 @@ def main(args):
 						batch["subjects_info"][batch_idx][subject_idx]["subject_token_idx"] = special_token_one_idx + 1 
 						batch["subjects_info"][batch_idx][subject_idx]["proc_id"] = accelerator.process_index  
 						batch["subjects_info"][batch_idx][subject_idx]["step"] = step 
-						print(f"for {batch_idx = }, {subject_idx = }, {special_token_one_idx = }") 
 
 				# Convert images to latent space
 				model_input = vae.encode(pixel_values).latent_dist.sample()
