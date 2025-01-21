@@ -118,13 +118,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
-			# {
-			# 	"name": "sedan", 
-			# 	"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-			# 	"bbox": [0.60, 0.60, 1.00, 1.00], 
-			# 	"x": -5.0,
-			# 	"y": +0.00, 
-			# }, 
+			{
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
 			{
 				"prompt": "a photo of PLACEHOLDER in the Times Square"  
 			} 
@@ -137,13 +137,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
-			# {
-			# 	"name": "sedan", 
-			# 	"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-			# 	"bbox": [0.60, 0.60, 1.00, 1.00], 
-			# 	"x": -5.0,
-			# 	"y": +0.00, 
-			# }, 
+			{
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
 			{
 				"prompt": "a photo of PLACEHOLDER in a backyard"  
 			} 
@@ -156,13 +156,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
-			# {
-			# 	"name": "sedan", 
-			# 	"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-			# 	"bbox": [0.60, 0.60, 1.00, 1.00], 
-			# 	"x": -5.0,
-			# 	"y": +0.00, 
-			# }, 
+			{
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
 			{
 				"prompt": "a photo of PLACEHOLDER in a bustling city street with neon lights and towering skyscrapers"  
 			} 
@@ -175,13 +175,13 @@ def online_inference(args, pipeline, num_samples, special_tokens_ints_one, speci
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
-			# {
-			# 	"name": "jeep", 
-			# 	"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-			# 	"bbox": [0.60, 0.60, 1.00, 1.00],  
-			# 	"x": -5.0,
-			# 	"y": +0.00, 
-			# }, 
+			{
+				"name": "jeep", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00],  
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
 			{
 				"prompt": "a photo of PLACEHOLDER on a highway"  
 			} 
@@ -1900,14 +1900,14 @@ def main(args):
 		1,
 		1,
 	]).astype(np.int32)  
-	train_dataset_stage1 = MixingDatasets(args, train_datasets_stage1, ratios) 
-	train_dataloader_stage1 = torch.utils.data.DataLoader(
-		train_dataset_stage1,
-		batch_size=args.train_batch_size,
-		shuffle=True,
-		collate_fn=lambda examples: collate_fn(examples, args),   
-		num_workers=args.dataloader_num_workers,
-	)
+	# train_dataset_stage1 = MixingDatasets(args, train_datasets_stage1, ratios) 
+	# train_dataloader_stage1 = torch.utils.data.DataLoader(
+	# 	train_dataset_stage1,
+	# 	batch_size=args.train_batch_size,
+	# 	shuffle=True,
+	# 	collate_fn=lambda examples: collate_fn(examples, args),   
+	# 	num_workers=args.dataloader_num_workers,
+	# )
 
 	torch.cuda.empty_cache() 
 	train_datasets_stage2 = [
@@ -1924,9 +1924,13 @@ def main(args):
 			)
 	]
 
+	train_datasets_stage2 = train_datasets_stage1 + train_datasets_stage2 	
+
 	ratios = np.array([
 		1,
 		1,
+		1, 
+		1, 
 	]).astype(np.int32)  
 	train_dataset_stage2 = MixingDatasets(args, train_datasets_stage2, ratios) 
 	train_dataloader_stage2 = torch.utils.data.DataLoader(
@@ -1936,6 +1940,8 @@ def main(args):
 		collate_fn=lambda examples: collate_fn(examples, args),   
 		num_workers=args.dataloader_num_workers,
 	)
+	train_dataset_stage1 = train_dataset_stage2 
+	train_dataloader_stage1 = train_dataloader_stage2 
 
 	# Computes additional embeddings/ids required by the SDXL UNet.
 	# regular text embeddings (when `train_text_encoder` is not True)

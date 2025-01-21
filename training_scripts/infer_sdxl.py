@@ -151,9 +151,9 @@ NUM_SAMPLES = 8
 
 # ROOT_CKPTS_DIR = "/ssd_scratch/vaibhav/ckpts"
 ROOT_CKPTS_DIR = "../ckpts/"
-WHICH_RUN = "sdxl1024_1e-4_1e-3_CALL_stage2_from60000_cn7"  
-WHICH_STEP = "100000"   
-WHAT = ""
+WHICH_RUN = "sdxl1024_2subjects_resumed"  
+WHICH_STEP = "94000"   
+WHAT = "lambda1.0"
 MAX_BATCH_SIZE = 100 
 MAX_SUBJECTS = 100 
 INFER_BATCH_SIZE = 4        
@@ -184,24 +184,100 @@ def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):
 		if osp.exists(tmp_dir): 
 			shutil.rmtree(tmp_dir) 
 
+	# scenes_data = [
+	# 	[ # the last one in this list contains the prompt and other meta details 
+	# 		{
+	# 			"name": "jeep", 
+	# 			"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+	# 			"bbox": [0.00, 0.50, 0.50, 1.00], 
+	# 			"x": -5.0,
+	# 			"y": +0.00, 
+	# 		}, 
+	# 		{
+	# 			"prompt": "a photo of PLACEHOLDER in a rocky terrain"  
+	# 		} 
+	# 	], 
+	# 	[ # the last one in this list contains the prompt and other meta details 
+	# 		{
+	# 			"name": "bicycle", 
+	# 			"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+	# 			"bbox": [0.25, 0.25, 0.75, 0.75], 
+	# 			"x": -5.0,
+	# 			"y": +0.00, 
+	# 		}, 
+	# 		{
+	# 			"prompt": "a photo of PLACEHOLDER in a backyard"  
+	# 		} 
+	# 	], 
+	# 	[ # the last one in this list contains the prompt and other meta details 
+	# 		{
+	# 			"name": "sedan", 
+	# 			"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+	# 			"bbox": [0.25, 0.25, 0.75, 0.75], 
+	# 			"x": -5.0,
+	# 			"y": +0.00, 
+	# 		}, 
+	# 		{
+	# 			"prompt": "a photo of PLACEHOLDER in a city street"  
+	# 		} 
+	# 	], 
+	# 	[ # the last one in this list contains the prompt and other meta details 
+	# 		{
+	# 			"name": "suv", 
+	# 			"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+	# 			"bbox": [0.50, 0.50, 1.00, 1.00], 
+	# 			"x": -5.0,
+	# 			"y": +0.00, 
+	# 		}, 
+	# 		{
+	# 			"prompt": "a photo of PLACEHOLDER on a highway"  
+	# 		} 
+	# 	], 
+	# 	[ # the last one in this list contains the prompt and other meta details 
+	# 		{
+	# 			"name": "ship", 
+	# 			"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+	# 			"bbox": [0.25, 0.50, 0.75, 1.00], 
+	# 			"x": -5.0,
+	# 			"y": +0.00, 
+	# 		}, 
+	# 		{
+	# 			"prompt": "a photo of PLACEHOLDER in a calm sea at sunset"  
+	# 		} 
+	# 	], 
+	# ] 
 	scenes_data = [
 		[ # the last one in this list contains the prompt and other meta details 
 			{
 				"name": "jeep", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.00, 0.50, 0.50, 1.00], 
+				"bbox": [0.00, 0.60, 0.40, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
 			{
-				"prompt": "a photo of PLACEHOLDER in a rocky terrain"  
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"prompt": "a photo of PLACEHOLDER in the Times Square"  
 			} 
 		], 
 		[ # the last one in this list contains the prompt and other meta details 
 			{
 				"name": "bicycle", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.25, 0.25, 0.75, 0.75], 
+				"bbox": [0.00, 0.60, 0.40, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -213,19 +289,33 @@ def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):
 			{
 				"name": "sedan", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.25, 0.25, 0.75, 0.75], 
+				"bbox": [0.00, 0.60, 0.40, 1.00],  
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
 			{
-				"prompt": "a photo of PLACEHOLDER in a city street"  
+				"name": "sedan", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"prompt": "a photo of PLACEHOLDER in a bustling city street with neon lights and towering skyscrapers"  
 			} 
 		], 
 		[ # the last one in this list contains the prompt and other meta details 
 			{
 				"name": "suv", 
 				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
-				"bbox": [0.50, 0.50, 1.00, 1.00], 
+				"bbox": [0.00, 0.60, 0.40, 1.00], 
+				"x": -5.0,
+				"y": +0.00, 
+			}, 
+			{
+				"name": "jeep", 
+				"theta": np.linspace(0, 2 * np.pi, num_samples + 1)[:-1],   
+				"bbox": [0.60, 0.60, 1.00, 1.00],  
 				"x": -5.0,
 				"y": +0.00, 
 			}, 
@@ -245,7 +335,7 @@ def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):
 				"prompt": "a photo of PLACEHOLDER in a calm sea at sunset"  
 			} 
 		], 
-	] 
+	]
 
 	text_encoder_one = pipeline.text_encoder 
 	text_encoder_two = pipeline.text_encoder_2 
@@ -319,7 +409,7 @@ def online_inference(pipeline, tmp_dir, accelerator, conditioning_kwargs={}):
 				print(f"GPU {accelerator.process_index} is doing {gpu_prompt_ids_batch}")
 				gpu_prompts_batch = [prompts[prompt_idx] for prompt_idx in gpu_prompt_ids_batch] 
 				# images = pipeline(gpu_prompts_batch, num_inference_steps).images  
-				tokens_batch = tokenize_prompt(pipeline.tokenizer, gpu_prompts_batch) 
+				# tokens_batch = tokenize_prompt(pipeline.tokenizer, gpu_prompts_batch) 
 				for batch_idx in range(len(gpu_prompt_ids_batch)): 
 					for subject_idx in range(len(subjects_data)):  
 						# TODO remove the hardcoded number and write the logic 
@@ -722,7 +812,7 @@ if __name__ == "__main__":
 			# special_encoder_part2_two = XYZThetaConditioningSD3Part2(1280).to(accelerator.device)  
 			# special_encoder_part2_three = XYZThetaConditioningSD3Part2(4096).to(accelerator.device)  
 			special_encoder = GoodPoseEmbedding(768) 
-			special_encoder_two = GoodPoseEmbedding(768) 
+			special_encoder_two = GoodPoseEmbedding(1280) 
 
 			vae.requires_grad_(False)
 			text_encoder_one.requires_grad_(False)
@@ -797,7 +887,11 @@ if __name__ == "__main__":
 					elif isinstance(model, type(unwrap_model(text_encoder_two))):
 						text_encoder_two_ = model
 					elif isinstance(model, type(unwrap_model(special_encoder))):
-						special_encoder_ = model
+						print(f"{model.output_dim = }")
+						if model.output_dim == 768: 
+							special_encoder_ = model 
+						elif model.output_dim == 1280: 	
+							special_encoder_two_ = model 
 					else:
 						raise ValueError(f"unexpected save model: {model.__class__}")
 
@@ -806,6 +900,10 @@ if __name__ == "__main__":
 				special_encoder_path = osp.join(input_dir, "special_encoder.pt") 
 				special_encoder_state_dict = torch.load(special_encoder_path) 
 				special_encoder_.load_state_dict(special_encoder_state_dict) 
+
+				special_encoder_two_path = osp.join(input_dir, "special_encoder_two.pt") 
+				special_encoder_two_state_dict = torch.load(special_encoder_two_path) 
+				special_encoder_two_.load_state_dict(special_encoder_two_state_dict) 
 
 				unet_state_dict = {f'{k.replace("unet.", "")}': v for k, v in lora_state_dict.items() if k.startswith("unet.")}
 				unet_state_dict = convert_unet_state_dict_to_peft(unet_state_dict)
@@ -840,8 +938,9 @@ if __name__ == "__main__":
 			(
 				unet,
 				special_encoder, 
+				special_encoder_two,  
 			) = accelerator.prepare(
-				unet, special_encoder, 
+				unet, special_encoder, special_encoder_two,  
 			)
 			if args.train_text_encoder: 
 				assert text_encoder_one is not None
@@ -861,6 +960,7 @@ if __name__ == "__main__":
 			# conditioning_kwargs["special_encoder_part2_two"] = special_encoder_part2_two 
 			# conditioning_kwargs["special_encoder_part2_three"] = special_encoder_part2_three 
 			conditioning_kwargs["special_encoder"] = special_encoder  
+			conditioning_kwargs["special_encoder_two"] = special_encoder_two  
 			conditioning_kwargs["num_samples"] = NUM_SAMPLES 
 			conditioning_kwargs["special_tokens_ints_one"] = special_tokens_ints_one 
 			conditioning_kwargs["special_tokens_ints_two"] = special_tokens_ints_two  

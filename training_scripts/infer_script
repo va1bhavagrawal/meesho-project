@@ -4,9 +4,9 @@
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
 #SBATCH --mem=300G  
-#SBATCH --gres=gpu:1   
+#SBATCH --gres=gpu:8     
 #SBATCH --partition=long 
-#SBATCH -w cn4  
+#SBATCH -w cn7   
 
 # nvidia-smi
 accelerate launch --config_file accelerate_config.yaml infer_sdxl.py  

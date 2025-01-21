@@ -4,9 +4,8 @@
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
 #SBATCH --mem=10G 
-#SBATCH --gres=gpu:8      
+#SBATCH --gres=gpu:0       
 #SBATCH --partition=long 
-#SBATCH -w cn7                    
+#SBATCH -w cn7                
 
-# nvidia-smi 
-sleep 100000000000000000000000 
+nvidia-smi 

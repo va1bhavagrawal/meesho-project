@@ -4,12 +4,12 @@
 #SBATCH --ntasks=1                  
 #SBATCH --cpus-per-task=4           
 #SBATCH --mem=100G 
-#SBATCH --gres=gpu:8                
+#SBATCH --gres=gpu:4                 
 #SBATCH --partition=long 
-#SBATCH -w cn7     
+#SBATCH -w cn4      
 
 
-export RUN_NAME="sdxl512_1subject" 
+export RUN_NAME="sdxl512_1+2subjects" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-xl-base-1.0"
@@ -44,7 +44,7 @@ accelerate launch --config_file accelerate_config.yaml train_sdxl.py \
   --rendered_imgs_prompt="a photo of PLACEHOLDER in a dark studio with white lights" \
   --report_to="wandb" \
   --lr_warmup_steps=0 \
-  --stage1_steps=100000 \
+  --stage1_steps=0 \
   --stage2_steps=100000 \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
   --controlnet_data_dir_2subjects=$CONTROLNET_DIR_2SUBJECTS \

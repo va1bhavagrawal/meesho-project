@@ -28,7 +28,7 @@ DEBUG_ATTN = False
 BOX_RESIZING_FACTOR = 1.2 
 INFINITY = 1e5 
 NUM_TEXT_EMBEDDINGS = 77 
-LAMBDA = 1.2 
+LAMBDA = 1.0  
 
 class CALLAttnProcessor: 
     r"""
