@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name=train
+#SBATCH --output=job_output_%j.log  
+#SBATCH --ntasks=1                  
+#SBATCH --cpus-per-task=4           
+#SBATCH --mem=300G  
+#SBATCH --gres=gpu:3      
+#SBATCH --partition=long 
+#SBATCH -w cn4    
+
+# nvidia-smi
+# accelerate launch --config_file accelerate_config.yaml infer_sdxl.py  
+# accelerate launch --config_file accelerate_config.yaml refiner_infer.py  
+python3 infer_sd3.py 

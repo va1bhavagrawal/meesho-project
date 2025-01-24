@@ -27,13 +27,12 @@ RAW_IMG_SIZE = 1024
 
 
 class RenderedImagesDataset(Dataset): 
-    def __init__(self, args, imgs_dir, include_special_tokens, num_steps, tokenizer):  
+    def __init__(self, args, imgs_dir, include_special_tokens, tokenizer):  
         super().__init__() 
         self.args = args 
         self.data = [] 
         self.size = args.resolution 
         self.imgs_dir = imgs_dir 
-        self.num_steps = num_steps 
         self.tokenizer = tokenizer 
 
         for subjects_comb in os.listdir(self.imgs_dir): 
@@ -135,7 +134,7 @@ class RenderedImagesDataset(Dataset):
 
 
     def __len__(self): 
-        return self.num_steps  
+        return len(self.data)  
 
 
     def __getitem__(self, idx): 
@@ -158,6 +157,7 @@ class MixingDatasets(Dataset):
 
     def __getitem__(self, idx): 
         example = {}  
+        idx = idx % len(self.data) 
         for k, v in self.data[idx].items(): 
             example[k] = v 
         img = Image.open(self.data[idx]["img_path"]) 

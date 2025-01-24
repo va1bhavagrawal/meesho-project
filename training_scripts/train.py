@@ -1242,7 +1242,7 @@ def main(args):
     #     gpu_idx=accelerator.process_index, 
     # ) 
     train_datasets = [
-        RenderedImagesDataset(args, "../objectron_imgs_filtered", include_special_tokens=True, num_steps=10000, tokenizer=tokenizer)  
+        RenderedImagesDataset(args, "../objectron_imgs_filtered", include_special_tokens=True, tokenizer=tokenizer)  
     ]
     ratios = np.array([
         1, 
