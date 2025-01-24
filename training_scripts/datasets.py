@@ -152,7 +152,7 @@ class MixingDatasets(Dataset):
             self.datasets = self.datasets + [dataset] * len(self.data) * ratio 
 
     def __len__(self): 
-        return len(self.data) 
+        return self.args.max_train_steps + 16  
 
 
     def __getitem__(self, idx): 
