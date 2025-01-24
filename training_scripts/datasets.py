@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn 
 from torch.utils.data import Dataset
 from torchvision import transforms
+import math 
 
 from pathlib import Path
 from typing import Optional
@@ -21,8 +22,150 @@ import pickle
 
 import copy 
 
-MAX_SUBJECTS_PER_EXAMPLE = 2  
+MAX_SUBJECTS_PER_EXAMPLE = 1   
 RAW_IMG_SIZE = 1024 
+
+
+class RenderedImagesDataset(Dataset): 
+    def __init__(self, args, imgs_dir, include_special_tokens, num_steps, tokenizer):  
+        super().__init__() 
+        self.args = args 
+        self.data = [] 
+        self.size = args.resolution 
+        self.imgs_dir = imgs_dir 
+        self.num_steps = num_steps 
+        self.tokenizer = tokenizer 
+
+        for subjects_comb in os.listdir(self.imgs_dir): 
+            subjects_comb_dir = osp.join(self.imgs_dir, subjects_comb) 
+            for img_name in os.listdir(subjects_comb_dir): 
+                if img_name.find("jpg") == -1: 
+                    continue 
+                example = {} 
+                example["subjects_data"] = [] 
+                img_path = osp.join(subjects_comb_dir, img_name) 
+                pkl_path = img_path.replace("jpg", "pkl") 
+                assert osp.exists(pkl_path), f"{pkl_path = }" 
+                with open(pkl_path, "rb") as f: 
+                    pkl_data = pickle.load(f) 
+                example["img_path"] = img_path 
+                subjects_ = subjects_comb.split("__")
+                subjects = [" ".join(subject_.split("_")) for subject_ in subjects_]  
+                # subjects_details = img_name.replace(".jpg", "").split("__")[:-1]   
+                # assert len(subjects_details) == len(subjects), f"{subjects_details = }, {subjects = }" 
+                example["bboxes"] = [] 
+                example["scalers"] = [] 
+                for subject_idx in range(len(subjects)): 
+                    # subject_details = subjects_details[subject_idx] 
+                    # x, y, z, a = subject_details.split("_") 
+                    subject_data = {} 
+                    # subject_data["x"] = float(x) 
+                    # subject_data["y"] = float(y) 
+                    # subject_data["theta"] = float(a) 
+                    # subject_data["name"] = subjects[subject_idx]  
+                    azimuth = pkl_data["azimuth"]  
+                    cross_direction = pkl_data["cross_direction"] 
+                    subject_data["bbox"] = torch.as_tensor([0.0, 0.0, 1.0, 1.0]) 
+                    # example["subjects_data"].append(subject_data) 
+                    if cross_direction == 1: 
+                        azimuth_ = math.pi / 2 - azimuth  
+                        if azimuth_ < 0: 
+                            azimuth_ += 2 * math.pi 
+                    else: 
+                        azimuth_= math.pi / 2 + azimuth 
+                    example["scalers"].append(azimuth_)  
+                    example["bboxes"].append(subject_data["bbox"]) 
+                prompt = self.args.rendered_imgs_prompt 
+                assert prompt.find("PLACEHOLDER") != -1 
+                placeholder_text = "" 
+                # subject_idx = 0 
+                # for subject_data in example["subjects_data"][:-1]: 
+                #     if include_special_tokens: 
+                #         placeholder_text = placeholder_text + f"<special_token_{subject_idx}> {subject_data['name']} and "  
+                #     else: 
+                #         placeholder_text = placeholder_text + f"{subject_data['name']} and " 
+                #     subject_idx += 1 
+                # for subject_data in example["subjects_data"][-1:]: 
+                #     if include_special_tokens: 
+                #         placeholder_text = placeholder_text + f"<special_token_{subject_idx}> {subject_data['name']}"  
+                #     else: 
+                #         placeholder_text = placeholder_text + f"{subject_data['name']}" 
+                #     subject_idx += 1 
+
+                replacement_str = "" 
+                replacement_str = replacement_str + f"a {UNIQUE_TOKENS['0_0']} {subjects[0]}" 
+                for asset_idx, subject in enumerate(subjects):  
+                    if asset_idx == 0: 
+                        continue 
+                    replacement_str = replacement_str + f" and a {UNIQUE_TOKENS[f'{asset_idx}_0']} {subjects[asset_idx]}" 
+                prompt = prompt.replace(f"PLACEHOLDER", replacement_str)  
+                placeholder_text = placeholder_text.strip() 
+                prompt = prompt.replace("PLACEHOLDER", placeholder_text) 
+                # if args.cache_prompt_embeds: 
+                #     embeds_path = osp.join(subjects_comb_dir, f"{'_'.join(prompt.split())}.pth") 
+                #     embeds_path = embeds_path.replace("____", "__") 
+                #     assert osp.exists(embeds_path), f"{embeds_path = }" 
+                #     embeds = torch.load(embeds_path, map_location=torch.device("cpu"))  
+                #     prompt_embeds = embeds["prompt_embeds"] 
+                #     pooled_prompt_embeds = embeds["pooled_prompt_embeds"] 
+                #     example["prompt_embeds"] = prompt_embeds 
+                #     example["pooled_prompt_embeds"] = pooled_prompt_embeds 
+
+                example["prompt"] = prompt 
+                prompt_ids = self.tokenizer(
+                    example["prompt"], 
+                    padding="max_length", 
+                    truncation=True, 
+                    max_length=self.tokenizer.model_max_length, 
+                    return_tensors="pt", 
+                ).input_ids[0]  
+                example["subjects"] = subjects 
+                example["prompt_ids"] = prompt_ids 
+                self.data.append(example) 
+
+
+        self.image_transforms = transforms.Compose(
+            [
+                transforms.Resize(self.size, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(self.size) if args.center_crop else transforms.RandomCrop(self.size), 
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+
+
+    def __len__(self): 
+        return self.num_steps  
+
+
+    def __getitem__(self, idx): 
+        raise NotImplementedError("this must be used by a MixingDatasets wrapper!") 
+
+
+class MixingDatasets(Dataset): 
+    def __init__(self, args, datasets, ratios):  
+        ratios = np.array(ratios).astype(np.int32) 
+        assert np.all(ratios >= 1) 
+        self.data = [] 
+        self.datasets = [] 
+        for dataset, ratio in zip(datasets, ratios): 
+            self.data = self.data + dataset.data * ratio  
+            self.datasets = self.datasets + [dataset] * len(self.data) * ratio 
+
+    def __len__(self): 
+        return len(self.data) 
+
+
+    def __getitem__(self, idx): 
+        example = {}  
+        for k, v in self.data[idx].items(): 
+            example[k] = v 
+        img = Image.open(self.data[idx]["img_path"]) 
+        if not img.mode == "RGB": 
+            img = img.convert("RGB") 
+        example["img"] = self.datasets[idx].image_transforms(img) 
+        return example  
+
 
 class EveryPoseEveryThingDataset(Dataset): 
     def pose_bin_to_pose_range(self, pose_bin): 

@@ -1,4 +1,4 @@
-export RUN_NAME="old_hparams_new_dataloader" 
+export RUN_NAME="objectron" 
 # export RUN_NAME="debug" 
 
 export MODEL_NAME="stabilityai/stable-diffusion-2-1"
@@ -32,11 +32,11 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --appearance_skip_connection="N" \
   --merged_emb_dim=1024 \
   --pose_only_embedding="Y" \
-  --with_prior_preservation="Y" \
+  --with_prior_preservation="N" \
   --root_data_dir=$ROOT_DATA_DIR \
   --controlnet_prompts_file=$CONTROLNET_PROMPTS_FILE \
-  --stage1_steps=0 \
-  --stage2_steps=150000 \
+  --stage1_steps=120000 \
+  --stage2_steps=0 \
   --resolution=512 \
   --train_batch_size=1 \
   --inference_batch_size=4 \
@@ -53,8 +53,6 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --wandb \
-  --class_data_dir=$CLASS_DATA_DIR 
-
-
-  # --resume_training_state="../ckpts/multiobject/__class2special_detached__noloc_cond/training_state_390000.pth" \
+  --resume_training_state="../ckpts/multiobject/__stage1_20000/training_state_60000.pth" \
+  --class_data_dir=$CLASS_DATA_DIR \
+  --wandb

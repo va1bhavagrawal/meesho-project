@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4         
+BS = 4                
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -83,7 +83,7 @@ SAVE_STEPS_GAP = 5000
 
 NUM_SAMPLES = 4  
 
-from datasets import EveryPoseEveryThingDataset  
+from datasets import *  
 
 
 from accelerate import Accelerator
@@ -817,6 +817,7 @@ def parse_args(input_args=None):
 
 
 def main(args): 
+    args.rendered_imgs_prompt = "a photo of PLACEHOLDER" 
 
     if osp.exists(args.instance_data_dir_1subject): 
         # subjects_ are the folders in the instance directory 
@@ -1223,23 +1224,36 @@ def main(args):
     )
 
     # defining the dataset 
-    train_dataset_stage1 = EveryPoseEveryThingDataset(
-        args=args, 
-        tokenizer=tokenizer, 
-        ref_imgs_dirs=[args.instance_data_dir_1subject], 
-        controlnet_imgs_dirs=[args.controlnet_data_dir_1subject], 
-        num_steps=args.stage1_steps, 
-        gpu_idx=accelerator.process_index, 
-    ) 
+    # train_dataset_stage1 = EveryPoseEveryThingDataset(
+    #     args=args, 
+    #     tokenizer=tokenizer, 
+    #     ref_imgs_dirs=[args.instance_data_dir_1subject], 
+    #     controlnet_imgs_dirs=[args.controlnet_data_dir_1subject], 
+    #     num_steps=args.stage1_steps, 
+    #     gpu_idx=accelerator.process_index, 
+    # ) 
 
-    train_dataset_stage2 = EveryPoseEveryThingDataset(
-        args=args, 
-        tokenizer=tokenizer, 
-        ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
-        controlnet_imgs_dirs=[args.controlnet_data_dir_1subject, args.controlnet_data_dir_2subjects],  
-        num_steps=args.stage2_steps, 
-        gpu_idx=accelerator.process_index, 
-    ) 
+    # train_dataset_stage2 = EveryPoseEveryThingDataset(
+    #     args=args, 
+    #     tokenizer=tokenizer, 
+    #     ref_imgs_dirs=[args.instance_data_dir_1subject, args.instance_data_dir_2subjects],  
+    #     controlnet_imgs_dirs=[args.controlnet_data_dir_1subject, args.controlnet_data_dir_2subjects],  
+    #     num_steps=args.stage2_steps, 
+    #     gpu_idx=accelerator.process_index, 
+    # ) 
+    train_datasets = [
+        RenderedImagesDataset(args, "../objectron_imgs_filtered", include_special_tokens=True, num_steps=10000, tokenizer=tokenizer)  
+    ]
+    ratios = np.array([
+        1, 
+    ], dtype=np.int32) 
+    train_dataset = MixingDatasets(
+        args,
+        train_datasets, 
+        ratios, 
+    )
+    train_dataset_stage2 = train_dataset_stage1 = train_dataset 
+
 
     """
     ADOBE CONFIDENTIAL
@@ -1254,13 +1268,12 @@ def main(args):
     strictly forbidden unless prior written permission is obtained from Adobe.
     """
     def collate_fn(examples):
-        is_controlnet = [example["controlnet"] for example in examples] 
         prompt_ids = [example["prompt_ids"] for example in examples] 
         prompts = [example["prompt"] for example in examples] 
         subjects = [example["subjects"] for example in examples] 
         bboxes = [example["bboxes"] for example in examples] 
-        xs_2d = [example["2d_xs"] for example in examples] 
-        ys_2d = [example["2d_ys"] for example in examples] 
+        # xs_2d = [example["2d_xs"] for example in examples] 
+        # ys_2d = [example["2d_ys"] for example in examples] 
         pixel_values = []
         for example in examples:
             pixel_values.append(example["img"])
@@ -1290,10 +1303,9 @@ def main(args):
             "pixel_values": pixel_values,
             "scalers": scalers,
             "subjects": subjects, 
-            "controlnet": is_controlnet, 
             "prompts": prompts, 
-            "2d_xs": xs_2d, 
-            "2d_ys": ys_2d, 
+            # "2d_xs": xs_2d, 
+            # "2d_ys": ys_2d, 
             "bboxes": bboxes, 
         }
         if args.with_prior_preservation: 
@@ -1339,7 +1351,7 @@ def main(args):
     
     
     # unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
-    unet, text_encoder, merger, continuous_word_model, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage2)   
+    unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
     # optimizers_ = [] 
     optimizers_ = {} 
     for name, optimizer in optimizers.items(): 
@@ -1503,18 +1515,17 @@ def main(args):
                 locations = [] 
 
                 bboxes = batch["bboxes"]  
-                if batch_idx < len(batch['2d_xs']): 
-                    for asset_idx in range(len(batch["subjects"][batch_idx])): 
-                        img_dim = batch["pixel_values"].shape[-1] 
-                        location = (int(batch["2d_xs"][batch_idx][asset_idx] * img_dim), int(batch["2d_ys"][batch_idx][asset_idx] * img_dim))   
-                        locations.append(location) 
-                        if PRINT_STUFF: 
-                            accelerator.print(f"drawing circle at {location}!") 
-                        bbox = bboxes[batch_idx][asset_idx]
-                        tl = (int(bbox[0] * img_dim), int(bbox[1] * img_dim))  
-                        br = (int(bbox[2] * img_dim), int(bbox[3] * img_dim))  
-                        cv2.circle(img, location, 0, (255, 0, 0), 10) 
-                        cv2.rectangle(img, tl, br, (0, 255, 0), 5) 
+                for asset_idx in range(len(batch["subjects"][batch_idx])): 
+                    img_dim = batch["pixel_values"].shape[-1] 
+                    # location = (int(batch["2d_xs"][batch_idx][asset_idx] * img_dim), int(batch["2d_ys"][batch_idx][asset_idx] * img_dim))   
+                    # locations.append(location) 
+                    # if PRINT_STUFF: 
+                    #     accelerator.print(f"drawing circle at {location}!") 
+                    bbox = bboxes[batch_idx][asset_idx]
+                    tl = (int(bbox[0] * img_dim), int(bbox[1] * img_dim))  
+                    br = (int(bbox[2] * img_dim), int(bbox[3] * img_dim))  
+                    # cv2.circle(img, location, 0, (255, 0, 0), 10) 
+                    cv2.rectangle(img, tl, br, (0, 255, 0), 5) 
 
                 plt.figure(figsize=(20, 20)) 
                 plt.imshow(img)  
@@ -1569,23 +1580,24 @@ def main(args):
         if True: 
             # progress_bar.set_description(f"stage 2: ")
             scalers_padded = torch.zeros((len(batch["scalers"]), MAX_SUBJECTS_PER_EXAMPLE))  
-            xs_2d_padded = torch.zeros((len(batch["2d_xs"]), MAX_SUBJECTS_PER_EXAMPLE)) 
-            ys_2d_padded = torch.zeros((len(batch["2d_ys"]), MAX_SUBJECTS_PER_EXAMPLE)) 
+            # xs_2d_padded = torch.zeros((len(batch["2d_xs"]), MAX_SUBJECTS_PER_EXAMPLE)) 
+            # ys_2d_padded = torch.zeros((len(batch["2d_ys"]), MAX_SUBJECTS_PER_EXAMPLE)) 
 
             for batch_idx in range(len(batch["scalers"])): 
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
                     scalers_padded[batch_idx][scaler_idx] = batch["scalers"][batch_idx][scaler_idx] 
 
-            assert len(batch["scalers"]) == len(batch["2d_xs"]) == len(batch["2d_ys"])  
+            # assert len(batch["scalers"]) == len(batch["2d_xs"]) == len(batch["2d_ys"])  
             for batch_idx in range(len(batch["scalers"])): 
-                assert len(batch["scalers"][batch_idx]) == len(batch["2d_xs"][batch_idx]) == len(batch["2d_ys"][batch_idx])  
+                # assert len(batch["scalers"][batch_idx]) == len(batch["2d_xs"][batch_idx]) == len(batch["2d_ys"][batch_idx])  
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
-                    xs_2d_padded[batch_idx][scaler_idx] = batch["2d_xs"][batch_idx][scaler_idx]  
-                    ys_2d_padded[batch_idx][scaler_idx] = batch["2d_ys"][batch_idx][scaler_idx] 
+                    # xs_2d_padded[batch_idx][scaler_idx] = batch["2d_xs"][batch_idx][scaler_idx]  
+                    # ys_2d_padded[batch_idx][scaler_idx] = batch["2d_ys"][batch_idx][scaler_idx] 
+                    pass 
 
             p = torch.Tensor(scalers_padded / (2 * math.pi)) 
-            assert torch.all(xs_2d_padded < 1) 
-            assert torch.all(ys_2d_padded < 1) 
+            # assert torch.all(xs_2d_padded < 1) 
+            # assert torch.all(ys_2d_padded < 1) 
             if not args.pose_only_embedding: 
                 p = p.unsqueeze(-1) 
                 p = p.repeat(1, 1, 2)  
@@ -1597,8 +1609,8 @@ def main(args):
                 # mlp_emb = [] 
                 if PRINT_STUFF: 
                     accelerator.print(f"{p = }") 
-                    accelerator.print(f"{xs_2d_padded = }") 
-                    accelerator.print(f"{ys_2d_padded = }") 
+                    # accelerator.print(f"{xs_2d_padded = }") 
+                    # accelerator.print(f"{ys_2d_padded = }") 
                 assert torch.all(p <= 1.0) and torch.all(p >= 0.0) 
                 # for scaler_idx in range(MAX_SUBJECTS_PER_EXAMPLE):  
                 #     # mlp_emb[:, scaler_idx, :] = merger(p[:, scaler_idx]) 
