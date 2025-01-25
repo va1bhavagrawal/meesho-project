@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 4                
+BS = 32                  
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -1242,10 +1242,12 @@ def main(args):
     #     gpu_idx=accelerator.process_index, 
     # ) 
     train_datasets = [
-        RenderedImagesDataset(args, "../objectron_imgs_filtered", include_special_tokens=True, tokenizer=tokenizer)  
+        ObjectronDataset(args, "../objectron_controlled_elevations", include_special_tokens=True, tokenizer=tokenizer),   
+        ControlNetImagesDataset(args, args.controlnet_data_dir_2subjects, args.instance_data_dir_2subjects, include_special_tokens=True, tokenizer=tokenizer), 
     ]
     ratios = np.array([
-        1, 
+        1,
+        1,  
     ], dtype=np.int32) 
     train_dataset = MixingDatasets(
         args,
@@ -1468,7 +1470,7 @@ def main(args):
                 continue 
 
         if global_step < args.stage1_steps:  
-            MAX_SUBJECTS_PER_EXAMPLE = 1  
+            MAX_SUBJECTS_PER_EXAMPLE = 2   
             batch = next(train_dataloader_stage1_iter)  
         else: 
             MAX_SUBJECTS_PER_EXAMPLE = 2   
