@@ -32,19 +32,29 @@ import matplotlib.pyplot as plt
 sys.path.append(f"..") 
 from lora_diffusion import patch_pipe 
 # from metrics import MetricEvaluator from safetensors.torch import load_file
+from custom_attention_processor import patch_custom_attention, get_attention_maps, show_image_relevance  
 
 WHICH_LATENTS = "1"
-WHICH_MODEL = "2410"    
+# WHICH_MODEL = "ablation_no_controlnet"     
+WHICH_MODEL = "objectron_v3"       
+# WHICH_MODEL = "ablation_no_controlnet_no_white_studio"
+# WHICH_MODEL = "old_hparams_new_dataloader_corrected"
+# WHICH_MODEL = "ablation_no_attn_regularization_no_replacement"
+# WHICH_MODEL = "ablation_no_controlnet"
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 200000  
-MAX_SUBJECTS_PER_EXAMPLE = 1     
-NUM_SAMPLES = 17  
+WHICH_STEP = 75000  
+MAX_SUBJECTS_PER_EXAMPLE = 2                           
+NUM_SAMPLES = 100   
 MODE = "all_steps" 
+
+POSE_MASK_TYPE = "hard" 
+CLASS_MASK_TYPE = "hard" 
+MODE_SCALING = True  
 
 P2P = False  
 MAX_P2P_TIMESTEP = 45  
 
-KEYWORD = f""   
+KEYWORD = "" 
 
 ACROSS_TIMESTEPS = False  
 NUM_INFERENCE_STEPS = 50 
@@ -56,7 +66,6 @@ TI_PATH = osp.join("textual_inversion", "textual_inversion_sedan", "vstarsedan.b
 INSTANCE_DIR_1SUBJECT = "../training_data_2subjects_3009/ref_imgs_1subject"  
 INSTANCE_DIR_2SUBJECTS = "../training_data_2subjects_3009/ref_imgs_2subjects" 
 
-from custom_attention_processor import patch_custom_attention, get_attention_maps, show_image_relevance  
 
 TOKEN2ID = {
     "sks": 48136, 
@@ -110,11 +119,11 @@ UNIQUE_TOKENS = {
     "0_1": "sks", 
     "0_2": "ak", 
     "1_0": "bk", 
-    "1_1": "ck", 
     "1_2": "dk", 
     "2_0": "ek", 
-    "2_1": "fk", 
-    "2_2": "gk", 
+    "3_0": "fk", 
+    "4_0": "gk", 
+    "5_0": "ck", 
 } 
 
 
@@ -463,6 +472,12 @@ class Infer:
             set_seed(self.seed) 
         # latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
         latents = torch.randn(B, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype) 
+        # with open("026.latents", "rb") as f: 
+        #     latents = torch.load(f) 
+        # latents = latents.to(self.accelerator.device) 
+
+        # with open(f"{str(step_idx).zfill(3)}.latents", "wb") as f:
+        #     torch.save(latents, f) 
         # with open(f"best_latents{WHICH_LATENTS}.pt", "rb") as f: 
         #     latents = torch.load(f).repeat(B, 1, 1, 1).to(self.accelerator.device) 
         self.scheduler.set_timesteps(NUM_INFERENCE_STEPS) 
@@ -471,17 +486,289 @@ class Infer:
         self.attn_store = retval["attn_store"] 
         assert loss_store is None and not ((self.attn_store is not None) ^ self.store_attn)  
 
+        # # LEGENDARY 5 SUBJECT LAYOUT PART 2
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.10, 0.23, 0.50, 0.60]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.48, 0.30, 0.75, 0.60]))    
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.65, 0.30, 1.00]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.355, 0.650, 0.625, 0.96]))   
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.725, 0.575, 1.00, 1.00]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.47, 1.00, 0.695]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.65, 0.45, 1.00]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.55, 0.65, 1.00, 1.00]))     
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.25, 0.30, 0.60]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.35, 0.25, 0.65, 0.60]))   
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.25, 1.00, 0.60]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.35, 1.00, 0.65]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.70, 0.33, 1.00]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.10, 0.30, 0.40, 0.65]))     
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.60, 0.30, 0.90, 0.65]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.66, 0.70, 1.00, 1.00]))   
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.60, 0.47, 0.90, 0.68]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.66, 0.70, 1.00, 1.00]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+        # bboxes = [] 
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.70, 0.30, 1.00]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.35, 0.70, 0.65, 1.00]))  
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.35, 0.30, 0.65]))  
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.70, 0.30, 1.00]))   
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.35, 0.70, 0.65, 1.00]))     
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.70, 1.00, 1.00]))   
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
         bboxes = [] 
         for batch_idx in range(len(all_assignments)): 
             bboxes_example = [] 
             for asset_idx in range(len(all_assignments[batch_idx])): 
                 if asset_idx == 0: 
-                    bboxes_example.append(torch.tensor([0.50, 0.30, 1.00, 0.80])) 
+                    bboxes_example.append(torch.tensor([0.00, 0.70, 0.30, 1.00]))   
                 elif asset_idx == 1: 
-                    bboxes_example.append(torch.tensor([0.40, 0.40, 0.80, 0.80]))    
+                    bboxes_example.append(torch.tensor([0.65, 0.65, 1.00, 1.00]))      
+                elif asset_idx == 2: 
+                    bboxes_example.append(torch.tensor([0.30, 0.25, 0.70, 0.60]))   
+                elif asset_idx == 3: 
+                    bboxes_example.append(torch.tensor([0.55, 0.25, 1.00, 0.55]))   
+                elif asset_idx == 4: 
+                    bboxes_example.append(torch.tensor([0.35, 0.35, 0.65, 0.65]))  
+                elif asset_idx == 5: 
+                    bboxes_example.append(torch.tensor([0.70, 0.35, 1.00, 0.65]))  
                 else: 
                     assert False 
             bboxes.append(bboxes_example) 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.30, 0.35, 0.90, 0.90]))     
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.60, 0.60, 1.00, 1.00]))   
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.30, 0.35, 0.80, 0.70]))     
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.355, 0.650, 0.625, 0.96]))   
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.725, 0.575, 1.00, 1.00]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.47, 1.00, 0.695]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.00, 0.60, 0.60]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.30, 0.90, 0.60]))    
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.65, 0.30, 1.00]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.355, 0.650, 0.625, 0.96]))   
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.725, 0.575, 1.00, 1.00]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.47, 1.00, 0.695]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+        # 5 SUBJECT LEGENDARY INDOOR SCENE 
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.10, 0.23, 0.50, 0.60]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.48, 0.30, 0.75, 0.60]))    
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.65, 0.30, 1.00]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.35, 0.65, 0.63, 0.95]))   
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.725, 0.575, 1.00, 1.00]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.47, 1.00, 0.695]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.70, 0.30, 1.00]))    
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.35, 0.70, 0.65, 1.00]))    
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.70, 1.00, 1.00]))     
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.10, 0.35, 0.40, 0.65]))  
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.60, 0.35, 0.90, 0.65]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.61, 1.00, 0.87]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.30, 0.475, 1.00]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.525, 0.30, 1.00, 1.00]))   
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.30, 0.70, 0.70, 1.00]))    
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.50, 0.62, 1.00, 1.00]))  
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.65, 1.00, 1.00]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.61, 1.00, 0.87]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+
+        # THE GIRAFFE and ITS LION AND HORSE FRIENDS CHILLING ON THE BEACH!!  
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.55, 0.50, 1.00, 1.00]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.65, 0.35, 1.00]))    
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.05, 0.10, 0.45, 0.65]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.62, 0.32, 0.87]))  
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.33, 0.60, 0.68, 1.00]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.61, 1.00, 0.87]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+        # CIRCULAR LAYOUT 
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.30, 0.325, 0.55]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.675, 0.30, 1.00, 0.55]))    
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.345, 0.30, 0.655, 0.55]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.60, 0.31, 1.00]))  
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.33, 0.60, 0.66, 1.00]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.675, 0.60, 1.00, 1.00]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+        # CIRCULAR LAYOUT GOOD 
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.30, 0.32, 0.54]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.68, 0.30, 1.00, 0.54]))    
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.33, 0.29, 0.67, 0.52]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.00, 0.62, 0.32, 0.87]))  
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.33, 0.60, 0.68, 1.00]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.61, 1.00, 0.87]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
+
+        # bboxes = [] 
+        # for batch_idx in range(len(all_assignments)): 
+        #     bboxes_example = [] 
+        #     for asset_idx in range(len(all_assignments[batch_idx])): 
+        #         if asset_idx == 0: 
+        #             bboxes_example.append(torch.tensor([0.33, 0.50, 0.66, 1.00]))   
+        #         elif asset_idx == 1: 
+        #             bboxes_example.append(torch.tensor([0.60, 0.60, 0.80, 1.00]))   
+        #         elif asset_idx == 2: 
+        #             bboxes_example.append(torch.tensor([0.20, 0.40, 0.45, 0.70]))   
+        #         elif asset_idx == 3: 
+        #             bboxes_example.append(torch.tensor([0.60, 0.45, 0.80, 0.60]))  
+        #         elif asset_idx == 4: 
+        #             bboxes_example.append(torch.tensor([0.35, 0.40, 0.65, 0.65]))  
+        #         elif asset_idx == 5: 
+        #             bboxes_example.append(torch.tensor([0.70, 0.40, 1.00, 0.65]))  
+        #         else: 
+        #             assert False 
+        #     bboxes.append(bboxes_example) 
 
         for t_idx, t in enumerate(self.scheduler.timesteps):
             # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
@@ -504,6 +791,9 @@ class Infer:
                 encoder_states_dict["bbox_from_class_mean"] = True 
                 encoder_states_dict["azimuths"] = all_azimuths  
                 encoder_states_dict["bboxes"] = bboxes 
+                encoder_states_dict["pose_mask_type"] = POSE_MASK_TYPE  
+                encoder_states_dict["class_mask_type"] = CLASS_MASK_TYPE  
+                encoder_states_dict["mode_scaling"] = MODE_SCALING 
 
 
             if P2P and t_idx < MAX_P2P_TIMESTEP: 
@@ -586,9 +876,17 @@ class Infer:
             image = np.transpose(image, (1, 2, 0)) 
             image = np.ascontiguousarray(image) 
             img_dim = image.shape[0] 
-            cv2.rectangle(image, (bboxes[idx + B][0][:2].numpy() * img_dim).astype(np.int32), (bboxes[B + idx][0][2:].numpy() * img_dim).astype(np.int32), (0, 255, 0), 2) 
-            if MAX_SUBJECTS_PER_EXAMPLE > 1: 
-                cv2.rectangle(image, (bboxes[idx + B][1][:2].numpy() * img_dim).astype(np.int32), (bboxes[B + idx][1][2:].numpy() * img_dim).astype(np.int32), (0, 0, 255), 2) 
+            # cv2.rectangle(image, (bboxes[idx + B][0][:2].numpy() * img_dim).astype(np.int32), (bboxes[B + idx][0][2:].numpy() * img_dim).astype(np.int32), (20, 20, 179), 2) 
+            # if MAX_SUBJECTS_PER_EXAMPLE > 1: 
+            #     cv2.rectangle(image, (bboxes[idx + B][1][:2].numpy() * img_dim).astype(np.int32), (bboxes[B + idx][1][2:].numpy() * img_dim).astype(np.int32), (3, 99, 19), 2) 
+            # if MAX_SUBJECTS_PER_EXAMPLE > 2: 
+            #     cv2.rectangle(image, (bboxes[idx + B][2][:2].numpy() * img_dim).astype(np.int32), (bboxes[B + idx][2][2:].numpy() * img_dim).astype(np.int32), (145, 46, 7), 2) 
+            # if MAX_SUBJECTS_PER_EXAMPLE > 3: 
+            #     cv2.rectangle(image, (bboxes[idx + B][3][:2].numpy() * img_dim).astype(np.int32), (bboxes[B + idx][3][2:].numpy() * img_dim).astype(np.int32), (255, 88, 5), 2) 
+            # if MAX_SUBJECTS_PER_EXAMPLE > 4: 
+            #     cv2.rectangle(image, (bboxes[idx + B][4][:2].numpy() * img_dim).astype(np.int32), (bboxes[B + idx][4][2:].numpy() * img_dim).astype(np.int32), (209, 4, 195), 2) 
+            # if MAX_SUBJECTS_PER_EXAMPLE > 5: 
+            #     cv2.rectangle(image, (bboxes[idx + B][5][:2].numpy() * img_dim).astype(np.int32), (bboxes[B + idx][5][2:].numpy() * img_dim).astype(np.int32), (), 2) 
             # azimuth = idx // n_prompts_per_azimuth 
             # prompt_idx = idx % n_prompts_per_azimuth 
             # prompt = prompts_dataset.prompts[prompt_idx] 
@@ -736,6 +1034,12 @@ class Infer:
                     placeholder_text = placeholder_text + f"and a SUBJECT{asset_idx} " 
                 placeholder_text = placeholder_text.strip() 
                 assert prompt.find("PLACEHOLDER") != -1 
+                # placeholder_text = "a SUBJECT0 and a SUBJECT1"
+                # placeholder_text = "a SUBJECT0"
+                # placeholder_text = "a SUBJECT0 and Usain Bolt riding a SUBJECT3 racing furiously on a winding coastal road under a fiery sunset, cliffs, SUBJECT1 and SUBJECT2 is floating on the ocean in view"  
+                # placeholder_text = "a SUBJECT0 and a SUBJECT1 talking to each other"
+                # placeholder_text = "a SUBJECT0 and a SUBJECT1 and a SUBJECT2 and a SUBJECT3 and a SUBJECT4" 
+                # placeholder_text = "a man sitting on a SUBJECT0" 
                 template_prompt = prompt.replace("PLACEHOLDER", placeholder_text) 
 
                 assert (include_class_in_prompt is not None) or "include_class_in_prompt" in subject_data.keys()  
@@ -1099,65 +1403,174 @@ if __name__ == "__main__":
             pipeline.text_encoder.get_input_embeddings().weight[special_token_ids[0]] = ti_embedding    
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=False, bs=4)       
+        torch.cuda.empty_cache() 
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=False, bs=1)        
 
 
         subjects = [
             [
-                {
-                    "subject": "sedan", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+               {
+                    "subject": "sparrow", 
+                    "normalized_azimuths": np.array([0.00] * NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 
                     "y": 0.6,  
                 }, 
                 {
-                    "subject": "suv", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+                    "subject": "pigeon", 
+                    "normalized_azimuths": np.array([0.50] * NUM_SAMPLES),  
+                    "x": 0.7, 
+                    "y": 0.7,  
+                }, 
+                {
+                    "subject": "ship", 
+                    "normalized_azimuths": np.array([0.25] * NUM_SAMPLES),  
+                    "x": 0.7, 
+                    "y": 0.7,  
+                }, 
+                {
+                    "subject": "boat", 
+                    "normalized_azimuths": np.array([0.00] * NUM_SAMPLES),  
+                    "x": 0.7, 
+                    "y": 0.7,  
+                }, 
+                {
+                    "subject": "ship", 
+                    "normalized_azimuths": np.array([0.00] * NUM_SAMPLES),  
+                    "x": 0.7, 
+                    "y": 0.7,  
+                }, 
+                {
+                    "subject": "boat", 
+                    "normalized_azimuths": np.array([0.66666] * NUM_SAMPLES),  
                     "x": 0.7, 
                     "y": 0.7,  
                 }
             ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.4, 
-                    "y": 0.6, 
-                }, 
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.8, 
-                    "y": 0.9, 
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "tractor", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "bicycle", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
             # [
             #     {
-            #         "subject": "racecar", 
+            #         "subject": "bulldozer", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.4, 
+            #         "y": 0.6, 
+            #     }, 
+            #     {
+            #         "subject": "bicycle", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.8, 
+            #         "y": 0.9, 
+            #     }, 
+            #     {
+            #         "subject": "bicycle", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.8, 
+            #         "y": 0.9, 
+            #     }, 
+            #     {
+            #         "subject": "bicycle", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.8, 
+            #         "y": 0.9, 
+            #     }, 
+            #     {
+            #         "subject": "sedan", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,  
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
+            #         "subject": "bicycle", 
             #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
             #         "appearance_type": "class", 
             #         "x": 0.3, 
             #         "y": 0.5, 
             #     }, 
             #     {
+            #         "subject": "bicycle", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }, 
+            #     {
+            #         "subject": "bicycle", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }, 
+            #     {
+            #         "subject": "jeep", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.8, 
+            #         "y": 0.9, 
+            #     }, 
+            #     {
+            #         "subject": "tractor", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.8, 
+            #         "y": 0.9, 
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
             #         "subject": "sedan", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.3, 
+            #         "y": 0.5, 
+            #     }, 
+            #     {
+            #         "subject": "suv", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }, 
+            #     {
+            #         "subject": "jeep", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }, 
+            #     {
+            #         "subject": "bicycle", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }, 
+            #     {
+            #         "subject": "truck", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
+            #         "subject": "bulldozer", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.3, 
+            #         "y": 0.5, 
+            #     }, 
+            #     {
+            #         "subject": "tractor", 
+            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
+            #         "x": 0.7, 
+            #         "y": 0.7,   
+            #     }
+            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
+            # [
+            #     {
+            #         "subject": "truck", 
+            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
+            #         "appearance_type": "class", 
+            #         "x": 0.3, 
+            #         "y": 0.5, 
+            #     }, 
+            #     {
+            #         "subject": "suv", 
             #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
             #         "x": 0.7, 
             #         "y": 0.7,   
@@ -1166,188 +1579,88 @@ if __name__ == "__main__":
         ]
         prompts = [
             # "a photo of PLACEHOLDER in front of a dark background", 
-            "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-            "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-            # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
-        ]
-        for prompt in prompts: 
-
-            if accelerator.is_main_process: 
-                # if osp.exists("best_latents.pt"): 
-                #     os.remove("best_latents.pt")  
-                seed = random.randint(0, 170904) 
-                with open(f"seed.pkl", "wb") as f: 
-                    pickle.dump(seed, f) 
-                # set_seed(seed) 
-                latents = torch.randn(1, 4, 64, 64)  
-                # with open(f"best_latents.pt", "wb") as f: 
-                #     torch.save(latents, f) 
-
-            accelerator.wait_for_everyone() 
-            if not accelerator.is_main_process: 
-                with open("seed.pkl", "rb") as f: 
-                    seed = pickle.load(f) 
-            accelerator.wait_for_everyone() 
-
-            infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
-
-
-        subjects = [
-            [
-                {
-                    "subject": "boat", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.6,  
-                }, 
-                {
-                    "subject": "ship", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "ship", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.4, 
-                    "y": 0.6, 
-                }, 
-                {
-                    "subject": "yacht", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.8, 
-                    "y": 0.9, 
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "dolphin", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.5, 
-                }, 
-                {
-                    "subject": "yacht", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,   
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        ]
-        prompts = [
-            # "a photo of PLACEHOLDER", 
-            # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
+            # "a photo of PLACEHOLDER in a vast desert with towering sand dunes, dust is rising in the background"  
+            # "A photo of PLACEHOLDER at a city intersection at night, featuring tall buildings",  
+            # "a photo of PLACEHOLDER on a beach with towering waves and swaying palm trees"
+            # "a photo of PLACEHOLDER on a snowy terrain, with the sunrise casting warm colors over the icy landscape."
+            # "a photo of PLACEHOLDER by a glowing lake under a starry night sky." 
+            # "A photo of PLACEHOLDER in a misty, vibrant forest during rainfall, with lush, colorful foliage and puddles scattered across the forest floor, reflecting the trees and raindrops"
+            # "a photo of PLACEHOLDER on a snowy covered road with snow-capped trees on the sides",  
+            # "a photo of PLACEHOLDER sitting in a beautiful garden"  
+            # "A photo of PLACEHOLDER in a rustic living rooms with wooden cabinets and a warm fireplace", 
+            # "A photo of PLACEHOLDER in a vibrant, modern mall bustling with shoppers",   
+            # "A photo of PLACEHOLDER on a well-lit street on Christmas eve, with Christmas trees, festive lights everywhere" 
+            # "a photo of black PLACEHOLDER, in front of the India Gate on Diwali night with firecrackers bursting in the sky!" 
+            # "A photo of PLACEHOLDER racing side by side on a professional race track, with tire marks on the asphalt and blurred spectators in the background"
+            # "a photo of PLACEHOLDER in a field of dandelions, with snowy mountain ranges in the distance"  
+            # "A photo of PLACEHOLDER driving on a winding country road with green fields, trees, and distant mountains under a sunny sky"
             # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
+            # "a photo of PLACEHOLDER in a modern city street with neon lights and towering skyscrapers"
+            # "a photo of PLACEHOLDER in front of the Taj Mahal" 
+            # "a photo of PLACEHOLDER lying on the ground"   
+            # "a photo of PLACEHOLDER in a modern living room setting with glass windows" 
+            # "a photo of PLACEHOLDER covered in frost on a sunlit, snow-covered sidewalk, featuring snowy pine trees in the distance under the morning sky"
             # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
+            # "a photo of PLACEHOLDER in a farm at night under a starry sky",  
             # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
+            # "a photo of PLACEHOLDER in the vast sea, with a clear blue sky and a few fluffy clouds"
+            # "A photo of PLACEHOLDER in a sunlit greenhouse filled with tropical plants", 
+            # "A photo of PLACEHOLDER in a bustling city street during golden hour, with vibrant reflections of colorful lights on the wet pavement, skyscrapers towering in the background, lush green trees lining the sidewalks, and a bright, beautiful sunset casting warm hues over the entire scene." 
+            # "a photo of PLACEHOLDER spining on a lazy susan in a mall"
+            # "a photo of PLACEHOLDER in front of the senate on a sunny day"
+            # "a photo of PLACEHOLDER in a barn",  
+            # "a photo of PLACEHOLDER at an airport"
+            # "a photo of PLACEHOLDER flying in a park"
+            # "a photo of PLACEHOLDER drinking water from a cup, vibrant park scene, lush greenery, morning sunlight."
+            # "a photo of PLACEHOLDER among fallen autumn leaves carpeting the ground, soft afternoon glow around."
+            "a photo of PLACEHOLDER on the rocky floor of a park, high quality, best quality" 
+            # "a photo of PLACEHOLDER in the balcony of a multi-storey complex" 
+            # "a photo of PLACEHOLDER perched on a fountain, colorful flowers surrounding, gentle sunlight filtering through lush green trees." 
+            # "a photo of PLACEHOLDER flying over a magnificent city, the sky is cloudy at sunset"
+            # "a photo of PLACEHOLDER on a road with trees on the sides" 
+            # "A photo of PLACEHOLDER in a lavish living room with soft lighting and wooden flooring", 
+            # "a photo of PLACEHOLDER in a beautiful park with lush green trees and colorful flowers", 
+            # "a photo of PLACEHOLDER in a vast desert plateau with open, sandy roads surrounded by striking red rock formations and wild desert flowers."
+            # "a photo of PLACEHOLDER floating in a garden",  
+            # "a photo of PLACEHOLDER on a highway", 
+            # "a photo of PLACEHOLDER floating in the sea", 
+            # "a photo of PLACEHOLDER talking to each other in a beautiful garden", 
+            # "a photo of PLACEHOLDER in a desert with towering sand dunes", 
+            # "a photo of PLACEHOLDER in an urban city street with neon lights",   
+            # "a photo of PLACEHOLDER standing together at sunset on a beach, with colorful skies blending orange, pink, and purple hues, waves gently crashing in the background, and a warm glow illuminating their faces."
+            # "a photo of PLACEHOLDER on a highway with a clear sky and a few fluffy clouds" 
+            # "a photo of PLACEHOLDER moving down a modern highway with a lush green forest on the sides at sunset"  
+            # "a photo of PLACEHOLDER on a bridge over a vast river on a sunny afternoon",  
+            # "a photo of PLACEHOLDER in a lust green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",
+            # "a photo of PLACEHOLDER on the runway of an airport, with the sun setting in the background", 
+            # "a photo of PLACEHOLDER in a rustic village with cobblestone streets and small houses."
             # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            "a photo of PLACEHOLDER floating in a river, the scene is serene featuring a lot of greenery, the sun is setting in the background" 
             # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
+            # "a photo of PLACEHOLDER in a field of blooming sunflowers with the sun setting in the background" 
+            # "A photo of PLACEHOLDER in a lavish living room with elegant decor and soft lighting and wooden flooring", 
+            # "A photo of PLACEHOLDER in a lavish living room with elegant decor and soft lighting", 
+            # "a photo of PLACEHOLDER in a battlefield with dust in the background arising from an ongoing battle"
+            # "a photo of PLACEHOLDER floating in a river, featuring a lot of greenery, the sun is setting in the background"
         ]
         for prompt in prompts: 
 
-            if accelerator.is_main_process: 
+            # if accelerator.is_main_process: 
                 # if osp.exists("best_latents.pt"): 
                 #     os.remove("best_latents.pt")  
-                seed = random.randint(0, 170904) 
-                with open(f"seed.pkl", "wb") as f: 
-                    pickle.dump(seed, f) 
+                # seed = random.randint(0, 170904) 
+                # with open(f"seed.pkl", "wb") as f: 
+                #     pickle.dump(seed, f) 
                 # set_seed(seed) 
-                latents = torch.randn(1, 4, 64, 64)  
+                # latents = torch.randn(1, 4, 64, 64)  
                 # with open(f"best_latents.pt", "wb") as f: 
                 #     torch.save(latents, f) 
 
+            latents = torch.randn(1, 4, 64, 64) 
+            seed = 0 
             accelerator.wait_for_everyone() 
-            if not accelerator.is_main_process: 
-                with open("seed.pkl", "rb") as f: 
-                    seed = pickle.load(f) 
-            accelerator.wait_for_everyone() 
+            # if not accelerator.is_main_process: 
+            #     with open("seed.pkl", "rb") as f: 
+            #         seed = pickle.load(f) 
+            # accelerator.wait_for_everyone() 
 
-            infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
-
-
-        subjects = [
-            [
-                {
-                    "subject": "suv", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.3, 
-                    "y": 0.6,  
-                }, 
-                {
-                    "subject": "airplane", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.7, 
-                    "y": 0.7,  
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            [
-                {
-                    "subject": "airplane", 
-                    "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-                    "appearance_type": "class", 
-                    "x": 0.4, 
-                    "y": 0.6, 
-                }, 
-                {
-                    "subject": "sedan", 
-                    "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-                    "x": 0.8, 
-                    "y": 0.9, 
-                }
-            ][:MAX_SUBJECTS_PER_EXAMPLE],  
-            # [
-            #     {
-            #         "subject": "dolphin", 
-            #         "normalized_azimuths": np.linspace(0, 1, NUM_SAMPLES),  
-            #         "appearance_type": "class", 
-            #         "x": 0.3, 
-            #         "y": 0.5, 
-            #     }, 
-            #     {
-            #         "subject": "sedan", 
-            #         "normalized_azimuths": 1 - np.linspace(0, 1, NUM_SAMPLES),   
-            #         "x": 0.7, 
-            #         "y": 0.7,   
-            #     }
-            # ][:MAX_SUBJECTS_PER_EXAMPLE],  
-        ]
-        prompts = [
-            # "a photo of PLACEHOLDER", 
-            # "a photo of PLACEHOLDER in a modern city street surrounded by towering skyscrapers and neon lights",  
-            # "a photo of PLACEHOLDER in front of the leaning tower of Pisa in Italy",  
-            # "a photo of PLACEHOLDER in the streets of Venice, with the sun setting in the background", 
-            # "a photo of PLACEHOLDER in front of a serene waterfall with trees scattered around the region, and stones scattered in the region where the water is flowing",  
-            # "a photo of PLACEHOLDER in a lush green forest with tall, green trees, stones are scattered on the ground in the distance, the ground is mushy and wet with small puddles of water",  
-            "a photo of PLACEHOLDER parked on a runway of a bustling airport, the sky is clear, sunny afternoon",   
-            # "a photo of PLACEHOLDER in a field of dandelions, with the sun shining brightly, there are snowy mountain ranges in the distance",   
-        ]
-        for prompt in prompts: 
-
-            if accelerator.is_main_process: 
-                # if osp.exists("best_latents.pt"): 
-                #     os.remove("best_latents.pt")  
-                seed = random.randint(0, 170904) 
-                with open(f"seed.pkl", "wb") as f: 
-                    pickle.dump(seed, f) 
-                # set_seed(seed) 
-                latents = torch.randn(1, 4, 64, 64)  
-                # with open(f"best_latents.pt", "wb") as f: 
-                #     torch.save(latents, f) 
-
-            accelerator.wait_for_everyone() 
-            if not accelerator.is_main_process: 
-                with open("seed.pkl", "rb") as f: 
-                    seed = pickle.load(f) 
-            accelerator.wait_for_everyone() 
-
-            infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{replace_attn}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  
+            infer.do_it(None, osp.join(f"latents{WHICH_LATENTS}_inference_results", f"__{WHICH_MODEL}_{WHICH_STEP}_{MAX_SUBJECTS_PER_EXAMPLE}_{KEYWORD}", f"{'_'.join(prompt.split())}_{seed}.gif"), prompt, subjects, args)  

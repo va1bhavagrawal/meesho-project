@@ -63,7 +63,7 @@ from infer_online import TOKEN2ID, UNIQUE_TOKENS
 
 DEBUG = False  
 PRINT_STUFF = False  
-BS = 32                  
+BS = 4                      
 # SAVE_STEPS = [500, 1000, 2000, 5000, 10000, 15000, 20000, 25000, 30000] 
 # VLOG_STEPS = [4, 50, 100, 200, 500, 1000]   
 # VLOG_STEPS = [50000, 
@@ -1242,12 +1242,13 @@ def main(args):
     #     gpu_idx=accelerator.process_index, 
     # ) 
     train_datasets = [
-        ObjectronDataset(args, "../objectron_controlled_elevations", include_special_tokens=True, tokenizer=tokenizer),   
-        ControlNetImagesDataset(args, args.controlnet_data_dir_2subjects, args.instance_data_dir_2subjects, include_special_tokens=True, tokenizer=tokenizer), 
+        # ObjectronDataset(args, "../objectron_controlled_elevations", include_special_tokens=True, tokenizer=tokenizer),   
+        DiversePosesDataset(args, "../diverse_poses/diverse_poses/", include_special_tokens=True, tokenizer=tokenizer),  
+        # ControlNetImagesDataset(args, args.controlnet_data_dir_2subjects, args.instance_data_dir_2subjects, include_special_tokens=True, tokenizer=tokenizer), 
     ]
     ratios = np.array([
         1,
-        1,  
+        # 1,  
     ], dtype=np.int32) 
     train_dataset = MixingDatasets(
         args,

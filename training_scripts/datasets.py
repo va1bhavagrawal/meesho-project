@@ -143,6 +143,139 @@ class ControlNetImagesDataset(Dataset):
         raise NotImplementedError("this must be used by a MixingDatasets wrapper!") 
 
 
+class DiversePosesDataset(Dataset): 
+    def __init__(self, args, imgs_dir, include_special_tokens, tokenizer):  
+        super().__init__() 
+        self.args = args 
+        self.data = [] 
+        self.size = args.resolution 
+        self.imgs_dir = imgs_dir 
+        self.tokenizer = tokenizer 
+
+        for subjects_comb in os.listdir(self.imgs_dir): 
+            subjects_comb_dir = osp.join(self.imgs_dir, subjects_comb) 
+            for azimuth in os.listdir(subjects_comb_dir): 
+                azimuth_path = osp.join(subjects_comb_dir, azimuth) 
+                pkl_path = osp.join(azimuth_path, "bbox.pkl") 
+                for img_name in os.listdir(azimuth_path): 
+                    if img_name.find("jpg") == -1: 
+                        continue 
+                    example = {} 
+                    example["subjects_data"] = [] 
+                    img_path = osp.join(azimuth_path, img_name) 
+                    # pkl_path = img_path.replace("jpg", "pkl") 
+                    assert osp.exists(pkl_path), f"{pkl_path = }" 
+                    with open(pkl_path, "rb") as f: 
+                        pkl_data = pickle.load(f) 
+                    example["img_path"] = img_path 
+                    subjects_ = subjects_comb.split("__")
+                    subjects = [" ".join(subject_.split("_")) for subject_ in subjects_]  
+                    assert len(subjects) == 1 
+                    subjects_details = img_name.replace(".jpg", "").split("__")[:-1]   
+                    assert len(subjects_details) == 2 
+                    pose_location, prompt_ = subjects_details 
+                    prompt = " ".join(prompt_.split("_")) 
+                    assert prompt.find(f"a {subjects[0]}") != -1 
+                    prompt = prompt.replace(f"a {subjects[0]}", "PLACEHOLDER") 
+                    # assert len(subjects_details) == len(subjects), f"{subjects_details = }, {subjects = }" 
+                    example["bboxes"] = [] 
+                    example["scalers"] = [] 
+                    for subject_idx in range(len(subjects)): 
+                        # subject_details = subjects_details[subject_idx] 
+                        x, y, z, a = pose_location.split("_") 
+                        # subject_data["x"] = float(x) 
+                        # subject_data["y"] = float(y) 
+                        # subject_data["theta"] = float(a) 
+                        # subject_data["name"] = subjects[subject_idx]  
+                        # azimuth = pkl_data["azimuth"]  
+
+                        # keypoints = pkl_data["2d_keypoints"] 
+                        # min_x = (np.min(keypoints[:, 0]))
+                        # max_x = (np.max(keypoints[:, 0]))
+                        # min_y = (np.min(keypoints[:, 1])) 
+                        # max_y = (np.max(keypoints[:, 1])) 
+
+                        # min_x = max(0, min_x) 
+                        # min_y = max(0, min_y) 
+                        # max_x = min(1, max_x) 
+                        # max_y = min(1, max_y) 
+
+                        # cross_direction = pkl_data["cross_direction"] 
+                        # # subject_data["bbox"] = 
+                        # # example["subjects_data"].append(subject_data) 
+                        # if cross_direction == 1: 
+                        #     azimuth_ = math.pi / 2 - azimuth  
+                        #     if azimuth_ < 0: 
+                        #         azimuth_ += 2 * math.pi 
+                        # else: 
+                        #     azimuth_ = math.pi / 2 + azimuth 
+                        # example["scalers"].append(azimuth_)  
+                        # example["bboxes"].append(torch.as_tensor([min_x, min_y, max_x, max_y]))  
+                        example["scalers"].append(float(a)) 
+                        example["bboxes"].append(torch.as_tensor(pkl_data, dtype=torch.float32) / RAW_IMG_SIZE) 
+                    assert prompt.find("PLACEHOLDER") != -1 
+                    # subject_idx = 0 
+                    # for subject_data in example["subjects_data"][:-1]: 
+                    #     if include_special_tokens: 
+                    #         placeholder_text = placeholder_text + f"<special_token_{subject_idx}> {subject_data['name']} and "  
+                    #     else: 
+                    #         placeholder_text = placeholder_text + f"{subject_data['name']} and " 
+                    #     subject_idx += 1 
+                    # for subject_data in example["subjects_data"][-1:]: 
+                    #     if include_special_tokens: 
+                    #         placeholder_text = placeholder_text + f"<special_token_{subject_idx}> {subject_data['name']}"  
+                    #     else: 
+                    #         placeholder_text = placeholder_text + f"{subject_data['name']}" 
+                    #     subject_idx += 1 
+
+                    replacement_str = "" 
+                    replacement_str = replacement_str + f"a {UNIQUE_TOKENS['0_0']} {subjects[0]}" 
+                    for asset_idx, subject in enumerate(subjects):  
+                        if asset_idx == 0: 
+                            continue 
+                        replacement_str = replacement_str + f" and a {UNIQUE_TOKENS[f'{asset_idx}_0']} {subjects[asset_idx]}" 
+                    prompt = prompt.replace(f"PLACEHOLDER", replacement_str)  
+                    # if args.cache_prompt_embeds: 
+                    #     embeds_path = osp.join(subjects_comb_dir, f"{'_'.join(prompt.split())}.pth") 
+                    #     embeds_path = embeds_path.replace("____", "__") 
+                    #     assert osp.exists(embeds_path), f"{embeds_path = }" 
+                    #     embeds = torch.load(embeds_path, map_location=torch.device("cpu"))  
+                    #     prompt_embeds = embeds["prompt_embeds"] 
+                    #     pooled_prompt_embeds = embeds["pooled_prompt_embeds"] 
+                    #     example["prompt_embeds"] = prompt_embeds 
+                    #     example["pooled_prompt_embeds"] = pooled_prompt_embeds 
+
+                    example["prompt"] = prompt 
+                    prompt_ids = self.tokenizer(
+                        example["prompt"], 
+                        padding="max_length", 
+                        truncation=True, 
+                        max_length=self.tokenizer.model_max_length, 
+                        return_tensors="pt", 
+                    ).input_ids[0]  
+                    example["subjects"] = subjects 
+                    example["prompt_ids"] = prompt_ids 
+                    self.data.append(example) 
+
+
+        self.image_transforms = transforms.Compose(
+            [
+                transforms.Resize(self.size, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(self.size),   
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+
+
+    def __len__(self): 
+        return len(self.data)  
+
+
+    def __getitem__(self, idx): 
+        raise NotImplementedError("this must be used by a MixingDatasets wrapper!") 
+
+
 
 class ObjectronDataset(Dataset): 
     def __init__(self, args, imgs_dir, include_special_tokens, tokenizer):  
