@@ -53,7 +53,7 @@ accelerate launch --config_file accelerate_config.yaml train.py \
   --instance_data_dir_2subjects=$INSTANCE_DIR_2SUBJECTS \
   --output_dir=$OUTPUT_DIR \
   --vis_dir=$VIS_DIR \
-  --class_data_dir=$CLASS_DATA_DIR
-  # --resume_training_state="../ckpts/multiobject/__stage1_20000/training_state_60000.pth" \
-  # --wandb
+  --class_data_dir=$CLASS_DATA_DIR \
+  --resume_training_state="../ckpts/multiobject/__stage1_20000/training_state_60000.pth" \
+  --wandb
 sleep 1000000000000000000 
