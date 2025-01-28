@@ -1199,6 +1199,7 @@ def main(args):
             merger = PoseLocationEmbedding(256, args.merged_emb_dim) 
         else: 
             merger = GoodPoseEmbedding(output_dim=args.merged_emb_dim)  
+            cam_elev_encoder = GoodPoseEmbedding(output_dim=args.merged_emb_dim)  
         # for name, p in merger.named_parameters(): 
         # REMEMBER THAT THERE IS A RANDOM PROJECTION IN THE GAUSSIAN FOURIER FEATURES, AND HENCE THAT IS NOT LEARNABLE 
         #     print(f"{name = }, {p.shape = }, {p.requires_grad = }") 
@@ -1207,12 +1208,13 @@ def main(args):
             merger.load_state_dict(training_state_ckpt["merger"]["model"], strict=False)  
         # optimizer_merger = torch.optim.Adam(merger.parameters(), lr=args.learning_rate_merger)  
         optimizer_merger = optimizer_class(
-            merger.parameters(),  
+            list(merger.parameters()) + list(cam_elev_encoder.parameters()),  
             lr=args.learning_rate_merger,
             betas=(args.adam_beta1, args.adam_beta2),
             weight_decay=args.adam_weight_decay,
             eps=args.adam_epsilon,
         )
+        print(f"FUCKING HERE!") 
         if args.resume_training_state: 
             optimizer_merger.load_state_dict(training_state_ckpt["merger"]["optimizer"]) 
         # optimizers.append(optimizer_merger) 
@@ -1243,12 +1245,13 @@ def main(args):
     # ) 
     train_datasets = [
         # ObjectronDataset(args, "../objectron_controlled_elevations", include_special_tokens=True, tokenizer=tokenizer),   
-        DiversePosesDataset(args, "../diverse_poses/diverse_poses/", include_special_tokens=True, tokenizer=tokenizer),  
-        # ControlNetImagesDataset(args, args.controlnet_data_dir_2subjects, args.instance_data_dir_2subjects, include_special_tokens=True, tokenizer=tokenizer), 
+        # DiversePosesDataset(args, "../diverse_poses/diverse_poses/", include_special_tokens=True, tokenizer=tokenizer),  
+        ChangingElevationsBlenderImages(args, "../changing_elevations/changing_elevations_dataset/", include_special_tokens=True, tokenizer=tokenizer), 
+        ChangingElevationsControlNetImages(args, ref_imgs_dir="../changing_elevations/changing_elevations_dataset/", imgs_dir="../changing_elevations/controlnet_aug/", include_special_tokens=True, tokenizer=tokenizer), 
     ]
     ratios = np.array([
         1,
-        # 1,  
+        1,  
     ], dtype=np.int32) 
     train_dataset = MixingDatasets(
         args,
@@ -1275,6 +1278,7 @@ def main(args):
         prompts = [example["prompt"] for example in examples] 
         subjects = [example["subjects"] for example in examples] 
         bboxes = [example["bboxes"] for example in examples] 
+        cam_elevs = [example["cam_elev"] for example in examples] 
         # xs_2d = [example["2d_xs"] for example in examples] 
         # ys_2d = [example["2d_ys"] for example in examples] 
         pixel_values = []
@@ -1307,6 +1311,7 @@ def main(args):
             "scalers": scalers,
             "subjects": subjects, 
             "prompts": prompts, 
+            "cam_elevs": cam_elevs, 
             # "2d_xs": xs_2d, 
             # "2d_ys": ys_2d, 
             "bboxes": bboxes, 
@@ -1354,7 +1359,7 @@ def main(args):
     
     
     # unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
-    unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
+    unet, text_encoder, merger, cam_elev_encoder, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2 = accelerator.prepare(unet, text_encoder, merger, cam_elev_encoder, continuous_word_model, train_dataloader_stage1, train_dataloader_stage2)   
     # optimizers_ = [] 
     optimizers_ = {} 
     for name, optimizer in optimizers.items(): 
@@ -1430,6 +1435,7 @@ def main(args):
         continuous_word_model.train()
 
     merger.train() 
+    cam_elev_encoder.train() 
     """End Adobe CONFIDENTIAL"""
 
     # steps_per_angle = {} 
@@ -1533,7 +1539,7 @@ def main(args):
                 plt.figure(figsize=(20, 20)) 
                 plt.imshow(img)  
                 if batch_idx < B: 
-                    plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t{batch['subjects'][batch_idx] = }\t{batch['scalers'][batch_idx] = }" 
+                    plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }\t{batch['cam_elevs'][batch_idx] = }\t{batch['subjects'][batch_idx] = }\t{batch['scalers'][batch_idx] = }" 
                 else: 
                     plt_title = f"{global_step = }\t{batch_idx = }\t{batch['prompts'][batch_idx] = }" 
                 plt_title = "\n".join(textwrap.wrap(plt_title, width=60)) 
@@ -1583,10 +1589,12 @@ def main(args):
         if True: 
             # progress_bar.set_description(f"stage 2: ")
             scalers_padded = torch.zeros((len(batch["scalers"]), MAX_SUBJECTS_PER_EXAMPLE))  
+            cam_elevs_t = torch.zeros((len(batch["scalers"]), )) 
             # xs_2d_padded = torch.zeros((len(batch["2d_xs"]), MAX_SUBJECTS_PER_EXAMPLE)) 
             # ys_2d_padded = torch.zeros((len(batch["2d_ys"]), MAX_SUBJECTS_PER_EXAMPLE)) 
 
             for batch_idx in range(len(batch["scalers"])): 
+                cam_elevs_t[batch_idx] = batch["cam_elevs"][batch_idx] 
                 for scaler_idx in range(len(batch["scalers"][batch_idx])): 
                     scalers_padded[batch_idx][scaler_idx] = batch["scalers"][batch_idx][scaler_idx] 
 
@@ -1612,6 +1620,7 @@ def main(args):
                 # mlp_emb = [] 
                 if PRINT_STUFF: 
                     accelerator.print(f"{p = }") 
+                    accelerator.print(f"{cam_elevs_t = }")
                     # accelerator.print(f"{xs_2d_padded = }") 
                     # accelerator.print(f"{ys_2d_padded = }") 
                 assert torch.all(p <= 1.0) and torch.all(p >= 0.0) 
@@ -1623,9 +1632,11 @@ def main(args):
                 #         mlp_emb.append(merger(p[:, scaler_idx]).unsqueeze(1)) 
                 assert p.shape == (B, MAX_SUBJECTS_PER_EXAMPLE), f"{p.shape = }" 
                 mlp_emb = merger(p) 
+                cam_elev_emb = cam_elev_encoder(cam_elevs_t)  
 
                 # mlp_emb = torch.cat(mlp_emb, dim=1) 
                 assert mlp_emb.shape == (B, MAX_SUBJECTS_PER_EXAMPLE, args.merged_emb_dim) 
+                assert cam_elev_emb.shape == (B, args.merged_emb_dim) 
                     
 
             # getting the embeddings from the mlp
@@ -1714,6 +1725,7 @@ def main(args):
         for batch_idx, batch_item in enumerate(input_ids): 
             # replacing the text encoder input embeddings by the original ones and setting them to be COLD -- to enable replacement by a hot embedding  
             accelerator.unwrap_model(text_encoder).get_input_embeddings().weight = torch.nn.Parameter(torch.clone(input_embeddings), requires_grad=False)  
+            accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[TOKEN2ID[CAM_ELEV_TOKEN]] = cam_elev_emb[batch_idx]  
 
             # performing the replacement on cold embeddings by a hot embedding -- allowed 
             example_merged_emb = merged_emb[batch_idx] 
@@ -1864,6 +1876,7 @@ def main(args):
                 # checking that merger receives gradients 
                 bad_merger_params = [(n, p) for (n, p) in merger.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.zeros_like(p.grad))] 
                 bad_merger_params = [(n, p) for (n, p) in bad_merger_params if n.find("gaussian_fourier_embedding") == -1] 
+                bad_cam_elev_params = [(n, p) for (n, p) in cam_elev_encoder.named_parameters() if p.grad is None or torch.allclose(p.grad, torch.zeros_like(p.grad))] 
                 # assert len(bad_merger_params) == 0, f"{len(bad_merger_params) = }, {len(list(merger.parameters())) = }" 
                 # print(f"{len(bad_merger_params) = }, {len(list(merger.parameters())) = }")  
                 # for (n, p) in merger.named_parameters():  
@@ -1873,6 +1886,9 @@ def main(args):
                 #     assert len(bad_merger_params) < len(list(merger.parameters()))  
                 if global_step > 1: 
                     assert len(bad_merger_params) == 0, f"{len(bad_merger_params) = }" 
+                    # assert len(bad_cam_elev_params) == 0, f"{len(bad_cam_elev_params) = }" 
+                    print(f"{len(bad_cam_elev_params) = }") 
+                    print(f"{bad_cam_elev_params[0][0]} = ") 
                     # print(f"{len(bad_merger_params) = }") 
 
                 # checking that mlp receives gradients in stage 2 
@@ -2406,6 +2422,7 @@ def main(args):
                     if not args.pose_only_embedding: 
                         training_state["contword"] = {} 
                     training_state["merger"] = {} 
+                    training_state["cam_elev_encoder"] = {} 
                     training_state["text_encoder"] = {} 
                     training_state["unet"] = {} 
 
@@ -2425,6 +2442,7 @@ def main(args):
 
                     training_state["merger"]["optimizer"] = optimizers["merger"].state_dict() 
                     training_state["merger"]["model"] = accelerator.unwrap_model(merger).state_dict() 
+                    training_state["cam_elev_encoder"]["model"] = accelerator.unwrap_model(cam_elev_encoder).state_dict() 
 
                     if not args.pose_only_embedding: 
                         training_state["contword"]["optimizer"] = optimizers["contword"].state_dict() 
