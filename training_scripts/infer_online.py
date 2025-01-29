@@ -36,14 +36,15 @@ from custom_attention_processor import patch_custom_attention, get_attention_map
 
 WHICH_LATENTS = "1"
 # WHICH_MODEL = "ablation_no_controlnet"     
-WHICH_MODEL = "objectron_v3"       
+WHICH_MODEL = "changing_elevations_unclean_ft"       
+ELEVATION = 0.10     
 # WHICH_MODEL = "ablation_no_controlnet_no_white_studio"
 # WHICH_MODEL = "old_hparams_new_dataloader_corrected"
 # WHICH_MODEL = "ablation_no_attn_regularization_no_replacement"
 # WHICH_MODEL = "ablation_no_controlnet"
 # WHICH_MODEL = "replace_attn_maps"  
-WHICH_STEP = 75000  
-MAX_SUBJECTS_PER_EXAMPLE = 2                           
+WHICH_STEP = 100000  
+MAX_SUBJECTS_PER_EXAMPLE = 1                            
 NUM_SAMPLES = 100   
 MODE = "all_steps" 
 
@@ -212,7 +213,7 @@ def collate_fn(examples):
 
 
 class Infer: 
-    def __init__(self, merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, tmp_dir, bnha_embeds, store_attn, bs=8):   
+    def __init__(self, merged_emb_dim, accelerator, unet, scheduler, vae, text_encoder, tokenizer, mlp, merger, cam_elev_encoder, tmp_dir, bnha_embeds, store_attn, bs=8):   
         self.merged_emb_dim = merged_emb_dim 
         self.store_attn = store_attn 
         self.accelerator = accelerator 
@@ -224,6 +225,7 @@ class Infer:
         self.vae = vae 
         self.mlp = mlp 
         self.merger = merger 
+        self.cam_elev_encoder = cam_elev_encoder 
         self.bnha_embeds = bnha_embeds 
         self.tmp_dir = tmp_dir  
 
@@ -235,6 +237,7 @@ class Infer:
         self.vae = self.accelerator.prepare(self.vae) 
         self.mlp = self.accelerator.prepare(self.mlp) 
         self.merger = self.accelerator.prepare(self.merger) 
+        self.cam_elev_encoder = self.accelerator.prepare(self.cam_elev_encoder) 
         self.bnha_embeds = self.accelerator.prepare(self.bnha_embeds) 
         # assert not osp.exists(self.gif_name)  
 
@@ -471,8 +474,9 @@ class Infer:
             set_seed(self.seed) 
         # latents = torch.randn(1, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype).repeat(B, 1, 1, 1)  
         latents = torch.randn(B, 4, 64, 64).to(self.accelerator.device, dtype=self.accelerator.unwrap_model(self.vae).dtype) 
-        # with open("026.latents", "rb") as f: 
+        # with open("best_latents.pt", "rb") as f: 
         #     latents = torch.load(f) 
+        # latents = latents.repeat(B, 1, 1, 1).to(accelerator.device)   
         # latents = latents.to(self.accelerator.device) 
 
         # with open(f"{str(step_idx).zfill(3)}.latents", "wb") as f:
@@ -569,7 +573,7 @@ class Infer:
             bboxes_example = [] 
             for asset_idx in range(len(all_assignments[batch_idx])): 
                 if asset_idx == 0: 
-                    bboxes_example.append(torch.tensor([0.00, 0.70, 0.30, 1.00]))   
+                    bboxes_example.append(torch.tensor([0.25, 0.50, 0.75, 1.00]))   
                 elif asset_idx == 1: 
                     bboxes_example.append(torch.tensor([0.65, 0.65, 1.00, 1.00]))      
                 elif asset_idx == 2: 
@@ -962,11 +966,13 @@ class Infer:
                 n_samples = len(gif_subject_data[0]["normalized_azimuths"]) - 1   
 
                 mlp_embs_video = [] 
+                cam_elev_embs_video = [] 
                 if self.mlp is not None: 
                     bnha_embs_video = [] 
 
                 for sample_idx in range(n_samples): 
                     mlp_embs_frame = [] 
+                    cam_elev_embs_frame = [] 
                     if self.mlp is not None: 
                         bnha_embs_frame = [] 
                     azimuths_frame = [] 
@@ -996,8 +1002,11 @@ class Infer:
                                 mlp_emb = self.merger(pose_input, x_input, y_input)  
                             else: 
                                 mlp_emb = self.merger(pose_input)    
+                                cam_elev_emb = self.cam_elev_encoder(torch.tensor([ELEVATION]).float().to(self.accelerator.device)) 
                             assert mlp_emb.shape == (1, self.merged_emb_dim)  
+                            assert cam_elev_emb.shape == (1, self.merged_emb_dim)  
                             mlp_emb = mlp_emb.squeeze() 
+                            cam_elev_emb = cam_elev_emb.squeeze() 
 
                         if self.mlp is not None: 
                             if "appearance_type" in subject_data.keys() and subject_data["appearance_type"] != "class":  
@@ -1014,14 +1023,17 @@ class Infer:
                                     # bnha_emb = self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[]
 
                         mlp_embs_frame.append(mlp_emb) 
+                        cam_elev_embs_frame.append(cam_elev_emb) 
                         if self.mlp is not None: 
                             bnha_embs_frame.append(bnha_emb)  
 
                     mlp_embs_video.append(torch.stack(mlp_embs_frame, 0)) 
+                    cam_elev_embs_video.append(torch.stack(cam_elev_embs_frame, 0)) 
                     if self.mlp is not None: 
                         bnha_embs_video.append(torch.stack(bnha_embs_frame, 0))  
 
                 mlp_embs_video = torch.stack(mlp_embs_video, 0) 
+                cam_elev_embs_video = torch.stack(cam_elev_embs_video, 0) 
                 if self.mlp is not None: 
                     bnha_embs_video = torch.stack(bnha_embs_video, 0)  
                     merged_embs_video = self.merger(mlp_embs_video, bnha_embs_video) 
@@ -1076,6 +1088,7 @@ class Infer:
                         interesting_token_strs.append(self.tokenizer.decode(token)) 
 
                 for sample_idx in range(n_samples): 
+                    self.accelerator.unwrap_model(self.text_encoder).get_input_embeddings().weight[TOKEN2ID["ck"]] = cam_elev_embs_video[sample_idx]  
                     for asset_idx, subject_data in enumerate(gif_subject_data): 
                         subject = subject_data["subject"] 
                         for token_idx in range(self.merged_emb_dim // 1024): 
@@ -1331,6 +1344,7 @@ if __name__ == "__main__":
         else: 
             if "use_location_conditioning" not in args.keys() or args["use_location_conditioning"] == False: 
                 merger = GoodPoseEmbedding(args['merged_emb_dim']) 
+                cam_elev_encoder = GoodPoseEmbedding(args['merged_emb_dim']) 
                 print(f"using the PoseEmbedding for merger!") 
             else: 
                 merger = PoseLocationEmbedding(256, args["merged_emb_dim"]) 
@@ -1369,6 +1383,7 @@ if __name__ == "__main__":
         print(f"{merger.state_dict().keys() = }") 
         print(f"{training_state['merger']['model'].keys() = }") 
         merger.load_state_dict(training_state["merger"]["model"], strict=False)  
+        cam_elev_encoder.load_state_dict(training_state["cam_elev_encoder"]["model"], strict=True) 
 
         accelerator = Accelerator() 
 
@@ -1403,14 +1418,14 @@ if __name__ == "__main__":
             TOKEN2ID[TEXTUAL_INV] = special_token_ids[0] 
 
         torch.cuda.empty_cache() 
-        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=False, bs=1)        
+        infer = Infer(args['merged_emb_dim'], accelerator, pipeline.unet, pipeline.scheduler, pipeline.vae, pipeline.text_encoder, pipeline.tokenizer, pose_mlp, merger, cam_elev_encoder, f"tmp_{WHICH_MODEL}_{WHICH_STEP}_{KEYWORD}", None, store_attn=False, bs=1)        
 
 
         subjects = [
             [
                {
-                    "subject": "sparrow", 
-                    "normalized_azimuths": np.array([0.00] * NUM_SAMPLES),  
+                    "subject": "sedan", 
+                    "normalized_azimuths": np.array([0.60] * NUM_SAMPLES),  
                     "appearance_type": "class", 
                     "x": 0.3, 
                     "y": 0.6,  
@@ -1612,7 +1627,7 @@ if __name__ == "__main__":
             # "a photo of PLACEHOLDER flying in a park"
             # "a photo of PLACEHOLDER drinking water from a cup, vibrant park scene, lush greenery, morning sunlight."
             # "a photo of PLACEHOLDER among fallen autumn leaves carpeting the ground, soft afternoon glow around."
-            "a photo of PLACEHOLDER on the rocky floor of a park, high quality, best quality" 
+            # "ck a photo of PLACEHOLDER on the rocky floor of a park, high quality, best quality" 
             # "a photo of PLACEHOLDER in the balcony of a multi-storey complex" 
             # "a photo of PLACEHOLDER perched on a fountain, colorful flowers surrounding, gentle sunlight filtering through lush green trees." 
             # "a photo of PLACEHOLDER flying over a magnificent city, the sky is cloudy at sunset"
@@ -1624,7 +1639,8 @@ if __name__ == "__main__":
             # "a photo of PLACEHOLDER on a highway", 
             # "a photo of PLACEHOLDER floating in the sea", 
             # "a photo of PLACEHOLDER talking to each other in a beautiful garden", 
-            # "a photo of PLACEHOLDER in a desert with towering sand dunes", 
+            "ck a photo of PLACEHOLDER on a highway on a sunny afternoon, high quality, best quality", 
+            # "ck a photo of PLACEHOLDER in a desert with towering sand dunes, high quality, best quality",  
             # "a photo of PLACEHOLDER in an urban city street with neon lights",   
             # "a photo of PLACEHOLDER standing together at sunset on a beach, with colorful skies blending orange, pink, and purple hues, waves gently crashing in the background, and a warm glow illuminating their faces."
             # "a photo of PLACEHOLDER on a highway with a clear sky and a few fluffy clouds" 
@@ -1644,17 +1660,17 @@ if __name__ == "__main__":
         for prompt in prompts: 
 
             # if accelerator.is_main_process: 
-                # if osp.exists("best_latents.pt"): 
-                #     os.remove("best_latents.pt")  
-                # seed = random.randint(0, 170904) 
-                # with open(f"seed.pkl", "wb") as f: 
-                #     pickle.dump(seed, f) 
-                # set_seed(seed) 
-                # latents = torch.randn(1, 4, 64, 64)  
-                # with open(f"best_latents.pt", "wb") as f: 
-                #     torch.save(latents, f) 
+            #     if osp.exists("best_latents.pt"): 
+            #         os.remove("best_latents.pt")  
+            #     seed = random.randint(0, 170904) 
+            #     with open(f"seed.pkl", "wb") as f: 
+            #         pickle.dump(seed, f) 
+            #     set_seed(seed) 
+            #     latents = torch.randn(1, 4, 64, 64)  
+            #     with open(f"best_latents.pt", "wb") as f: 
+            #         torch.save(latents, f) 
 
-            latents = torch.randn(1, 4, 64, 64) 
+            # latents = torch.randn(1, 4, 64, 64) 
             seed = 0 
             accelerator.wait_for_everyone() 
             # if not accelerator.is_main_process: 
